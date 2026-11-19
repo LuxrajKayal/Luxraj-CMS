@@ -1,0 +1,26 @@
+.page-panel {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(1rem, 5vw, 3rem);
+  place-items: center;
+}
+
+.page-panel__body {
+  width: min(100%, 32rem);
+  padding: clamp(1.5rem, 6vw, 3rem);
+  border: 1px solid #36465c;
+  border-radius: 1rem;
+  background: #172335;
+}
+
+.page-panel__body h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  line-height: 1.15;
+}
+
+.page-panel__body p {
+  margin: 1rem 0 0;
+  color: #b9c8dc;
+}

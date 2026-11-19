@@ -1,0 +1,17 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: #f1f5f9;
+  background: #101827;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}

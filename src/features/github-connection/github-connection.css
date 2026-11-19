@@ -1,0 +1,25 @@
+.github-settings {
+  max-width: 48rem;
+}
+
+.github-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.github-control {
+  padding: 0.5rem 0.875rem;
+  border: 1px solid #a5caff;
+  border-radius: 0.375rem;
+  color: #101827;
+  background: #c3daff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.github-control:disabled {
+  opacity: 0.65;
+  cursor: default;
+}

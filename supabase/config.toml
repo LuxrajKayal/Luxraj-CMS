@@ -1,0 +1,6 @@
+project_id = "luxraj-cms"
+
+[functions.github-connection]
+# GitHub's setup redirect has no Supabase JWT. The function validates callback
+# state separately and verifies Supabase credentials and the role on every POST.
+verify_jwt = false
