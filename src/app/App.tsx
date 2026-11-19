@@ -1,8 +1,10 @@
+import { HashRouter } from 'react-router';
+import { AppRoutes } from './routes/AppRoutes';
+
 export function App() {
   return (
-    <main className="starter">
-      <h1>Luxraj CMS</h1>
-      <p>Application foundation is running.</p>
-    </main>
+    <HashRouter>
+      <AppRoutes />
+    </HashRouter>
   );
 }
