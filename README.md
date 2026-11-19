@@ -24,7 +24,7 @@ Luxraj CMS is a **browser-first, multi-repository, branch-aware CMS** hosted as 
 | Public GitHub Pages frontend | Login-first CMS interface, repository/branch workspace, code editor, diff viewer |
 | Supabase Auth | Login, sessions, verified user identity |
 | Supabase database | User roles/permissions, CMS repository registry, saved workspace preferences, drafts and reviews |
-| Supabase secure storage / Vault | Protected GitHub credential storage, accessible only to trusted backend code |
+| Supabase backend secrets | GitHub App private key stored only for trusted backend code; installation identity and status live in protected Supabase database records |
 | Supabase Edge Functions | Authenticate requests, authorize repository/branch actions, securely call GitHub |
 | GitHub API | List authorized repositories and branches; read HTML/CSS/JS; create approved commits; read commit history |
 
@@ -48,22 +48,26 @@ A public frontend repository must never contain GitHub tokens, Supabase secret/s
 - Super Admin has overall CMS administration authority, including GitHub connection settings, repository management, branch selection, permissions, and approvals.
 - Future authors/editors/other roles have restricted, explicitly assigned capabilities. Their exact capability matrix will be designed in a later phase.
 
-### First-time GitHub connection
+### First-time GitHub App connection (Task 6 — approved)
 
-1. Super Admin logs in and their role is verified.
-2. If no GitHub credential is configured, show a **first-time GitHub token connection screen**.
-3. Super Admin enters a GitHub token. A trusted Supabase server function verifies it and securely stores the credential in Supabase (encrypted secret storage planned).
-4. After successful verification/storage, **open the Dashboard**.
-5. On future logins with a valid connection, open the Dashboard directly.
-6. Move all future token management to **Settings → GitHub Connection**, visible only to the Super Admin: view connection status, replace token, disconnect/revoke.
+**Approved method: GitHub App installation authorization, not a manually entered personal access token.** Supabase email/password remains the CMS login; connecting GitHub is a separate **Super Admin-only** privilege.
 
-Token handling requirements:
+1. The Super Admin signs in to Luxraj CMS and a trusted backend check verifies their `super_admin` assignment.
+2. If no verified GitHub App installation is linked, show a **Connect GitHub** action instead of a token-entry form.
+3. The Admin approves installation of the Luxraj CMS GitHub App for their GitHub user or organization and chooses **selected repositories**. A protected Supabase Edge Function handles the setup callback, validates one-time anti-CSRF state, checks the currently authorized Super Admin, and verifies the actual installation and GitHub owner before linking it; never trust URL parameters alone.
+4. Store installation ID, GitHub owner, connection status, and available repository scope in protected Supabase database records. Store the GitHub App private key only in protected Supabase Edge Function secrets, never in the browser or public source.
+5. After successful verification, open the Dashboard. On later CMS logins or other devices, reuse the verified installation record: **do not require repeat GitHub authorization** while the installation remains valid. The backend mints **short-lived installation access tokens** when needed.
+6. Only the Super Admin can manage **Settings → GitHub Connection**: view connected status/owner, inspect or manage repository scope, reconnect when necessary, and **Disconnect GitHub**.
+7. On Disconnect, immediately stop CMS use of the installation, and use an authenticated GitHub App uninstall request to revoke GitHub-side access. If GitHub-side uninstall cannot be confirmed, clearly report that revocation is incomplete and offer the GitHub installation settings page rather than falsely showing full revocation.
 
-- The token passes from the initial entry form over HTTPS directly to an authorized backend function; it must never be persisted in frontend storage, source files, GitHub Pages assets, or logs.
-- The backend must **never return the stored token** to CMS users, including authors.
-- Prefer a **fine-grained GitHub token** scoped to approved repositories and necessary permissions. One credential may provide access to multiple repositories under the same GitHub resource owner.
-- The backend, not the frontend, performs privileged GitHub calls and checks the CMS user's permission on each operation.
-- A revoked/expired credential should display a connection warning and allow Super Admin replacement through Settings.
+**Security rules:**
+
+- GitHub App linking, configuration changes, and disconnection are **Super Admin-only**, enforced by Supabase backend authorization, not just UI navigation.
+- Apply least-privilege GitHub App permissions (repository Contents read/write for planned editing; Metadata read) and default to selected repositories. The installation's scope is authoritative; do not assume all repositories are accessible.
+- Each future repository/branch operation must independently verify the CMS user's server-side permissions and the currently valid installation/repository scope; restricted users never manage the GitHub App connection.
+- Never put the GitHub App private key, installation tokens, Supabase secret/service-role keys, or other credentials into frontend code, public environment files, browser storage, redirected URLs, API responses, or logs.
+- Handle app uninstall/suspension, revoked permissions, and repository selection changes; require reconnection when an installation is invalid.
+- The installation/setup callback must be served by a trusted backend endpoint compatible with GitHub Pages and the frontend's hash router.
 
 ## 4. Super Admin dashboard and navigation
 
@@ -402,7 +406,7 @@ GitHub repositories / branches / source files / commits
 - Core infrastructure **must not import feature-specific UI modules**. Cross-feature behaviors use defined contracts and services, not hidden side effects.
 - Shared UI includes only genuinely reusable components; do not move every feature-specific component into `shared/`.
 - A shared service is not permission for a monolithic utility file. Keep session, permissions, repository context, API access, drafts, change sets, and commits separated by responsibility.
-- GitHub tokens, service-role keys, authorization decisions, and privileged GitHub API calls remain **server-side**. The browser uses only appropriately public configuration and user session data.
+- GitHub App private keys, installation tokens, service-role keys, authorization decisions, and privileged GitHub API calls remain **server-side**. The browser uses only appropriately public configuration and user session data.
 - Frontend permissions and route guards improve UX but never substitute for server-side permission enforcement, database access rules, and repository/branch verification.
 
 ### 11.3 Proposed repository layout (guide, not a required empty scaffold)
@@ -504,7 +508,7 @@ Because the project owner is comfortable inspecting HTML, CSS and JavaScript but
 ### 11.7 Recommended phased Codex implementation
 
 1. **Foundation / app shell:** Vite + React + TypeScript bootstrap, routes, login-only layout, protected layout, shared UI boundaries and public environment configuration.
-2. **Authentication / secure backend:** Supabase Auth, backend-controlled Super Admin authorization, secure first-time GitHub token connection and Settings management.
+2. **Authentication / secure backend:** Supabase Auth, backend-controlled Super Admin authorization, secure one-time GitHub App installation authorization and Super Admin-only Settings connection/disconnect management.
 3. **Repository workspace:** Selected repository/branch state, remote file read interfaces, saved user preferences and access enforcement.
 4. **Editor / draft / source control foundation:** Monaco integration, shared drafts and changesets, reviewable diffs, verified branch-safe GitHub commits and history.
 5. **Metadata Injector:** Eligibility, page-type assignment, independent category configurations and approved placeholder templates using the established shared change-set pipeline.
@@ -516,7 +520,7 @@ These are **implementation slices**, not an instruction to code all six at once.
 
 **Confirmed implementation direction:** React + TypeScript + Vite frontend; modular routing, layouts, shared UI and environment configuration; isolated feature modules and secure backend boundaries; Codex in VS Code as the coding path. This is an architectural decision, **not implementation approval**.
 
-**Discussed and established so far:** login-first UI, one Super Admin with future restricted users, first-time GitHub token connection and Settings management, Supabase-stored user preferences, repository and remote branch selection, future branch-level user assignments, a VS Code-style HTML/CSS/JS editor, code-level before/after reviews and commit history, and shared review-before-commit flow. **Metadata Injector:** manual SEO eligibility marker and saved file preferences; Admin-controlled file/folder Page Type assignment; page-type-aware placeholder injection; approved Blog core, Open Graph, X, and S01–S40 Schema.org catalogs; and independent snapshot copies for other website categories.
+**Discussed and established so far:** login-first UI, one Super Admin with future restricted users, GitHub App installation authorization with persisted backend status and Super Admin-only Settings management, Supabase-stored user preferences, repository and remote branch selection, future branch-level user assignments, a VS Code-style HTML/CSS/JS editor, code-level before/after reviews and commit history, and shared review-before-commit flow. **Metadata Injector:** manual SEO eligibility marker and saved file preferences; Admin-controlled file/folder Page Type assignment; page-type-aware placeholder injection; approved Blog core, Open Graph, X, and S01–S40 Schema.org catalogs; and independent snapshot copies for other website categories.
 
 **Still being discussed:** final Page ID meta element name, finer schema/template and folder-overlap implementation details, future metadata population and index-control features, exact author permissions and review controls, and finer UI details. Approved catalogs must not be silently reduced, disabled, or treated as permission to generate real SEO data.
 
