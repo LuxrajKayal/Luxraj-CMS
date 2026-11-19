@@ -2,6 +2,8 @@
 
 Cloud-based CMS powered by Supabase and GitHub.
 
+**Selected frontend architecture:** React + TypeScript + Vite, with modular feature boundaries, client-side routing, independent layouts, shared UI and controlled environment configuration. **Codex in VS Code** is the planned implementation path; all coding requires explicit phase approval.
+
 > **Project status: Planning only.** This README records the requirements and ideas discussed with the project owner through November 19, 2026. It is not a claim that these features have been implemented or tested. Development proceeds phase by phase, only after explicit approval. Until then, the existing Luxraj Blog and older local CMS repositories remain untouched.
 
 ## 1. Product purpose and non-negotiable principles
@@ -349,7 +351,170 @@ The precise permission matrix and approval interface are intentionally postponed
 
 Each phase must have an agreed scope, actual end-to-end testing, and explicit owner approval before implementation. The phase order is a **proposal**, not a commitment to invent unfinished features.
 
-## 11. Planning status and change boundaries
+## 11. Modular application architecture and Codex implementation path
+
+**Decision: The CMS frontend will use React + TypeScript + Vite.** This is the approved frontend technology direction. The CMS must be **modular rather than monolithic**, with routing, layouts, reusable/shared UI, and environment configuration organized into separate responsibilities. Codex in VS Code is the planned implementation path. The project owner knows HTML, CSS, and JavaScript and must be able to inspect what the system is doing; readable code and understandable diagnostic/testing procedures are architecture requirements, not optional niceties.
+
+This is a **design blueprint, not an implementation claim**. An explicit phase-specific authorization is required before Codex or another tool creates or deploys code.
+
+### 11.1 Confirmed technology and responsibilities
+
+| Layer | Planned technology | Purpose |
+| --- | --- | --- |
+| Frontend UI | **React** | Dashboard, sidebar, feature screens, shared interface components |
+| Application source | **TypeScript** (TSX for React components) | Typed module interfaces and predictable file/workspace/draft models |
+| Build and local development | **Vite** | Development server and production build targeting GitHub Pages |
+| Navigation | **Client-side routing** | Navigate login, dashboard, repository workspace, editor, review, and settings screens |
+| Layouts | **Modular React layouts** | Auth-only layout, protected dashboard/workspace layout, reusable page structure |
+| Reusable UI | **Shared React UI components** | Buttons, dialogs, status notices, file lists, selection controls, diff surfaces |
+| Code editor | **Monaco Editor** | Editing HTML/CSS/JavaScript, code comparison and source inspection |
+| Backend | **Supabase Auth, PostgreSQL, Edge Functions** | Authentication, backend authorization, scoped preferences/drafts, protected GitHub access |
+| Source control | **GitHub APIs** | Repository/branch reads, approved remote commits and history |
+| Implementation agent | **Codex in VS Code** | Implement approved modules, run tests, review diffs and explain changes |
+
+**Not decided by this architecture approval:** a particular React router package, UI design system, global state library, test runner, ORM, or Monaco wrapper package. Select only when the relevant phase is approved, using an explicit technical justification rather than silently adding dependencies.
+
+### 11.2 Layer and module boundaries
+
+```text
+Public GitHub Pages frontend (React + TypeScript + Vite)
+  ├── App shell: routing, protected layouts, common providers
+  ├── Independent feature modules
+  │     Authentication / Dashboard / Repositories / Code Editor /
+  │     Source Control / Metadata Injector / Settings /
+  │     Later: Users & Permissions / Pending Reviews
+  ├── Shared UI primitives and reusable hooks/types
+  └── Core services: session, permissions, workspace, API contracts,
+        drafts, change sets and review state
+                         │
+                         ▼ authorized requests
+Supabase backend
+  ├── Auth and protected database with enforced authorization
+  ├── Edge Functions: GitHub connection, repository operations,
+  │     commit operations and shared backend validation
+  └── Protected credential storage and persisted preferences/drafts
+                         │
+                         ▼ authorized GitHub API calls
+GitHub repositories / branches / source files / commits
+```
+
+- Feature modules **own their view components and feature-specific logic**. They may depend on stable core/shared interfaces, but must not directly reach into another feature's internal files.
+- Core infrastructure **must not import feature-specific UI modules**. Cross-feature behaviors use defined contracts and services, not hidden side effects.
+- Shared UI includes only genuinely reusable components; do not move every feature-specific component into `shared/`.
+- A shared service is not permission for a monolithic utility file. Keep session, permissions, repository context, API access, drafts, change sets, and commits separated by responsibility.
+- GitHub tokens, service-role keys, authorization decisions, and privileged GitHub API calls remain **server-side**. The browser uses only appropriately public configuration and user session data.
+- Frontend permissions and route guards improve UX but never substitute for server-side permission enforcement, database access rules, and repository/branch verification.
+
+### 11.3 Proposed repository layout (guide, not a required empty scaffold)
+
+```text
+Luxraj-CMS/
+├── README.md
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+├── src/
+│   ├── app/
+│   │   ├── App.tsx
+│   │   ├── routes/
+│   │   ├── layouts/
+│   │   └── providers/
+│   ├── core/
+│   │   ├── api/
+│   │   ├── auth/
+│   │   ├── permissions/
+│   │   ├── workspace/
+│   │   ├── drafts/
+│   │   └── changesets/
+│   ├── features/
+│   │   ├── authentication/
+│   │   ├── dashboard/
+│   │   ├── repositories/
+│   │   ├── code-editor/
+│   │   ├── source-control/
+│   │   ├── metadata-injector/
+│   │   │   ├── eligibility/
+│   │   │   ├── page-types/
+│   │   │   ├── scanner/
+│   │   │   ├── injection-engine/
+│   │   │   ├── templates/
+│   │   │   │   ├── blog/
+│   │   │   │   ├── ecommerce/
+│   │   │   │   └── ... other independent category copies
+│   │   │   └── components/
+│   │   ├── settings/
+│   │   ├── users-permissions/       # later phase
+│   │   └── reviews/                 # later phase
+│   └── shared/
+│       ├── components/
+│       ├── hooks/
+│       ├── types/
+│       └── utils/
+├── supabase/
+│   ├── functions/
+│   │   ├── github-connection/
+│   │   ├── repository-api/
+│   │   ├── commit-changes/
+│   │   └── _shared/
+│   └── migrations/
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+└── .github/
+    └── workflows/
+```
+
+This tree communicates **boundaries and intended responsibilities**, not a mandate to generate all folders immediately. Add working, tested modules only in approved phases. The exact filenames and implementation-specific package choices remain adjustable.
+
+### 11.4 Shared change-set and Source Control architecture
+
+All source-writing features (manual editor, page-type injector, metadata injector, and future tools) feed **one reviewable change-set contract**, rather than implementing their own commits:
+
+1. Load the selected repository, branch, file path and current original file/version.
+2. Prepare proposed file contents **without changing the GitHub branch**.
+3. Store a draft/change set and associated scope/version information securely (Supabase where appropriate).
+4. Render changed-file lists and before/after diffs in Source Control (Monaco can supply editor/diff views).
+5. At explicit approval, the backend rechecks user permissions, selected repository and branch, and remote source versions; report conflicts rather than silently overwriting.
+6. Commit the approved set to the selected branch using an authorized backend GitHub operation; then show the resulting GitHub history.
+
+This rule prevents the Metadata Injector, Page Type Injector, and Code Editor from each inventing different save/commit behavior.
+
+### 11.5 Independent metadata category templates within the modular system
+
+- The `metadata-injector/` feature contains separate eligibility, page-type, scanning, injection, and template responsibilities.
+- The **same generic injection logic** can execute different category configurations, but must not hardcode Blog-specific paths or values.
+- At initial setup, Blog's approved metadata structure is **copied into each other category's separate template**. These are independent snapshots, **not shared live inheritance**. Subsequent changes to one category never silently update another.
+- Metadata Injector operations must still use the shared workspace, change-set, diff and commit services.
+- The approved 11 core items, 25 OG properties, six X fields, and S01–S40 Schema.org catalog remain governed by Section 7; the frontend architecture decision does not modify their approvals or pending details.
+
+### 11.6 Human-verifiable, Codex-assisted development requirements
+
+Because the project owner is comfortable inspecting HTML, CSS and JavaScript but not yet TypeScript/React internals:
+
+- Use **clear module names**, readable TypeScript, small focused files/functions, and explanatory documentation for non-obvious logic; avoid needless abstraction.
+- Keep business logic testable separately from React components. Prefer functions with explicit inputs/outputs for scanners, templates, permission checks and change preparation.
+- Build **readable, non-secret diagnostics**: identify failing module/operation and repository/branch/file context where safe. Never log tokens or protected credentials.
+- Include **unit**, **integration**, and **end-to-end/browser** tests as applicable to each approved phase, plus a production build check.
+- For each completed phase, Codex must supply: the changed-file summary, an explanation in familiar HTML/CSS/JavaScript concepts, tests run and results, and clear **manual browser verification steps** so the owner can confirm behavior without reading every TSX line.
+- Use small reversible Git changes; inspect diffs before commits and confirm deployments separately. A successful build alone is not proof of correct behavior.
+- Do not silently refactor unrelated modules, introduce unnecessary dependencies, expand phase scope, or change approved metadata rules.
+- **Planning and coding are separate permissions.** A README update is documentation only; actual implementation, remote updates, and deployment require the owner's explicit go-ahead.
+
+### 11.7 Recommended phased Codex implementation
+
+1. **Foundation / app shell:** Vite + React + TypeScript bootstrap, routes, login-only layout, protected layout, shared UI boundaries and public environment configuration.
+2. **Authentication / secure backend:** Supabase Auth, backend-controlled Super Admin authorization, secure first-time GitHub token connection and Settings management.
+3. **Repository workspace:** Selected repository/branch state, remote file read interfaces, saved user preferences and access enforcement.
+4. **Editor / draft / source control foundation:** Monaco integration, shared drafts and changesets, reviewable diffs, verified branch-safe GitHub commits and history.
+5. **Metadata Injector:** Eligibility, page-type assignment, independent category configurations and approved placeholder templates using the established shared change-set pipeline.
+6. **Later features:** User/branch permissions, restricted authors, approvals and other CMS modules as separately approved.
+
+These are **implementation slices**, not an instruction to code all six at once. The existing project-phase table above remains the controlling high-level plan; no new phase has been approved for execution merely by recording this architecture.
+
+## 12. Planning status and change boundaries
+
+**Confirmed implementation direction:** React + TypeScript + Vite frontend; modular routing, layouts, shared UI and environment configuration; isolated feature modules and secure backend boundaries; Codex in VS Code as the coding path. This is an architectural decision, **not implementation approval**.
 
 **Discussed and established so far:** login-first UI, one Super Admin with future restricted users, first-time GitHub token connection and Settings management, Supabase-stored user preferences, repository and remote branch selection, future branch-level user assignments, a VS Code-style HTML/CSS/JS editor, code-level before/after reviews and commit history, and shared review-before-commit flow. **Metadata Injector:** manual SEO eligibility marker and saved file preferences; Admin-controlled file/folder Page Type assignment; page-type-aware placeholder injection; approved Blog core, Open Graph, X, and S01–S40 Schema.org catalogs; and independent snapshot copies for other website categories.
 
