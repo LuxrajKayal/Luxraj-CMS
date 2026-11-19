@@ -60,8 +60,8 @@ The roadmap has **20 numbered tasks (0–19)** grouped into **five initial miles
   - **Your check:** Login and logout work. Without a valid login, the dashboard cannot be accessed.
 - [ ] **Task 5 — Protected Super Admin permissions.** Establish the backend-controlled initial Super Admin identity, authorization checks, and database access restrictions.
   - **Your check:** The approved account is recognized. A non-approved account cannot bypass access rules simply by changing browser code.
-- [ ] **Task 6 — Secure GitHub token connection.** Implement first-time GitHub token connection through protected backend functions, verified secure storage, and later management in Settings.
-  - **Your check:** GitHub connection works; reopening the CMS does not require re-entering a still-valid token; the token is not shown in browser storage or responses.
+- [ ] **Task 6 — Secure GitHub App installation connection.** Implement Super Admin-only **Connect GitHub** installation approval, verified backend callback/installation ownership, protected persisted installation ID and status, and short-lived installation tokens minted only by Supabase Edge Functions. Provide Super Admin-only status, selected-repository scope, reconnect and GitHub-side uninstall/revocation controls in Settings; never request a personal access token.
+  - **Your check:** Approve selected repositories once, return on another session/device without reconnecting, verify an unapproved user cannot link/unlink or use unauthorized repositories, and confirm Disconnect stops CMS access and actually revokes the GitHub installation (or explicitly reports incomplete revocation). No private key or installation token appears in the frontend.
 
 ### Milestone 2 acceptance
 
