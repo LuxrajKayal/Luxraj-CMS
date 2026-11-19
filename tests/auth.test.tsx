@@ -11,7 +11,14 @@ const auth = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
   onAuthStateChange: vi.fn(),
 }));
-vi.mock('../src/core/auth/supabase', () => ({ supabase: { auth } }));
+const roles = vi.hoisted(() => ({
+  from: vi.fn(),
+  select: vi.fn(),
+  eq: vi.fn(),
+  abortSignal: vi.fn(),
+  maybeSingle: vi.fn(),
+}));
+vi.mock('../src/core/auth/supabase', () => ({ supabase: { auth, from: roles.from } }));
 
 const session = {
   access_token: 'test-access',
@@ -30,6 +37,11 @@ beforeEach(() => {
   auth.getUser.mockResolvedValue({ data: { user: session.user }, error: null });
   auth.signInWithPassword.mockResolvedValue({ data: { session }, error: null });
   auth.signOut.mockResolvedValue({ error: null });
+  roles.from.mockReturnValue({ select: roles.select });
+  roles.select.mockReturnValue({ eq: roles.eq });
+  roles.eq.mockReturnValue({ abortSignal: roles.abortSignal });
+  roles.abortSignal.mockReturnValue({ maybeSingle: roles.maybeSingle });
+  roles.maybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
   auth.onAuthStateChange.mockImplementation(callback => {
     notify = callback;
     return { data: { subscription: { unsubscribe: auth.unsubscribe } } };
@@ -160,4 +172,81 @@ test('a session that expires without refresh removes the dashboard', async () =>
   await act(async () => { vi.advanceTimersByTime(3601 * 1000); });
   expect(screen.queryByRole('navigation')).toBeNull();
   expect(screen.getByRole('heading', { name: 'Sign in to Luxraj CMS' })).toBeTruthy();
+});
+
+test('a verified session waits for the role lookup before showing dashboard content', async () => {
+  let resolve!: (value: unknown) => void;
+  auth.getSession.mockResolvedValue({ data: { session }, error: null });
+  roles.maybeSingle.mockReturnValue(new Promise(done => { resolve = done; }));
+  render(<App />);
+
+  await screen.findByText('Checking dashboard access…');
+  expect(screen.queryByRole('navigation')).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Dashboard' })).toBeNull();
+  expect(roles.from).toHaveBeenCalledWith('cms_user_roles');
+  expect(roles.select).toHaveBeenCalledWith('role');
+  expect(roles.eq).toHaveBeenCalledWith('user_id', session.user.id);
+
+  await act(async () => resolve({ data: { role: 'super_admin' }, error: null }));
+  await screen.findByRole('heading', { name: 'Dashboard' });
+});
+
+test.each([null, { role: 'editor' }])('denies a signed-in user without a Super Admin assignment (%j)', async data => {
+  roles.maybeSingle.mockResolvedValue({ data, error: null });
+  render(<App />);
+  await submitLogin();
+
+  await screen.findByRole('heading', { name: 'Dashboard access denied' });
+  expect(screen.queryByRole('navigation')).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Dashboard' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+  await screen.findByRole('heading', { name: 'Sign in to Luxraj CMS' });
+});
+
+test('user metadata claiming Super Admin cannot grant access', async () => {
+  const spoofedSession = {
+    ...session,
+    user: {
+      ...session.user,
+      user_metadata: { role: 'super_admin' },
+    },
+  };
+  auth.getSession.mockResolvedValue({ data: { session: spoofedSession }, error: null });
+  roles.maybeSingle.mockResolvedValue({ data: null, error: null });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Dashboard access denied' });
+  expect(screen.queryByRole('navigation')).toBeNull();
+});
+
+test('a failed role lookup keeps the dashboard hidden and shows safe instructions', async () => {
+  auth.getSession.mockResolvedValue({ data: { session }, error: null });
+  roles.maybeSingle.mockResolvedValue({ data: null, error: { message: 'PRIVATE_DETAIL' } });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Dashboard access could not be verified' });
+  expect(screen.getByRole('alert').textContent).toContain('Reload');
+  expect(document.body.textContent).not.toContain('PRIVATE_DETAIL');
+  expect(screen.queryByRole('navigation')).toBeNull();
+});
+
+test('an approval for an older session cannot open the dashboard for a different user', async () => {
+  let resolve!: (value: unknown) => void;
+  auth.getSession.mockResolvedValue({ data: { session }, error: null });
+  roles.maybeSingle.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+  roles.maybeSingle.mockResolvedValue({ data: null, error: null });
+  render(<App />);
+  await screen.findByText('Checking dashboard access…');
+
+  act(() => notify('SIGNED_IN', {
+    ...session,
+    access_token: 'another-access-token',
+    user: { ...session.user, id: 'another-user' },
+  }));
+  await screen.findByRole('heading', { name: 'Dashboard access denied' });
+
+  await act(async () => resolve({ data: { role: 'super_admin' }, error: null }));
+  expect(roles.eq).toHaveBeenLastCalledWith('user_id', 'another-user');
+  expect(screen.getByRole('heading', { name: 'Dashboard access denied' })).toBeTruthy();
+  expect(screen.queryByRole('navigation')).toBeNull();
 });
