@@ -1,4 +1,4 @@
-.auth-layout {
+.page-panel {
   display: grid;
   min-height: 100vh;
   min-height: 100dvh;
@@ -6,7 +6,7 @@
   place-items: center;
 }
 
-.auth-layout__panel {
+.page-panel__body {
   width: min(100%, 32rem);
   padding: clamp(1.5rem, 6vw, 3rem);
   border: 1px solid #36465c;
@@ -14,13 +14,13 @@
   background: #172335;
 }
 
-.auth-layout__panel h1 {
+.page-panel__body h1 {
   margin: 0;
   font-size: clamp(1.75rem, 6vw, 2.5rem);
   line-height: 1.15;
 }
 
-.auth-layout__panel p {
+.page-panel__body p {
   margin: 1rem 0 0;
   color: #b9c8dc;
 }

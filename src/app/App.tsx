@@ -1,10 +1,14 @@
 import { HashRouter } from 'react-router';
+import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
+import { AppErrorFallback } from './AppErrorFallback';
 import { AppRoutes } from './routes/AppRoutes';
 
 export function App() {
   return (
-    <HashRouter>
-      <AppRoutes />
-    </HashRouter>
+    <ErrorBoundary fallback={<AppErrorFallback />}>
+      <HashRouter>
+        <AppRoutes />
+      </HashRouter>
+    </ErrorBoundary>
   );
 }

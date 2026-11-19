@@ -1,12 +1,10 @@
 import { Outlet } from 'react-router';
-import './auth-layout.css';
+import { PagePanel } from '../../shared/ui/PagePanel';
 
 export function AuthLayout() {
   return (
-    <main className="auth-layout">
-      <div className="auth-layout__panel">
-        <Outlet />
-      </div>
-    </main>
+    <PagePanel>
+      <Outlet />
+    </PagePanel>
   );
 }
