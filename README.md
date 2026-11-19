@@ -28,7 +28,7 @@ Luxraj CMS is a **browser-first, multi-repository, branch-aware CMS** hosted as 
 
 A public frontend repository must never contain GitHub tokens, Supabase secret/service-role keys, decrypted credentials, or other private secrets. A frontend Supabase publishable key may be public when access controls are correctly configured.
 
-**Important:** A GitHub API commit updates the remote branch directly. It does not require a separate local \`git push\`, and it does not update a user's local clone until they fetch/pull.
+**Important:** A GitHub API commit updates the remote branch directly. It does not require a separate local `git push`, and it does not update a user's local clone until they fetch/pull.
 
 ## 3. Login, roles, and first-time GitHub connection
 
@@ -137,13 +137,13 @@ The engine must **not** assume Luxraj Blog's file tree, Page ID format, metadata
 
 **One universal eligibility marker is deliberately fixed for the CMS:**
 
-\`\`\`html
+```html
 <html data-seo="true">
-\`\`\`
+```
 
 Behavior:
 
-1. Admin manually adds \`data-seo="true"\` to the opening \`<html>\` element of pages they want eligible, using the Code Editor.
+1. Admin manually adds `data-seo="true"` to the opening `<html>` element of pages they want eligible, using the Code Editor.
 2. Metadata Injector scans **HTML files in the selected repository and branch** and shows **only files with this marker** in the Step 1 dropdown.
 3. Admin can **Select All**, manually select/deselect individual eligible files, **Cancel** unconfirmed changes, or **Save Selection**.
 4. Save the confirmed Step 1 selection to **Supabase**, scoped to that repository and branch, so it persists across sessions/devices.
