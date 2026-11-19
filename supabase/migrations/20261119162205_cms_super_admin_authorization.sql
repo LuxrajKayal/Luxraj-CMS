@@ -10,7 +10,7 @@ create table public.cms_user_roles (
 alter table public.cms_user_roles enable row level security;
 
 revoke all on table public.cms_user_roles from public, anon, authenticated, service_role;
-grant select on table public.cms_user_roles to authenticated;
+grant select on table public.cms_user_roles to authenticated, service_role;
 
 create policy "Users can read their own CMS role"
   on public.cms_user_roles
