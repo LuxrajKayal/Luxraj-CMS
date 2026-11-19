@@ -17,6 +17,8 @@ test.each([
   '#/dashboard/subpage',
   '#/repositories',
   '#/settings',
+  '#/github/connect',
+  '#/github/callback',
   '#/unknown',
 ])('the hash route "%s" only shows the login stage', async (hash) => {
   window.history.replaceState(null, '', basePath + hash);

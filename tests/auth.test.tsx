@@ -3,6 +3,10 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { App } from '../src/app/App';
 
+vi.mock('../src/features/github-connection/api', () => ({
+  githubConnection: async () => ({ status: 'connected' }),
+}));
+
 const auth = vi.hoisted(() => ({
   getSession: vi.fn(),
   getUser: vi.fn(),
