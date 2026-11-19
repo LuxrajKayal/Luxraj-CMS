@@ -521,3 +521,4 @@ These are **implementation slices**, not an instruction to code all six at once.
 **Still being discussed:** final Page ID meta element name, finer schema/template and folder-overlap implementation details, future metadata population and index-control features, exact author permissions and review controls, and finer UI details. Approved catalogs must not be silently reduced, disabled, or treated as permission to generate real SEO data.
 
 **No application implementation is authorized by updating this README.** This commit documents the plan only. Existing Luxraj Blog and older CMS repositories are outside the scope of this documentation update.
+this is the commit test from the vs code.
