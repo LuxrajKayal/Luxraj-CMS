@@ -17,7 +17,7 @@ self.MonacoEnvironment = {
 function language(path: string) {
   if (/\.html?$/i.test(path)) return 'html';
   if (/\.css$/i.test(path)) return 'css';
-  return 'javascript';
+  return /\.(js|mjs|cjs)$/i.test(path) ? 'javascript' : 'plaintext';
 }
 
 export function MonacoSource({ path, source, readOnly, onChange }: {

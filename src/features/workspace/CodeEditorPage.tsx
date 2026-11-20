@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
 import { FileCode2, Folder as FolderIcon, GitBranch, Maximize, PanelLeft, RefreshCw } from 'lucide-react';
 import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { ChangedFiles, DraftDiff } from './SourceControlPage';
+import { HistoryDiff, HistoryPanel, type HistoryFile } from './HistoryPanel';
+import type { CommitReceipt } from '../../../supabase/functions/_shared/workspace-contracts';
 import { workspaceError, workspaceRequest, type Directory, type Selection, type TreeEntry } from './api';
 import { BranchPicker, useWorkspace } from './WorkspaceLayout';
 import { DraftEditor } from './DraftEditor';
@@ -71,12 +73,19 @@ function Folder({ context, path, commit, openFile }: {
 }
 
 function Explorer({ selection, repository }: { selection: Selection & { branch: string }; repository: string }) {
+  const tabGroupId = useId();
   const { repositoryId, branch } = selection;
   const [tree, setTree] = useState<Directory | null>(null);
   const [treeError, setTreeError] = useState('');
   const [file, setFile] = useState<string[] | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [diff, setDiff] = useState<string | null>(null);
+  const [historyDiff, setHistoryDiff] = useState<HistoryFile | null>(null);
+  const [tab, setTab] = useState<'changes' | 'history'>('changes');
+  const [receipt, setReceipt] = useState<CommitReceipt | null>(null);
+  const [syncingReceipt, setSyncingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [changesVersion, setChangesVersion] = useState(0);
   const [showFiles, setShowFiles] = useState(true);
   const [showChanges, setShowChanges] = useState(() => !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
@@ -95,6 +104,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   function openFile(path: string[]) {
     setFile([...path]);
     setDiff(null);
+    setHistoryDiff(null);
     if (window.matchMedia?.('(max-width: 48rem)').matches) setShowFiles(false);
   }
 
@@ -103,6 +113,35 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
     setTree(null);
     setTreeError('');
     setRefresh(current => current + 1);
+  }
+
+  function committed(result: CommitReceipt) {
+    setReceiptError('');
+    setReceipt(result);
+    setDiff(null);
+    setHistoryDiff(null);
+    setChangesVersion(value => value + 1);
+    setHistoryVersion(value => value + 1);
+    setTree(null);
+    setTreeError('');
+    setRefresh(value => value + 1);
+  }
+
+  async function retryDraftStatus() {
+    if (!receipt?.reviewId || syncingReceipt) return;
+    setSyncingReceipt(true);
+    setReceiptError('');
+    try {
+      const updated = await workspaceRequest({
+        action: 'reconcile_commit', repositoryId, branch, reviewId: receipt.reviewId, sha: receipt.sha,
+      });
+      setReceipt(updated);
+      setChangesVersion(value => value + 1);
+    } catch (error) {
+      setReceiptError(workspaceError(error));
+    } finally {
+      setSyncingReceipt(false);
+    }
   }
 
   return (
@@ -130,20 +169,57 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
             entries={tree.entries} openFile={openFile} />}
         </ModulePanel>
         <section className="editor-center" aria-label="Editor workspace">
-          <div className="editor-document" hidden={!!diff}>
+          <div className="editor-document" hidden={!!diff || !!historyDiff}>
             {!file && <p className="workspace-placeholder">Choose an HTML, CSS, or JavaScript file to view its source.</p>}
-            {file && commit && <DraftEditor key={JSON.stringify(file)}
+            {file && commit && <DraftEditor key={JSON.stringify([file, commit])}
               {...{ repositoryId, branch, path: file, commit }} onSaved={() => setChangesVersion(value => value + 1)} />}
           </div>
           {diff && <DraftDiff key={diff} file={diff} {...{ repositoryId, branch }} onBack={() => setDiff(null)} />}
+          {historyDiff && <HistoryDiff key={JSON.stringify(historyDiff)} file={historyDiff}
+            {...{ repositoryId, branch }} onBack={() => setHistoryDiff(null)} />}
         </section>
-        {showChanges && !focus && <ModulePanel title="Source Control">
-          <ChangedFiles {...{ repositoryId, branch }} version={changesVersion} active={diff}
-            onOpen={path => {
-              setDiff(path);
-              if (window.matchMedia?.('(max-width: 48rem)').matches) setShowChanges(false);
-            }} refresh={() => { setDiff(null); setChangesVersion(value => value + 1); }} />
-        </ModulePanel>}
+        <ModulePanel title="Source Control" hidden={!showChanges || focus}>
+          <div className="workspace-actions" role="tablist" aria-label="Source Control view" onKeyDown={event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const next = event.key === 'Home' ? 'changes' : event.key === 'End' ? 'history'
+              : tab === 'changes' ? 'history' : 'changes';
+            setTab(next);
+            document.getElementById(`${tabGroupId}-${next}`)?.focus();
+          }}>
+            {(['changes', 'history'] as const).map(view =>
+              <button type="button" role="tab" key={view} id={`${tabGroupId}-${view}`} tabIndex={tab === view ? 0 : -1}
+                aria-selected={tab === view} aria-controls={`${tabGroupId}-panel`} onClick={() => setTab(view)}>
+                {view === 'changes' ? 'Changes' : 'History'}
+              </button>)}
+          </div>
+          {receipt && <div className="workspace-actions">
+            <p role="status">Committed <a href={receipt.url} target="_blank" rel="noreferrer">{receipt.sha.slice(0, 12)}</a>.
+              {receipt.retained === null && ' Draft status could not be recorded. The saved drafts are still available.'}
+              {receipt.retained !== null && receipt.retained < receipt.fileCount &&
+                ' Some saved revisions changed during the commit and were left pending.'}</p>
+            {receipt.retained === null && receipt.reviewId && <button type="button" disabled={syncingReceipt}
+              onClick={() => void retryDraftStatus()}>
+              {syncingReceipt ? 'Syncing…' : 'Retry draft status sync'}
+            </button>}
+            {receiptError && <p role="alert">{receiptError}</p>}
+          </div>}
+          <div role="tabpanel" id={`${tabGroupId}-panel`} aria-labelledby={`${tabGroupId}-${tab}`}>
+            {tab === 'changes'
+            ? <ChangedFiles {...{ repositoryId, branch }} version={changesVersion} active={diff} onCommitted={committed}
+                onOpen={path => {
+                  setHistoryDiff(null);
+                  setDiff(path);
+                  if (window.matchMedia?.('(max-width: 48rem)').matches) setShowChanges(false);
+                }} refresh={() => { setDiff(null); setChangesVersion(value => value + 1); }} />
+            : <HistoryPanel key={historyVersion} {...{ repositoryId, branch }} version={historyVersion}
+                openFile={selected => {
+                  setDiff(null);
+                  setHistoryDiff(selected);
+                  if (window.matchMedia?.('(max-width: 48rem)').matches) setShowChanges(false);
+                }} />}
+          </div>
+        </ModulePanel>
       </div>
     </div>
   );

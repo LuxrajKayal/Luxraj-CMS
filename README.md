@@ -133,6 +133,34 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 
 **Shared change workflow:** Prepare edit(s) → save draft/change set to Supabase → inspect changed files/diffs in Source Control → explicit authorized commit. GitHub remains unchanged until the commit is approved and successfully created.
 
+### Tasks 13–14 — Source Control interface destination and behavior (implementation plan)
+
+**Owner-selected UI direction:** Keep the existing Code Editor layout: repository file tree on the left, Monaco editor/diff in the center, and the existing independently collapsible **Source Control panel on the right**. Do **not** introduce another top-level module or redesign the editor. Use two views inside that right panel: **Changes** (Task 13) and **History** (Task 14). Keep existing draft review and the standalone Source Control route usable; prioritize the integrated Code Editor workflow.
+
+#### Task 13 — Changes tab and explicit commit
+
+- Retain the existing saved changed-file list and inline opening of the proposed Monaco diff in the **center editor area**. Unsaved browser buffers are not themselves GitHub commits; preserve them during diff review, switching tabs, success, and failure.
+- Beneath the changed-file list, offer a **commit message** field and a **Review & Commit** action. Only explicitly reviewed/selected saved draft changes from the current repository and branch may be submitted; clearly list the files included. Do not imply that all unsaved buffers or drafts from other branches will be committed.
+- The action must open a final **confirmation dialog** displaying the exact target repository, target branch, filenames, and commit message. **Cancel** makes no GitHub change. Never commit automatically on save, on tab switching, or by opening Source Control.
+- A trusted Supabase Edge Function must verify the authenticated Super Admin, live GitHub App repository access, selected branch, expected original file/blob versions, and remote branch state again at commit time. Detect stale/conflicting files and concurrent branch-head changes, refuse unsafe overwrites, and report actionable conflicts. Honor branch protection; do not bypass GitHub errors. Keep installation tokens and write operations off the public frontend.
+- Commit the approved change set as one GitHub commit to **only** the explicitly confirmed branch when possible; do not partially apply a multi-file change set silently. On success show the resulting commit SHA/link and refresh Source Control/history. **Do not auto-delete Supabase drafts**: retain them for Settings → Draft Management, with a committed-state distinction when reliably available. On failure, keep drafts and unsaved edits available for recovery.
+
+#### Task 14 — History tab and Git Commit Graph
+
+- The **History** tab inside the same right Source Control panel shows a **Git Commit Graph** (also called Git History Graph), modeled on VS Code's branch/commit graph rather than a plain text-only history list.
+- Render actual commit topology using GitHub commit and parent metadata: commit dots, colored graph lanes/lines, splits and merge connections when present, and accurate branch/ref labels **only for refs actually known**. A linear history may legitimately be a single vertical line; do not manufacture branches or pretend the browser has local Git branches.
+- Alongside the graph show concise commit messages and helpful metadata (author, date, abbreviated SHA), scoped to the active repository/branch, with refresh and incremental loading/pagination for longer histories. Include commits made both through Luxraj CMS and externally on GitHub/VS Code.
+- Selecting a commit reveals its metadata and changed-file list. Selecting a changed file opens its **committed before/after code diff in the existing center Monaco editor area**, without losing unsaved editing buffers. Show added, modified, deleted, and renamed files accurately where supported; explain unsupported/binary or unavailable diffs instead of showing misleading code.
+- Commit-history reads, file listings, and diff retrieval also go through authorized backend requests, enforcing repository access. The graph represents GitHub remote data; changing the viewed commit must **not** switch the saved workspace branch or modify GitHub.
+
+#### Scope, integration and tests
+
+- Reuse the existing workspace selection, draft/change-set services, Monaco diff component, GitHub App installation connection, and Supabase authorization. Avoid duplicate commit implementations for later Metadata Injector features.
+- Preserve the current file Explorer, topbar workspace indicator, repository-switch confirmation, Source Control panel collapse/focus behavior, drafts and Settings storage policy. Use responsive layout so the graph and diffs remain usable on smaller screens.
+- Test: confirming/cancelling commits, authorized versus denied writes, precise repository/branch targeting, multi-file consistency, conflicts from externally updated files or moved branch heads, protected branches, draft retention and unsaved-buffer safety; then history graph ordering/topology (including merges), external commits, paging, clicked commit/file diffs, and successful return to an active editor.
+- **Documentation is not implementation approval.** Build/deploy/backend changes require the owner's separate explicit authorization. The owner must verify the complete edit → draft → diff → confirm → commit → graph → committed-diff workflow on a safe test branch before Tasks 13–14 are accepted.
+
+
 ## 7. Metadata Injector — category templates, page types, and placeholder injection
 
 **Status: requirements/planning specification, not implemented.** Metadata Injector is a left-sidebar feature opened in the viewport for the **currently selected GitHub repository and branch**. The engine works across unrelated website repositories; it does not assume Luxraj Blog's file hierarchy or build process.

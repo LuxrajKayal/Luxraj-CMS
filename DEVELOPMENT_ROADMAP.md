@@ -113,6 +113,29 @@ The roadmap has **20 numbered tasks (0–19)** grouped into **five initial miles
 - [ ] **Task 14 — History and committed diffs.** Browse commits and inspect file-level changes, including changes made outside the CMS.
   - **Your check:** You can locate your test commit and compare its code-level differences.
 
+### Tasks 13–14 — agreed interface destination and verification plan
+
+**Where these features live:** Keep the existing Code Editor's three-pane layout unchanged: **Files (left) | Monaco editor/diff (center) | Source Control (right)**. Add **Changes** and **History** views/tabs inside the existing, collapsible **right Source Control panel**; no new top-level page is needed for either task. Maintain the existing Source Control route and do not break unsaved buffers or drafts. Full implementation guidance is in README §6.
+
+**Task 13 — Changes/Commit:**
+
+- [ ] Keep saved changed-file review and open the selected draft diff in the current **center editor**, not in another page.
+- [ ] Add commit message and **Review & Commit** beneath changes. Show final confirmation with repository, branch, exact filenames, and message; Cancel never writes.
+- [ ] Backend-only GitHub App commit verifies Super Admin, authorized repository/branch, draft/file base versions, current remote files and branch head. Reject stale/conflicting or protected-branch writes safely; never silently overwrite or partially commit a change set.
+- [ ] Commit only the confirmed files to the confirmed **test branch**; show commit SHA/link. Preserve saved drafts in Draft Management (including committed drafts), and do not discard unsaved browser edits.
+- **Your check:** A commit reaches exactly its intended test branch, the other branch remains unchanged, cancel writes nothing, conflicts stop the commit, and drafts remain available for manual management.
+
+**Task 14 — History/Git Commit Graph:**
+
+- [ ] The right-panel **History** tab displays a **Git Commit Graph**, similar to VS Code's graph: commit dots, colored graph lanes, actual parent/merge/split lines, accurate known branch labels, and compact messages/authors/dates/SHAs. Do not invent graph branches or local refs.
+- [ ] Scope the graph to the active repository/branch; provide refresh and load-more/pagination. Include GitHub commits made **both inside and outside the CMS**.
+- [ ] Selecting a commit reveals its changed files. Selecting a file opens that commit's **before/after Monaco code diff in the center editor** while preserving any unsaved draft buffers.
+- [ ] History and diff operations must enforce backend authorization; represent additions/deletions/renames/merges and unavailable/binary diffs honestly.
+- **Your check:** Find the Task 13 test commit and an external GitHub/VS Code commit, select both, inspect the actual file/line diffs, and verify the graph accurately represents a real merge when present.
+
+**Combined verification:** Test commit confirmation/cancellation, race conditions, authorization, and branch isolation; then follow the resulting commit through History → changed files → committed diff without altering the editor's active workspace. **Tasks remain pending until the owner personally verifies the behavior.** Planning text does not authorize implementation or deployment.
+
+
 ### Milestone 4 acceptance — **Core CMS ready**
 
 - [ ] Open a GitHub file in the CMS.

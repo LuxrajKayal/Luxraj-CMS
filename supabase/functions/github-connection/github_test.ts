@@ -2,6 +2,35 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
 import { createGitHub } from './github.ts';
 
+Deno.test('commit requests a single-repository write token and checks scope again before posting the mutation', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const installation = { id: 12, appId: 10, ownerId: 20, owner: 'owner', ownerType: 'User' as const, ready: true };
+  const variables = { input: { expectedHeadOid: 'a'.repeat(40) } };
+  const steps: string[] = [];
+  const github = createGitHub(10, privateKey.export({ format: 'pem', type: 'pkcs1' }).toString(), async (input, init) => {
+    const url = new URL(String(input));
+    assert.equal(init?.method, 'POST');
+    const body = JSON.parse(String(init?.body));
+    if (url.pathname === '/app/installations/12/access_tokens') {
+      steps.push('token');
+      assert.deepEqual(body, { repository_ids: [88], permissions: { contents: 'write', metadata: 'read' } });
+      return Response.json({ token: 'installation-test-token' });
+    }
+    steps.push('mutation');
+    assert.equal(url.pathname, '/graphql');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer installation-test-token');
+    assert.deepEqual(body.variables, variables);
+    assert.match(body.query, /createCommitOnBranch/);
+    return Response.json({ data: {} });
+  });
+  await assert.rejects(github.commit(installation, 88, variables, async () => {
+    throw new Error('Workspace changed');
+  }), { message: 'Workspace changed' });
+  assert.deepEqual(steps, ['token']);
+  await github.commit(installation, 88, variables, async () => { steps.push('scope'); });
+  assert.deepEqual(steps, ['token', 'token', 'scope', 'mutation']);
+});
+
 Deno.test('GitHub requests sign an App JWT and keep short-lived tokens within installation API calls', async () => {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const installationToken = 'mock-installation-token';

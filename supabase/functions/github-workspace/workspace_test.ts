@@ -133,6 +133,22 @@ Deno.test('workspace requires an authenticated Super Admin before contacting Git
   assert.deepEqual(f.calls, []);
 });
 
+Deno.test('commit review, confirmation and history enforce the authenticated user and selected branch', async () => {
+  const f = fixture();
+  const repositoryId = 11;
+  const reviewId = '11111111-1111-4111-8111-111111111111';
+  for (const action of ['review_commit', 'confirm_commit', 'reconcile_commit', 'history']) {
+    const body = { action, repositoryId, branch: 'main', reviewId, sha: commit,
+      files: [{ path: 'index.html', revision: reviewId }], message: 'Reviewed', page: 1 };
+    assert.equal((await f.post(body, 'other')).status, 403);
+    assert.equal((await f.post(body, 'invalid')).status, 401);
+    await f.post({ action: 'select', repositoryId, branch: 'feature/next' });
+    f.calls.length = 0;
+    assert.deepEqual(await (await f.post(body)).json(), { error: 'selection_changed' });
+    assert.deepEqual(f.calls, []);
+  }
+});
+
 Deno.test('list, select, switch, and restore workspace against live repository and branch scope', async () => {
   const f = fixture();
   const loaded = await (await f.post({ action: 'load' })).json();
