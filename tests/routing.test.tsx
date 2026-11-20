@@ -16,6 +16,7 @@ test.each([
   '#/dashboard',
   '#/dashboard/subpage',
   '#/repositories',
+  '#/code-editor',
   '#/settings',
   '#/github/connect',
   '#/github/callback',

@@ -1,0 +1,101 @@
+.workspace {
+  max-width: 86rem;
+}
+
+.workspace-actions,
+.workspace-repositories li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.workspace-repositories {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.25rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-repositories li {
+  padding: 0.75rem;
+  border: 1px solid #36465c;
+  border-radius: 0.5rem;
+}
+
+.workspace-repositories span {
+  color: #b9c8dc;
+}
+
+.workspace-repositories button {
+  margin-left: auto;
+}
+
+.workspace button,
+.workspace select {
+  padding: 0.375rem 0.625rem;
+  border: 1px solid #849ab7;
+  border-radius: 0.375rem;
+  background: #172335;
+  color: #f1f5f9;
+  font: inherit;
+}
+
+.workspace button:disabled {
+  opacity: 0.65;
+}
+
+.workspace-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.workspace-field select {
+  max-width: 85%;
+}
+
+.source-explorer {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) minmax(0, 3fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.source-explorer section {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #36465c;
+  border-radius: 0.5rem;
+}
+
+.source-explorer h2 {
+  overflow-wrap: anywhere;
+}
+
+.source-tree {
+  list-style: none;
+  padding-left: 0.875rem;
+}
+
+.source-tree button {
+  max-width: 100%;
+  border-color: transparent;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.source-explorer pre {
+  overflow: auto;
+  max-height: 70vh;
+  padding: 0.75rem;
+  background: #172335;
+}
+
+@media (max-width: 48rem) {
+  .source-explorer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
