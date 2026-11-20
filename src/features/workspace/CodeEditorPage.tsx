@@ -75,23 +75,32 @@ function Folder({ context, path, commit, openFile }: {
 function Explorer({ selection, repository }: { selection: Selection & { branch: string }; repository: string }) {
   const tabGroupId = useId();
   const { repositoryId, branch } = selection;
+  const { views, putView } = useEditBuffers();
+  const workspaceKey = JSON.stringify([repositoryId, branch]);
+  const savedView = views[workspaceKey];
   const [tree, setTree] = useState<Directory | null>(null);
   const [treeError, setTreeError] = useState('');
-  const [file, setFile] = useState<string[] | null>(null);
+  const [file, setFile] = useState<string[] | null>(() => savedView?.file ?? null);
   const [refresh, setRefresh] = useState(0);
-  const [diff, setDiff] = useState<string | null>(null);
-  const [historyDiff, setHistoryDiff] = useState<HistoryFile | null>(null);
-  const [tab, setTab] = useState<'changes' | 'history'>('changes');
+  const [diff, setDiff] = useState<string | null>(() => savedView?.diff ?? null);
+  const [historyDiff, setHistoryDiff] = useState<HistoryFile | null>(() => savedView?.historyDiff ?? null);
+  const [tab, setTab] = useState<'changes' | 'history'>(() => savedView?.tab ?? 'changes');
   const [receipt, setReceipt] = useState<CommitReceipt | null>(null);
   const [syncingReceipt, setSyncingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
   const [changesVersion, setChangesVersion] = useState(0);
-  const [showFiles, setShowFiles] = useState(true);
-  const [showChanges, setShowChanges] = useState(() => !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
-  const [focus, setFocus] = useState(false);
+  const [showFiles, setShowFiles] = useState(() => savedView?.showFiles ?? true);
+  const [showChanges, setShowChanges] = useState(() =>
+    savedView?.showChanges ?? !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
+  const [focus, setFocus] = useState(() => savedView?.focus ?? false);
   const { refresh: refreshWorkspace, saving } = useWorkspace();
   const commit = tree?.commit;
+
+  // This state lives above the route, so leaving for Settings does not reset the editor.
+  useEffect(() => {
+    putView(workspaceKey, { file, diff, historyDiff, tab, showFiles, showChanges, focus });
+  }, [workspaceKey, file, diff, historyDiff, tab, showFiles, showChanges, focus, putView]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -228,7 +237,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
 export function CodeEditorPage() {
   const { workspace: { selection, repositories }, saving } = useWorkspace();
   const active = repositories.find(repository => repository.id === selection?.repositoryId);
-  const { buffers } = useEditBuffers();
+  const { buffers, recoveryError } = useEditBuffers();
   const unsaved = Object.keys(buffers).length;
   return (
     <>
@@ -236,6 +245,9 @@ export function CodeEditorPage() {
         <ModuleTopbar title="Code Editor"><BranchPicker /></ModuleTopbar>
         {!active && <p className="module-body"><Link to="/repositories">Select a repository</Link> to browse its files.</p>}
       </>}
+      {recoveryError && <p className="workspace-alert" role="alert">
+        Temporary browser recovery storage is unavailable or full. Save your work as a Supabase draft before leaving this tab.
+      </p>}
       {unsaved > 0 && <p className="workspace-notice">Unsaved files in this session: {unsaved}. Reopen a file to continue editing or save it.</p>}
       {selection?.branch && active && !saving && (
         <Explorer key={JSON.stringify([selection.repositoryId, selection.branch])}
