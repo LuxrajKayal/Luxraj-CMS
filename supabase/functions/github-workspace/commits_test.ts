@@ -12,10 +12,12 @@ const repository = { id: 22, name: 'owner/site', defaultBranch: 'main', private:
 const files = paths.map((path, index) => ({ path, revision: `version-${index}` }));
 
 function setup() {
-  const review = { id: 'review', repository: repository.name, branch: scope.branch, head, message: 'Two files', files };
+  const review = { id: 'review', repository: repository.name, branch: scope.branch, head, message: 'Two files',
+    files, claimed: true, commit_sha: null };
   let active = true;
   let current = head;
   let remoteBlob = blob;
+  let rpcFailures = 0;
   const archived: unknown[] = [];
   const filters = new Map<string, unknown>();
   const db = {
@@ -38,6 +40,7 @@ function setup() {
     },
     async rpc(_name: string, values: unknown) {
       archived.push(values);
+      if (rpcFailures-- > 0) return { data: null, error: { message: 'network failure' } };
       return { data: 2, error: null };
     },
   } as unknown as SupabaseClient;
@@ -52,11 +55,18 @@ function setup() {
   const git = {
     requireBranch: async () => current,
     fileVersion: async () => ({ blob: remoteBlob, commit: current, source: 'old' }),
+    repoPath: () => '/repos/owner/site',
+    get: async () => Response.json({ sha, parents: [{ sha: head }], message: 'Two files' }),
+    atCommit: async (_repo: typeof repository, commit: string, path: string[]) => {
+      assert.equal(commit, sha);
+      return `new ${path.join('/')}`;
+    },
   } as unknown as WorkspaceGit;
   return { commits: createCommitReviews(db), review, archived, filters,
     input: { repository, scope, git, changes: source, check: async () => {} },
     moveHead: () => { current = '4'.repeat(40); },
     changeFile: () => { remoteBlob = '5'.repeat(40); },
+    failRecordOnce: () => { rpcFailures = 1; },
   };
 }
 
@@ -99,4 +109,30 @@ Deno.test('GitHub branch protection and final head conflicts do not produce a su
     await assert.rejects(writeCommit(async () => Response.json({ errors: [{ message }] }), f.review, []), { message: expected });
   }
   await assert.rejects(writeCommit(async () => { throw new Error('network'); }, f.review, []), { message: 'commit_unknown' });
+});
+
+Deno.test('lost database response is retried without another GitHub write', async () => {
+  const f = setup();
+  f.failRecordOnce();
+  let writes = 0;
+  const result = await f.commits.confirm(f.input, 'review', async () => {
+    writes++;
+    return Response.json({ data: { createCommitOnBranch: { commit: { oid: sha } } } });
+  });
+  assert.equal(writes, 1);
+  assert.equal(result.retained, 2);
+  assert.equal(result.reviewId, 'review');
+  assert.equal(f.archived.length, 2);
+});
+
+Deno.test('a confirmed GitHub SHA can securely reconcile retained draft status', async () => {
+  const f = setup();
+  const result = await f.commits.reconcile(f.input, 'review', sha);
+  assert.equal(result.sha, sha);
+  assert.equal(result.retained, 2);
+  assert.deepEqual(f.archived, [{ review_id: 'review', actor_id: 'admin', github_sha: sha }]);
+  const invalid = setup();
+  await assert.rejects(invalid.commits.reconcile(invalid.input, 'review', '0'.repeat(40)),
+    { message: 'commit_unverified' });
+  assert.deepEqual(invalid.archived, []);
 });
