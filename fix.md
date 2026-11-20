@@ -30,11 +30,18 @@
 - Use the available viewport effectively: small fixed chrome, reduced page padding and unnecessary margins/headings, vertically stretching work area, and panel-local scroll rather than page-level scrolling.
 - Independent collapse for file explorer and Source Control; where useful, resize panes or provide editor focus/maximize without discarding unsaved edits. Preserve actions when narrow. Mobile layout uses collapsible panels/drawers and accessible touch targets.
 
-## 3. Branding — requires owner's SVG
+## 3. Branding — owner's source assets now available
 
-- The **official Luxraj CMS logo must be created from the SVG supplied by the owner**; the blue illustration logo is only a placeholder.
-- Once that SVG is available, derive appropriate logo lockups/icon-only variant and favicon from the provided artwork; apply consistently in login, expanded/collapsed global sidebar, browser tab and genuine brand locations. Maintain legibility and accessibility.
-- If the owner's source SVG is not actually available during the Codex run, do not invent a permanent logo: keep/prepare neutral branding slots and **report branding pending the SVG**; continue other fixes safely.
+**Verified source files in the root of `codex-development`:**
+- **Master SVG (authoritative artwork):** [`Luxraj-App-Icon.svg`](https://github.com/LuxrajKayal/Luxraj-CMS/blob/codex-development/Luxraj-App-Icon.svg) — 512 × 512 viewBox; internal title `Luxraj.com – Master Brand Icon`.
+- **PNG reference:** [`App Icon.png`](https://github.com/LuxrajKayal/Luxraj-CMS/blob/codex-development/App%20Icon.png) — matching app-icon source asset. These two sources are in `codex-development`; links deliberately target that branch so this documentation also works from `main`.
+
+**Branding implementation requirements:**
+- Use the provided **SVG as the source of truth** to create the Luxraj CMS branded logo/wordmark and icon-only variant; use the supplied PNG as an appearance reference or suitable raster asset. Preserve the owner's design and aspect ratio; do **not** substitute the placeholder blue mark from the UI mockup or fabricate a different logo.
+- Apply branding consistently to login, expanded main sidebar (mark + `Luxraj CMS` wordmark), collapsed icon-only sidebar, browser favicon/tab and other genuine branding touchpoints.
+- Produce appropriate browser-ready static assets and favicon references as necessary; preserve the original root source files and ensure the Vite production build works at `cms.luxraj.com` root.
+- Provide accessible alt/labels and crisp rendering at small icon sizes. If SVG-specific compatibility issues arise, derive assets from the actual supplied source rather than guessing.
+- This is now **unblocked for Codex implementation**. No need to ask the owner for another logo upload.
 
 ## 4. Repositories: Windows File Explorer-style selection and navigation
 
