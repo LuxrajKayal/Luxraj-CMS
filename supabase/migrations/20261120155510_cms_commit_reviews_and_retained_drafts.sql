@@ -40,15 +40,36 @@ as $$
 declare review public.cms_commit_reviews;
 declare count_archived integer;
 begin
-  update public.cms_commit_reviews set commit_sha = github_sha
-    where id = review_id and user_id = actor_id and claimed and commit_sha is null
-    returning * into strict review;
+  if github_sha !~ '^[0-9a-f]{40}$' then
+    raise exception 'invalid_commit_sha';
+  end if;
+
+  -- Serialize retries and refuse to assign a different SHA to an already
+  -- recorded review. A lost RPC response must not strand committed drafts.
+  select * into review from public.cms_commit_reviews
+    where id = review_id and user_id = actor_id and claimed
+    for update;
+  if not found then raise exception 'review_not_found'; end if;
+  if review.commit_sha is not null and review.commit_sha <> github_sha then
+    raise exception 'review_commit_mismatch';
+  end if;
+  if review.commit_sha is null then
+    update public.cms_commit_reviews set commit_sha = github_sha where id = review_id;
+  end if;
+
   update public.cms_change_set_files as draft set committed_sha = github_sha
     from jsonb_to_recordset(review.files) as file(path text, revision uuid)
     where draft.user_id = review.user_id and draft.repository_id = review.repository_id
       and draft.branch = review.branch and draft.path = file.path and draft.revision = file.revision
       and draft.committed_sha is null;
-  get diagnostics count_archived = row_count;
+
+  -- Return a stable total on repeat attempts, not just rows updated by this call.
+  select count(*) into count_archived
+    from public.cms_change_set_files as draft
+    join jsonb_to_recordset(review.files) as file(path text, revision uuid)
+      on draft.path = file.path and draft.revision = file.revision
+    where draft.user_id = review.user_id and draft.repository_id = review.repository_id
+      and draft.branch = review.branch and draft.committed_sha = github_sha;
   return count_archived;
 end;
 $$;
