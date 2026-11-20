@@ -8,13 +8,13 @@ const MonacoSource = lazy(() => import('./MonacoViews').then(module => ({ defaul
 export function DraftEditor({ repositoryId, branch, path, commit, onSaved }: {
   repositoryId: number; branch: string; path: string[]; commit: string; onSaved?(): void;
 }) {
-  const { buffers, put, remove } = useEditBuffers();
+  const { buffers, put, remove, positions, putPosition, editing, setEditing } = useEditBuffers();
   const filename = path.join('/');
   const key = JSON.stringify([repositoryId, branch, filename]);
   const buffer = buffers[key];
   const [opened, setOpened] = useState<OpenDraft | null>(null);
   const [error, setError] = useState('');
-  const [readOnly, setReadOnly] = useState(true);
+  const readOnly = !editing[key];
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(0);
 
@@ -71,7 +71,7 @@ export function DraftEditor({ repositoryId, branch, path, commit, onSaved }: {
     <>
       <div className="workspace-actions editor-file-toolbar">
         <strong title={filename}>{filename}</strong>
-        <button type="button" disabled={saving} onClick={() => setReadOnly(value => !value)}>
+        <button type="button" disabled={saving} onClick={() => setEditing(key, readOnly)}>
           {readOnly ? 'Enable editing' : 'Read-only mode'}
         </button>
         <button type="button" disabled={saving || !buffer} onClick={() => { if (buffer) void save(buffer); }}>Save draft</button>
@@ -82,7 +82,8 @@ export function DraftEditor({ repositoryId, branch, path, commit, onSaved }: {
         <p role="alert">The GitHub file changed since this draft began. The original version is preserved for review.</p>}
       {error && <p className="workspace-alert" role="alert">{error}</p>}
       <Suspense fallback={<p role="status">Loading editor…</p>}>
-        <MonacoSource path={filename} source={buffer?.source ?? baseline} readOnly={readOnly || saving} onChange={change} />
+        <MonacoSource path={filename} source={buffer?.source ?? baseline} readOnly={readOnly || saving} onChange={change}
+          initialPosition={positions[key]} onPositionChange={position => putPosition(key, position)} />
       </Suspense>
     </>
   );
