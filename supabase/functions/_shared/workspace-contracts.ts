@@ -69,6 +69,7 @@ export interface ManagedDraft extends DraftIdentity {
   updatedAt: string;
   contentBytes: number;
   pending: boolean;
+  available: boolean;
 }
 
 export interface DraftDeletion extends DraftIdentity {
