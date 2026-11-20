@@ -76,7 +76,7 @@ export interface ManagedDraft extends DraftIdentity {
 
 export type ReviewFile = { path: string; revision: string };
 export type CommitReview = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[] };
-export type CommitReceipt = { sha: string; url: string; retained: number | null; fileCount: number };
+export type CommitReceipt = { sha: string; url: string; retained: number | null; fileCount: number; reviewId?: string };
 export type HistoryCommit = { sha: string; parents: string[]; message: string; author: string; date: string };
 export type HistoryPage = { head: string; commits: HistoryCommit[]; refs: { name: string; sha: string }[]; next: number | null };
 export type CommittedFile = { path: string; status: string; previousPath?: string };
