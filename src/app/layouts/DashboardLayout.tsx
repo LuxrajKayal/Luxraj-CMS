@@ -3,12 +3,15 @@ import { dashboardNavigation } from './dashboardNavigation';
 import './dashboard-layout.css';
 import { useState } from 'react';
 import { useAuth } from '../../core/auth/AuthProvider';
+import { useEditBuffers } from '../../features/workspace/EditBuffers';
 
 export function DashboardLayout() {
   const { signOut, message } = useAuth();
+  const { buffers } = useEditBuffers();
   const [pending, setPending] = useState(false);
 
   async function logout() {
+    if (Object.keys(buffers).length && !window.confirm('Sign out and discard unsaved edits? Saved drafts will stay in Supabase.')) return;
     setPending(true);
     await signOut();
     setPending(false);

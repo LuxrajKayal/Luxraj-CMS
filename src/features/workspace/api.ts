@@ -1,12 +1,15 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../../core/auth/supabase';
 import type {
-  Directory, SourceFile, Workspace, WorkspaceRequest,
+  Directory, Draft, DraftSummary, OpenDraft, SavedDraft, SourceFile, Workspace, WorkspaceRequest,
 } from '../../../supabase/functions/_shared/workspace-contracts';
 
 export type { Directory, Repository, Selection, TreeEntry, Workspace } from '../../../supabase/functions/_shared/workspace-contracts';
 
-type Responses = { load: Workspace; select: Workspace; tree: Directory; file: SourceFile };
+type Responses = {
+  load: Workspace; select: Workspace; tree: Directory; file: SourceFile;
+  open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[] }; diff: Draft;
+};
 
 export async function workspaceRequest<T extends WorkspaceRequest>(body: T, signal?: AbortSignal) {
   if (!supabase) throw new Error('unavailable');
@@ -33,6 +36,8 @@ const errors = {
   list_too_large: 'GitHub returned too many results to read the complete list.',
   unauthenticated: 'Sign in again to use the workspace.',
   forbidden: 'Only the approved Super Admin can use the workspace.',
+  draft_conflict: 'This draft changed in another session. Reopen the saved draft before saving again.',
+  invalid_request: 'This change could not be saved. Source must be UTF-8 text of at most 1 MiB.',
 };
 
 export function workspaceError(error: unknown) {

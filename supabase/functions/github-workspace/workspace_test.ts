@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import type { Selection } from '../_shared/workspace-contracts.ts';
+import type { Draft, Selection } from '../_shared/workspace-contracts.ts';
 import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
 
@@ -17,6 +17,8 @@ function fixture() {
   ];
   const branchNames = ['main', 'feature/next'];
   const prefs = new Map<string, Selection>();
+  const drafts = new Map<string, Draft>();
+  const draftKey = (scope: object) => JSON.stringify(scope);
   const calls: string[] = [];
   let allowed = true;
   let changed = false;
@@ -49,6 +51,27 @@ function fixture() {
 
   const handler = createWorkspaceHandler({
     origin,
+    changes: {
+      async list(scope) {
+        return [...drafts].filter(([key]) => {
+          const { path: _path, ...owner } = JSON.parse(key);
+          return draftKey(scope) === draftKey(owner);
+        }).map(([, draft]) => ({ path: draft.path, updatedAt: draft.updatedAt }));
+      },
+      async get(scope) { return drafts.get(draftKey(scope)) ?? null; },
+      async save(scope, base, proposed, revision) {
+        const key = draftKey(scope);
+        const previous = drafts.get(key);
+        if ((previous?.revision ?? null) !== revision) throw new WorkspaceError('draft_conflict', 409);
+        const draft = {
+          path: scope.path, originalSource: previous?.originalSource ?? base.source,
+          originalCommit: previous?.originalCommit ?? base.commit, originalBlob: previous?.originalBlob ?? base.blob,
+          proposedSource: proposed, revision: crypto.randomUUID(), updatedAt: new Date().toISOString(),
+        };
+        drafts.set(key, draft);
+        return draft;
+      },
+    },
     authenticate: async token => token === 'session' || token === 'new-session' ? 'owner' : token === 'other' ? 'other' : null,
     isAdmin: async userId => userId === 'owner',
     async openGit() {
@@ -133,4 +156,32 @@ Deno.test('a connection change during a read suppresses source and fails before 
   assert.deepEqual(await response.json(), { error: 'connection_changed' });
   assert.equal((await f.post({ action: 'select', repositoryId: 22 })).status, 409);
   assert.deepEqual(f.prefs.get('owner'), selection);
+});
+
+Deno.test('drafts keep the GitHub baseline, reject old revisions, and list only the selected scope', async () => {
+  const f = fixture();
+  const selection = { repositoryId: 11, branch: 'feature/next' };
+  const path = ['site', 'index.HTML'];
+  await f.post({ action: 'select', ...selection });
+  const request = { action: 'save_draft', ...selection, path, commit, source: 'first edit', revision: null };
+  assert.equal((await f.post(request, 'other')).status, 403);
+  const first = await (await f.post({ ...request, originalSource: 'fake original', userId: 'other' })).json();
+  assert.equal(first.draft.originalSource, contents);
+  assert.equal(first.draft.originalCommit, commit);
+  assert.equal(first.draft.originalBlob, blob);
+  assert.equal((await f.post(request, 'new-session')).status, 409);
+
+  f.advanceBranch();
+  const reopened = await (await f.post({ action: 'open_draft', ...selection, path, commit: 'f'.repeat(40) }, 'new-session')).json();
+  assert.equal(reopened.draft.proposedSource, 'first edit');
+  assert.equal((await f.post({ ...request, revision: first.draft.revision })).status, 409);
+  const updated = await (await f.post({ ...request, commit: 'f'.repeat(40), source: 'second edit', revision: first.draft.revision })).json();
+  assert.equal(updated.draft.originalCommit, commit);
+  assert.equal(updated.draft.proposedSource, 'second edit');
+  assert.deepEqual((await (await f.post({ action: 'changes', ...selection })).json()).files.map((file: Draft) => file.path),
+    ['site/index.HTML']);
+  assert.equal((await (await f.post({ action: 'diff', ...selection, path })).json()).originalSource, contents);
+  assert.equal((await f.post({ action: 'diff', ...selection, repositoryId: 99, path })).status, 403);
+  await f.post({ action: 'select', repositoryId: 22 });
+  assert.equal((await f.post({ action: 'diff', ...selection, path })).status, 409);
 });

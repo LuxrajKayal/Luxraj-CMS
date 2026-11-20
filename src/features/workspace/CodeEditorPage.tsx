@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { workspaceError, workspaceRequest, type Directory, type Selection, type TreeEntry } from './api';
 import { BranchPicker, useWorkspace } from './WorkspaceLayout';
+import { DraftEditor } from './DraftEditor';
+import { useEditBuffers } from './EditBuffers';
 
 type Context = { repositoryId: number; branch: string };
 type OpenFile = (path: string[]) => void;
@@ -70,8 +72,6 @@ function Explorer({ selection }: { selection: Selection & { branch: string } }) 
   const [tree, setTree] = useState<Directory | null>(null);
   const [treeError, setTreeError] = useState('');
   const [file, setFile] = useState<string[] | null>(null);
-  const [source, setSource] = useState<string | null>(null);
-  const [fileError, setFileError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const commit = tree?.commit;
 
@@ -83,25 +83,12 @@ function Explorer({ selection }: { selection: Selection & { branch: string } }) 
     return () => controller.abort();
   }, [repositoryId, branch, refresh]);
 
-  useEffect(() => {
-    if (!file || !commit) return;
-    const controller = new AbortController();
-    workspaceRequest({ action: 'file', repositoryId, branch, path: file, commit }, controller.signal)
-      .then(result => { if (!controller.signal.aborted) setSource(result.source); })
-      .catch(error => { if (!controller.signal.aborted) setFileError(workspaceError(error)); });
-    return () => controller.abort();
-  }, [repositoryId, branch, file, commit]);
-
   function openFile(path: string[]) {
-    setSource(null);
-    setFileError('');
     setFile([...path]);
   }
 
   function refreshTree() {
     setFile(null);
-    setSource(null);
-    setFileError('');
     setTree(null);
     setTreeError('');
     setRefresh(current => current + 1);
@@ -118,12 +105,10 @@ function Explorer({ selection }: { selection: Selection & { branch: string } }) 
           {tree && <DirectoryList context={{ repositoryId, branch }} path={[]} commit={tree.commit}
             entries={tree.entries} openFile={openFile} />}
         </section>
-        <section aria-label="Read-only source">
+        <section aria-label="Source editor">
           <h2>{file ? file.join('/') : 'Source preview'}</h2>
           {!file && <p>Choose an HTML, CSS, or JavaScript file to view its source.</p>}
-          {fileError && <p role="alert">{fileError}</p>}
-          {file && source === null && !fileError && <p role="status">Loading source…</p>}
-          {source !== null && <pre tabIndex={0}><code>{source}</code></pre>}
+          {file && commit && <DraftEditor key={JSON.stringify(file)} {...{ repositoryId, branch, path: file, commit }} />}
         </section>
       </div>
     </>
@@ -133,9 +118,12 @@ function Explorer({ selection }: { selection: Selection & { branch: string } }) 
 export function CodeEditorPage() {
   const { workspace: { selection, repositories }, saving } = useWorkspace();
   const active = repositories.find(repository => repository.id === selection?.repositoryId);
+  const { buffers } = useEditBuffers();
+  const unsaved = Object.keys(buffers).length;
   return (
     <>
       <h1>Code Editor</h1>
+      {unsaved > 0 && <p>Unsaved files in this session: {unsaved}. Reopen a file to continue editing or save it.</p>}
       {!active && <p><Link to="/repositories">Select a repository</Link> to browse its files.</p>}
       {active && <p>Repository <strong>{active.name}</strong> · <Link to="/repositories">Switch repository</Link></p>}
       <BranchPicker />

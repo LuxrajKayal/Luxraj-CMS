@@ -94,6 +94,14 @@
   background: #172335;
 }
 
+.monaco-view {
+  width: 100%;
+  height: min(65vh, 42rem);
+  min-height: 18rem;
+  margin-top: 0.75rem;
+  border: 1px solid #36465c;
+}
+
 @media (max-width: 48rem) {
   .source-explorer {
     grid-template-columns: minmax(0, 1fr);
