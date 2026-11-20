@@ -68,7 +68,7 @@ export function createWorkspaceHandler(deps: Dependencies) {
         }
         return json(await deps.storage.set(body.databaseLimitMb, body.fileLimitMb));
       }
-      if (['review_commit', 'confirm_commit', 'history', 'commit_detail', 'commit_diff'].includes(action)) {
+      if (['review_commit', 'confirm_commit', 'reconcile_commit', 'history', 'commit_detail', 'commit_diff'].includes(action)) {
         if (!positiveId(body.repositoryId) || !isBranch(body.branch)) return json({ error: 'invalid_request' }, 400);
         const path = (value: unknown) => typeof value === 'string' && !!value && value.length <= 1024 && isPath(value.split('/'));
         if (action === 'review_commit') {
@@ -79,7 +79,10 @@ export function createWorkspaceHandler(deps: Dependencies) {
             return json({ error: 'invalid_commit_review' }, 400);
           }
         }
-        if (action === 'confirm_commit' && !isRevision(body.reviewId)) return json({ error: 'invalid_request' }, 400);
+        if ((action === 'confirm_commit' || action === 'reconcile_commit') &&
+            (!isRevision(body.reviewId) || (action === 'reconcile_commit' && !isCommit(body.sha)))) {
+          return json({ error: 'invalid_request' }, 400);
+        }
         if (action === 'history' && (!Number.isInteger(body.page) || body.page < 1 || body.page > 10000 ||
             ((body.page !== 1 || body.head !== undefined) && !isCommit(body.head)))) {
           return json({ error: 'invalid_request' }, 400);
@@ -104,15 +107,21 @@ export function createWorkspaceHandler(deps: Dependencies) {
           await checkSelection();
           if (!await deps.isAdmin(userId!)) throw new WorkspaceError('forbidden', 403);
         }
-        if (action === 'review_commit' || action === 'confirm_commit') {
-          if (!deps.commits || !deps.changes || !remote.write) throw new Error('Commit service unavailable.');
+        if (action === 'review_commit' || action === 'confirm_commit' || action === 'reconcile_commit') {
+          if (!deps.commits || !deps.changes || (action === 'confirm_commit' && !remote.write)) {
+            throw new Error('Commit service unavailable.');
+          }
           const input = { repository, git, changes: deps.changes, check, scope: { userId, repositoryId: repository.id, branch: body.branch } };
-          return json(action === 'review_commit'
-            ? await deps.commits.prepare(input, body.files.map(({ path, revision }: { path: string; revision: string }) => ({ path, revision })),
-              body.message)
-            : await deps.commits.confirm(input, body.reviewId, async variables => {
-              return remote.write!(repository.id, variables, check);
-            }));
+          if (action === 'review_commit') {
+            return json(await deps.commits.prepare(input,
+              body.files.map(({ path, revision }: { path: string; revision: string }) => ({ path, revision })),
+              body.message));
+          }
+          if (action === 'reconcile_commit') {
+            return json(await deps.commits.reconcile(input, body.reviewId, body.sha));
+          }
+          return json(await deps.commits.confirm(input, body.reviewId, async variables =>
+            remote.write!(repository.id, variables, check)));
         }
         const history = createHistory(git, repository, body.branch);
         const result = action === 'history' ? await history.list(body.page, body.head)
