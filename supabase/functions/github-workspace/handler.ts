@@ -70,46 +70,54 @@ export function createWorkspaceHandler(deps: Dependencies) {
               !body.drafts.every(isDraftIdentity))) return json({ error: 'invalid_request' }, 400);
         const changes = deps.changes;
         if (!changes?.catalog || !changes.remove) throw new Error('Draft management unavailable.');
-        const remote = await deps.openGit();
-        const repositories = await remote.repositories();
-        const byRepository = new Map<number, string[]>();
-
-        async function authorized(item: DraftIdentity) {
-          const repo = repositories.find(candidate => candidate.id === item.repositoryId);
-          if (!repo) return null;
-          if (!byRepository.has(repo.id)) {
-            try {
-              const git = await remote.forRepository(repo.id);
-              byRepository.set(repo.id, await git.branches(repo));
-            } catch (error) {
-              if (!(error instanceof WorkspaceError) || error.code !== 'remote_missing') throw error;
-              byRepository.set(repo.id, []);
-            }
-          }
-          return byRepository.get(repo.id)?.includes(item.branch) ? repo : null;
-        }
 
         if (action === 'draft_catalog') {
-          const files: ManagedDraft[] = [];
-          for (const item of await changes.catalog(userId)) {
-            const repo = await authorized(item);
-            if (repo) files.push({ ...item, repository: repo.name });
+          // Drafts belong to the authenticated Super Admin, even when their GitHub
+          // repository was disconnected or the branch was deleted. GitHub is used
+          // only to enrich the display, never to decide which drafts are visible.
+          const catalog = await changes.catalog(userId);
+          const repositories = new Map<number, { name: string; branches: string[] }>();
+          try {
+            const remote = await deps.openGit();
+            const accessible = await remote.repositories();
+            for (const repositoryId of new Set(catalog.map(item => item.repositoryId))) {
+              const repository = accessible.find(item => item.id === repositoryId);
+              if (!repository) continue;
+              try {
+                const git = await remote.forRepository(repositoryId);
+                const branches = await git.branches(repository);
+                repositories.set(repositoryId, { name: repository.name, branches });
+              } catch {
+                // The saved draft is still visible and removable even if GitHub fails.
+              }
+            }
+            await remote.checkConnection();
+          } catch {
+            // GitHub App may be disconnected; Supabase draft cleanup must still work.
+            repositories.clear();
           }
-          await remote.checkConnection();
+          const files: ManagedDraft[] = catalog.map(item => {
+            const repository = repositories.get(item.repositoryId);
+            return {
+              ...item,
+              repository: repository?.name ?? `Repository #${item.repositoryId} (unavailable)`,
+              available: repository?.branches.includes(item.branch) ?? false,
+            };
+          });
           return json({ files });
         }
 
+        // Removing a Supabase-only draft does not require GitHub access. The
+        // service-role query is scoped to userId + repository + branch + path
+        // and guarded by the exact revision to prevent stale/foreign deletes.
         const results: DraftDeletion[] = [];
         for (const { repositoryId, branch, path, revision } of body.drafts as DraftIdentity[]) {
           const item = { repositoryId, branch, path, revision };
-          let result: DraftDeletion['result'] = 'unavailable';
+          let result: DraftDeletion['result'];
           try {
-            if (await authorized(item)) {
-              await remote.checkConnection();
-              result = await changes.remove(userId, item) ? 'deleted' : 'conflict';
-            }
+            result = await changes.remove(userId, item) ? 'deleted' : 'conflict';
           } catch {
-            // Report this item as unavailable. Earlier confirmed deletes still count.
+            result = 'unavailable';
           }
           results.push({ ...item, result });
         }
