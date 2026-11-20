@@ -11,6 +11,7 @@ export interface Installation {
 
 export interface GitHub {
   installation(id: number): Promise<Installation | null>;
+  existingInstallation(ownerId: number): Promise<Installation | null>;
   repositories(installation: Installation): Promise<string[]>;
   uninstall(id: number): Promise<void>;
 }
@@ -44,8 +45,7 @@ export function createGitHub(appId: number, privateKey: string, request: typeof 
     });
   }
 
-  return {
-    async installation(id) {
+  async function getInstallation(id: number): Promise<Installation | null> {
       const response = await api(`/app/installations/${id}`, appToken());
       if (response.status === 404) return null;
       if (!response.ok) throw new Error('Installation lookup failed.');
@@ -58,9 +58,30 @@ export function createGitHub(appId: number, privateKey: string, request: typeof 
       }
       return {
         id, appId: value.app_id, ownerId: account.id, owner: account.login, ownerType: account.type,
-        ready: value.repository_selection === 'selected' && value.suspended_at === null &&
+        ready: (value.repository_selection === 'selected' || value.repository_selection === 'all') &&
+          value.suspended_at === null &&
           value.permissions?.contents === 'write' && value.permissions?.metadata === 'read',
       };
+  }
+
+  return {
+    installation: getInstallation,
+    async existingInstallation(ownerId) {
+      if (!positiveId(ownerId)) return null;
+      for (let page = 1; page <= 100; page += 1) {
+        const response = await api(`/app/installations?per_page=100&page=${page}`, appToken());
+        if (!response.ok) throw new Error('Installation discovery failed.');
+        const values = await response.json();
+        if (!Array.isArray(values)) throw new Error('GitHub returned invalid installation list.');
+        for (const candidate of values) {
+          if (positiveId(candidate?.id) && candidate?.app_id === appId &&
+              candidate?.account?.id === ownerId && candidate?.account?.type === 'User') {
+            return getInstallation(candidate.id);
+          }
+        }
+        if (!response.headers.get('Link')?.includes('rel="next"')) return null;
+      }
+      throw new Error('Installation discovery did not finish.');
     },
     async repositories(installation) {
       const response = await api(`/app/installations/${installation.id}/access_tokens`, appToken(), 'POST', {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, Outlet, useSearchParams } from 'react-router';
+import { Link, Navigate, Outlet, useNavigate, useSearchParams } from 'react-router';
 import { PagePanel } from '../../shared/ui/PagePanel';
 import { connectionError, githubConnection, type ConnectionStatus } from './api';
 import './github-connection.css';
@@ -78,6 +78,7 @@ const statusLabels = {
 };
 
 function ConnectionControls() {
+  const navigate = useNavigate();
   const { connection, setConnection, loading, error, refresh } = useConnectionStatus();
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -86,8 +87,14 @@ function ConnectionControls() {
     setWorking(true);
     setActionError('');
     try {
-      const { installUrl } = await githubConnection('start');
-      const url = new URL(installUrl);
+      const result = await githubConnection('start');
+      if (!('installUrl' in result)) {
+        if (result.status !== 'connected') throw new Error('invalid_installation');
+        setConnection(result);
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+      const url = new URL(result.installUrl);
       if (url.origin !== 'https://github.com' || !/^\/apps\/[a-z\d-]+\/installations\/new$/i.test(url.pathname)) {
         throw new Error('unavailable');
       }
@@ -129,14 +136,14 @@ function ConnectionControls() {
       {owner && <p>GitHub owner <strong>{owner}</strong></p>}
       {status === 'connected' && (
         <>
-          <h2>Selected repositories</h2>
+          <h2>Accessible repositories</h2>
           {repositories.length
             ? <ul>{repositories.map(repository => <li key={repository}>{repository}</li>)}</ul>
-            : <p>This installation currently has no selected repositories.</p>}
+            : <p>This installation currently has no accessible repositories.</p>}
         </>
       )}
       {status === 'revocation_pending' && <p>Use GitHub installation settings to finish uninstalling if retrying fails.</p>}
-      {status === 'disconnected' && <p>Install the Luxraj CMS GitHub App and choose Selected repositories.</p>}
+      {status === 'disconnected' && <p>Install Luxraj CMS with All repositories to work across your account, or choose specific repositories if preferred. Existing installations can be reconnected.</p>}
       <div className="github-actions">
         {status !== 'revocation_pending' && (
           <button className="github-control" type="button" disabled={working} onClick={connect}>

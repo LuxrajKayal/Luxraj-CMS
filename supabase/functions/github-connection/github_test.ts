@@ -45,3 +45,24 @@ Deno.test('GitHub requests sign an App JWT and keep short-lived tokens within in
   await github.uninstall(12);
   assert.equal(requestCount, 5);
 });
+
+Deno.test('accepts all and selected repository scopes and discovers only the approved owner', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  for (const selection of ['all', 'selected']) {
+    const github = createGitHub(10, privateKey.export({ format: 'pem', type: 'pkcs1' }).toString(), async input => {
+      const url = new URL(String(input));
+      if (url.pathname === '/app/installations') return Response.json([
+        { id: 13, app_id: 10, account: { id: 999, login: 'other', type: 'User' } },
+        { id: 12, app_id: 10, account: { id: 20, login: 'owner', type: 'User' } },
+      ]);
+      if (url.pathname === '/app/installations/12') return Response.json({
+        id: 12, app_id: 10, account: { id: 20, login: 'owner', type: 'User' },
+        repository_selection: selection, suspended_at: null,
+        permissions: { contents: 'write', metadata: 'read' },
+      });
+      throw new Error('Unexpected test URL: ' + url.pathname);
+    });
+    assert.equal((await github.existingInstallation(20))?.ready, true);
+    assert.equal(await github.existingInstallation(888), null);
+  }
+});

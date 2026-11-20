@@ -172,6 +172,22 @@ export function createHandler(deps: Dependencies) {
 
       if (action === 'start') {
         if (record.status === 'revocation_pending') return json({ error: 'revocation_pending' }, 409);
+        // Previously installed Apps may redirect straight to GitHub settings, not a new callback.
+        // Reattach only after verifying the actual App installation, owner and permissions.
+        const existing = await github.existingInstallation(deps.ownerId);
+        if (existing && expected(existing) && existing.ready) {
+          const repositories = await github.repositories(existing);
+          if (repositories.length) {
+            if (!await deps.isAdmin(identity.userId)) return json({ error: 'forbidden' }, 403);
+            const connected = await update(record, {
+              ...clearAttempt,
+              status: 'connected', app_id: existing.appId, installation_id: existing.id,
+              owner_id: existing.ownerId, owner_login: existing.owner,
+              owner_type: existing.ownerType, repositories,
+            });
+            return json(publicStatus(connected));
+          }
+        }
         const state = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
         await update(record, {
           ...clearAttempt,
