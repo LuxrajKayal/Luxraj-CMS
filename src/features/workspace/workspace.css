@@ -14,6 +14,13 @@
   gap: 0.4rem 0.6rem;
 }
 .repository-tools { flex: 1; justify-content: space-between; }
+.repository-current-workspace {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.3rem;
+  min-width: 0; max-width: 100%; padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border, #d2deec); border-radius: 0.35rem;
+  background: #edf5ff; color: #18334f; font-size: 0.85rem;
+}
+.repository-current-workspace strong { overflow-wrap: anywhere; }
 .repository-tools input { flex: 1; min-width: 8rem; max-width: 28rem; }
 .workspace button, .workspace select, .workspace input[type='search'],
 .settings-shell button, .dashboard-layout .github-control {
