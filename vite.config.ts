@@ -2,7 +2,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ command }) => ({
-  // Keep existing local development URL while building for the custom domain root.
+  // Local development keeps its existing /Luxraj-CMS/ URL.
+  // The GitHub Pages custom domain serves the built CMS at the domain root.
   base: command === 'build' ? '/' : '/Luxraj-CMS/',
   plugins: [react()],
 }));
