@@ -8,6 +8,7 @@ type Write = (input: object) => Promise<Response>;
 export interface CommitReviews {
   prepare(input: Input, files: ReviewFile[], message: string): Promise<CommitReview>;
   confirm(input: Input, id: string, write: Write): Promise<CommitReceipt>;
+  reconcile(input: Input, id: string, sha: string): Promise<CommitReceipt>;
 }
 
 export async function checkedDrafts({ changes, scope, repository, git }: Input, files: ReviewFile[], head: string) {
@@ -68,7 +69,8 @@ export async function writeCommit(write: Write, review: CommitReview, additions:
   throw new WorkspaceError('commit_rejected', 409);
 }
 
-type Row = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[] };
+type Row = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[];
+  claimed?: boolean; commit_sha?: string | null };
 function fromRow(row: Row): CommitReview {
   return { id: row.id, repository: row.repository, branch: row.branch, head: row.head, message: row.message, files: row.files };
 }
@@ -76,6 +78,23 @@ function fromRow(row: Row): CommitReview {
 export function createCommitReviews(client: SupabaseClient): CommitReviews {
   const table = 'cms_commit_reviews';
   const keys = (scope: ChangeScope) => ({ user_id: scope.userId, repository_id: scope.repositoryId, branch: scope.branch });
+
+  async function record(id: string, actorId: string, sha: string): Promise<number | null> {
+    // The GitHub write cannot share a database transaction. Retry the status
+    // update; the RPC is idempotent when an earlier response was lost.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const result = await client.rpc('cms_record_commit', {
+          review_id: id, actor_id: actorId, github_sha: sha,
+        });
+        if (!result.error && typeof result.data === 'number') return result.data;
+      } catch {
+        // Retrying a lost response is safe because cms_record_commit is idempotent.
+      }
+    }
+    return null;
+  }
+
   return {
     async prepare(input, files, message) {
       const head = await input.git.requireBranch(input.repository, input.scope.branch);
@@ -108,14 +127,52 @@ export function createCommitReviews(client: SupabaseClient): CommitReviews {
       const sha = await writeCommit(write, review, drafts.map(draft => ({
         path: draft.path, contents: base64(draft.proposedSource),
       })));
-      let retained: number | null = null;
-      try {
-        const result = await client.rpc('cms_record_commit', { review_id: id, actor_id: input.scope.userId, github_sha: sha });
-        if (!result.error && typeof result.data === 'number') retained = result.data;
-      } catch {
-        // A confirmed GitHub success must still be reported if Supabase is unavailable.
+      const retained = await record(id, input.scope.userId, sha);
+      return { sha, url: `https://github.com/${review.repository}/commit/${sha}`,
+        retained, fileCount: drafts.length, reviewId: id };
+    },
+
+    async reconcile(input, id, sha) {
+      if (!isCommit(sha)) throw new WorkspaceError('commit_unverified', 409);
+      const { data, error } = await client.from(table)
+        .select('id,repository,branch,head,message,files,claimed,commit_sha')
+        .match(keys(input.scope)).eq('id', id).eq('claimed', true).maybeSingle();
+      if (error) throw error;
+      if (!data) throw new WorkspaceError('review_expired', 409);
+      const row = data as Row;
+      const review = fromRow(row);
+      if (review.repository !== input.repository.name ||
+          (row.commit_sha && row.commit_sha !== sha)) throw new WorkspaceError('commit_unverified', 409);
+      await input.check();
+
+      // An authenticated admin cannot mark an arbitrary SHA as the result of a
+      // review: verify the real GitHub commit, its parent and its exact message.
+      const response = await input.git.get(`${input.git.repoPath(input.repository)}/git/commits/${sha}`);
+      if (!response.ok) throw new WorkspaceError('commit_unverified', 409);
+      const remote = await response.json();
+      if (remote.sha !== sha || remote.parents?.[0]?.sha !== review.head ||
+          typeof remote.message !== 'string' ||
+          remote.message.trimEnd() !== review.message.trimEnd()) {
+        throw new WorkspaceError('commit_unverified', 409);
       }
-      return { sha, url: `https://github.com/${review.repository}/commit/${sha}`, retained, fileCount: drafts.length };
+
+      // Verify remaining identical saved revisions against the committed file
+      // content before recording them. Newer edited drafts remain pending.
+      for (const file of review.files) {
+        const draft = await input.changes.get({ ...input.scope, path: file.path });
+        if (draft?.revision !== file.revision) continue;
+        let source: string;
+        try {
+          source = await input.git.atCommit(input.repository, sha, file.path.split('/'));
+        } catch {
+          throw new WorkspaceError('commit_unverified', 409);
+        }
+        if (source !== draft.proposedSource) throw new WorkspaceError('commit_unverified', 409);
+      }
+      await input.check();
+      const retained = await record(id, input.scope.userId, sha);
+      return { sha, url: `https://github.com/${review.repository}/commit/${sha}`,
+        retained, fileCount: review.files.length, reviewId: id };
     },
   };
 }
