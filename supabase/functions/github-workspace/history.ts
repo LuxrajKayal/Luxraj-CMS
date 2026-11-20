@@ -66,8 +66,10 @@ export function createHistory(
       const response = await git.get(`${base}/commits?sha=${head}&per_page=25&page=${page}`);
       const values = await readMissing(response);
       if (!Array.isArray(values)) throw new Error('Invalid history.');
+      // Branch tips do not change between pages pinned to the same head.
+      // Load them only on page 1; the client retains these labels while paging.
       const refs = [{ name: branch, sha: head }];
-      for (let branchPage = 1; branchPage <= 100; branchPage += 1) {
+      for (let branchPage = 1; page === 1 && branchPage <= 100; branchPage += 1) {
         const response = await git.get(`${base}/branches?per_page=100&page=${branchPage}`);
         const values = await readMissing(response);
         if (!Array.isArray(values)) throw new Error('Invalid branches.');
