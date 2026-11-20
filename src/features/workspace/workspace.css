@@ -94,8 +94,12 @@
 .commit-controls dialog::backdrop { background: #10203980; }
 .commit-controls dialog pre, .commit-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 .commit-graph { margin: .5rem 0; padding: 0; list-style: none; overflow-x: auto; }
+.commit-graph > li { display: flex; align-items: center; gap: .25rem; }
+.commit-graph .commit-github-link {
+  flex: none; font-size: .72rem; padding: .3rem .2rem; white-space: nowrap; color: #175c9e;
+}
 .workspace .commit-graph button {
-  display: flex; gap: .35rem; align-items: center; height: 44px; width: 100%; min-width: min-content;
+  display: flex; flex: 1; gap: .35rem; align-items: center; height: 44px; min-width: 0;
   padding: 0 .2rem; border: 0; border-radius: 0; text-align: left;
 }
 .workspace .commit-graph svg { flex: none; margin: 0; }
