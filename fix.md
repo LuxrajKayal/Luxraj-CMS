@@ -75,7 +75,7 @@ Follow the reference's bottom wide layout:
 **Owner policy: Drafts are retained even after future successful GitHub commits; there must be NO automatic post-commit deletion or expiry.**
 
 - Provide Settings → **Draft Management** accessible to the Super Admin.
-- List saved drafts across the owner's authorized repositories/branches with repository, branch, file path, last updated, draft state and estimated bytes/size. Display total draft count and usage. Use backend-authorized listing, not public direct-table access.
+- List **all drafts belonging to the authenticated Super Admin**, including drafts from deleted branches, removed repositories, or a disconnected GitHub App, with repository identifier/name when available, branch, file path, last updated, draft state and estimated bytes/size. Display total draft count and usage. Use backend-authorized listing, not public direct-table access. GitHub access must not be required to see/delete an owned Supabase draft.
 - Allow **single-draft manual deletion**, **multi-select and bulk deletion**, optionally select all; require clear irreversible-deletion confirmation and show which drafts would be affected.
 - Deleting a draft must **never modify or delete the GitHub source file**. Protect against stale concurrent deletion and unauthorized cross-user/repository deletion. Handle errors/partial bulk failures honestly.
 - For future Task 13, retained drafts that were already committed should become **committed/archived rather than pending**, to avoid recommitting the same proposal accidentally. A specific commit-status mechanism must be designed with Task 13; do **not** invent GitHub commits or an unverified committed state as part of this UI fix.
