@@ -5,8 +5,8 @@ import { useEditBuffers, type EditBuffer } from './EditBuffers';
 
 const MonacoSource = lazy(() => import('./MonacoViews').then(module => ({ default: module.MonacoSource })));
 
-export function DraftEditor({ repositoryId, branch, path, commit }: {
-  repositoryId: number; branch: string; path: string[]; commit: string;
+export function DraftEditor({ repositoryId, branch, path, commit, onSaved }: {
+  repositoryId: number; branch: string; path: string[]; commit: string; onSaved?(): void;
 }) {
   const { buffers, put, remove } = useEditBuffers();
   const filename = path.join('/');
@@ -51,6 +51,7 @@ export function DraftEditor({ repositoryId, branch, path, commit }: {
       });
       setOpened({ current, draft: result.draft });
       remove(key, edit);
+      onSaved?.();
     } catch (error) {
       setError(workspaceError(error));
     } finally {
@@ -68,17 +69,18 @@ export function DraftEditor({ repositoryId, branch, path, commit }: {
 
   return (
     <>
-      <div className="workspace-actions">
+      <div className="workspace-actions editor-file-toolbar">
+        <strong title={filename}>{filename}</strong>
         <button type="button" disabled={saving} onClick={() => setReadOnly(value => !value)}>
           {readOnly ? 'Enable editing' : 'Read-only mode'}
         </button>
         <button type="button" disabled={saving || !buffer} onClick={() => { if (buffer) void save(buffer); }}>Save draft</button>
         <button type="button" disabled={saving} onClick={reloadDraft}>Reopen saved draft</button>
+        <span role="status">{saving ? 'Saving draft…' : buffer ? 'Unsaved changes' : draft ? 'Draft saved' : 'GitHub source'}</span>
       </div>
-      <p role="status">{saving ? 'Saving draft…' : buffer ? 'Unsaved changes' : draft ? 'Draft saved' : 'GitHub source'}</p>
       {draft && draft.originalBlob !== current.blob &&
         <p role="alert">The GitHub file changed since this draft began. The original version is preserved for review.</p>}
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="workspace-alert" role="alert">{error}</p>}
       <Suspense fallback={<p role="status">Loading editor…</p>}>
         <MonacoSource path={filename} source={buffer?.source ?? baseline} readOnly={readOnly || saving} onChange={change} />
       </Suspense>

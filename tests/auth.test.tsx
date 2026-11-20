@@ -75,6 +75,9 @@ test('a stored session is checked before the dashboard renders', async () => {
   await screen.findByRole('heading', { name: 'Dashboard' });
   expect(auth.getUser).toHaveBeenCalledOnce();
   expect(screen.getByRole('navigation')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse main sidebar' }));
+  expect(screen.getByRole('link', { name: 'Code Editor' }).getAttribute('title')).toBe('Code Editor');
+  fireEvent.click(screen.getByRole('button', { name: 'Expand main sidebar' }));
 });
 
 test('email/password sign-in opens the dashboard and local logout returns to login', async () => {

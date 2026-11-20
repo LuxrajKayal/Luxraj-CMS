@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { FileCode2, Folder as FolderIcon, GitBranch, Maximize, PanelLeft, RefreshCw } from 'lucide-react';
+import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
+import { ChangedFiles, DraftDiff } from './SourceControlPage';
 import { workspaceError, workspaceRequest, type Directory, type Selection, type TreeEntry } from './api';
 import { BranchPicker, useWorkspace } from './WorkspaceLayout';
 import { DraftEditor } from './DraftEditor';
@@ -18,7 +21,7 @@ function DirectoryList({ context, path, commit, entries, openFile }: {
         <li key={entry.name}>
           {entry.kind === 'folder'
             ? <Folder context={context} path={[...path, entry.name]} commit={commit} openFile={openFile} />
-            : <button type="button" onClick={() => openFile([...path, entry.name])}>{entry.name}</button>}
+            : <button type="button" onClick={() => openFile([...path, entry.name])}><FileCode2 size={15} aria-hidden="true" />{entry.name}</button>}
         </li>
       ))}
     </ul>
@@ -54,7 +57,7 @@ function Folder({ context, path, commit, openFile }: {
   return (
     <>
       <button type="button" aria-expanded={expanded} onClick={() => void toggle()} disabled={loading}>
-        {path.at(-1)}
+        <FolderIcon size={15} aria-hidden="true" />{path.at(-1)}
       </button>
       {expanded && (
         <>
@@ -67,12 +70,18 @@ function Folder({ context, path, commit, openFile }: {
   );
 }
 
-function Explorer({ selection }: { selection: Selection & { branch: string } }) {
+function Explorer({ selection, repository }: { selection: Selection & { branch: string }; repository: string }) {
   const { repositoryId, branch } = selection;
   const [tree, setTree] = useState<Directory | null>(null);
   const [treeError, setTreeError] = useState('');
   const [file, setFile] = useState<string[] | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const [diff, setDiff] = useState<string | null>(null);
+  const [changesVersion, setChangesVersion] = useState(0);
+  const [showFiles, setShowFiles] = useState(true);
+  const [showChanges, setShowChanges] = useState(() => !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
+  const [focus, setFocus] = useState(false);
+  const { refresh: refreshWorkspace, saving } = useWorkspace();
   const commit = tree?.commit;
 
   useEffect(() => {
@@ -85,6 +94,8 @@ function Explorer({ selection }: { selection: Selection & { branch: string } }) 
 
   function openFile(path: string[]) {
     setFile([...path]);
+    setDiff(null);
+    if (window.matchMedia?.('(max-width: 48rem)').matches) setShowFiles(false);
   }
 
   function refreshTree() {
@@ -95,23 +106,46 @@ function Explorer({ selection }: { selection: Selection & { branch: string } }) 
   }
 
   return (
-    <>
-      <button type="button" onClick={refreshTree} disabled={!tree && !treeError}>Refresh file tree</button>
-      <div className="source-explorer">
-        <section aria-label="File explorer">
-          <h2>Files</h2>
+    <div className="module-stack">
+      <ModuleTopbar title="Code Editor">
+        <button type="button" aria-label="File explorer" title="File explorer" aria-expanded={showFiles && !focus}
+          onClick={() => { setFocus(false); setShowFiles(focus || !showFiles); }}><PanelLeft size={17} aria-hidden="true" /></button>
+        <button type="button" aria-label="Source Control panel" title="Source Control panel" aria-expanded={showChanges && !focus}
+          onClick={() => { setFocus(false); setShowChanges(focus || !showChanges); }}><GitBranch size={17} aria-hidden="true" /></button>
+        <Link to="/repositories" title="Switch repository">{repository}</Link>
+        <BranchPicker />
+        <button type="button" aria-pressed={focus} onClick={() => setFocus(value => !value)} title="Editor focus">
+          <Maximize size={16} aria-hidden="true" /><span>{focus ? 'Exit focus' : 'Focus'}</span>
+        </button>
+        <button type="button" onClick={refreshWorkspace} disabled={saving} aria-label="Refresh workspace" title="Refresh workspace">
+          <RefreshCw size={16} aria-hidden="true" />
+        </button>
+      </ModuleTopbar>
+      <div className="editor-panes">
+        <ModulePanel title="Files" hidden={!showFiles || focus}>
+          <button type="button" onClick={refreshTree} disabled={!tree && !treeError}>Refresh file tree</button>
           {treeError && <p role="alert">{treeError}</p>}
           {!tree && !treeError && <p role="status">Loading file tree…</p>}
           {tree && <DirectoryList context={{ repositoryId, branch }} path={[]} commit={tree.commit}
             entries={tree.entries} openFile={openFile} />}
+        </ModulePanel>
+        <section className="editor-center" aria-label="Editor workspace">
+          <div className="editor-document" hidden={!!diff}>
+            {!file && <p className="workspace-placeholder">Choose an HTML, CSS, or JavaScript file to view its source.</p>}
+            {file && commit && <DraftEditor key={JSON.stringify(file)}
+              {...{ repositoryId, branch, path: file, commit }} onSaved={() => setChangesVersion(value => value + 1)} />}
+          </div>
+          {diff && <DraftDiff key={diff} file={diff} {...{ repositoryId, branch }} onBack={() => setDiff(null)} />}
         </section>
-        <section aria-label="Source editor">
-          <h2>{file ? file.join('/') : 'Source preview'}</h2>
-          {!file && <p>Choose an HTML, CSS, or JavaScript file to view its source.</p>}
-          {file && commit && <DraftEditor key={JSON.stringify(file)} {...{ repositoryId, branch, path: file, commit }} />}
-        </section>
+        {showChanges && !focus && <ModulePanel title="Source Control">
+          <ChangedFiles {...{ repositoryId, branch }} version={changesVersion} active={diff}
+            onOpen={path => {
+              setDiff(path);
+              if (window.matchMedia?.('(max-width: 48rem)').matches) setShowChanges(false);
+            }} refresh={() => { setDiff(null); setChangesVersion(value => value + 1); }} />
+        </ModulePanel>}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -122,14 +156,14 @@ export function CodeEditorPage() {
   const unsaved = Object.keys(buffers).length;
   return (
     <>
-      <h1>Code Editor</h1>
-      {unsaved > 0 && <p>Unsaved files in this session: {unsaved}. Reopen a file to continue editing or save it.</p>}
-      {!active && <p><Link to="/repositories">Select a repository</Link> to browse its files.</p>}
-      {active && <p>Repository <strong>{active.name}</strong> · <Link to="/repositories">Switch repository</Link></p>}
-      <BranchPicker />
-      {selection?.branch && !saving && (
+      {(!selection?.branch || saving || !active) && <>
+        <ModuleTopbar title="Code Editor"><BranchPicker /></ModuleTopbar>
+        {!active && <p className="module-body"><Link to="/repositories">Select a repository</Link> to browse its files.</p>}
+      </>}
+      {unsaved > 0 && <p className="workspace-notice">Unsaved files in this session: {unsaved}. Reopen a file to continue editing or save it.</p>}
+      {selection?.branch && active && !saving && (
         <Explorer key={JSON.stringify([selection.repositoryId, selection.branch])}
-          selection={{ repositoryId: selection.repositoryId, branch: selection.branch }} />
+          repository={active.name} selection={{ repositoryId: selection.repositoryId, branch: selection.branch }} />
       )}
     </>
   );

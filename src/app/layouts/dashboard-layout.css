@@ -1,55 +1,62 @@
 .dashboard-layout {
+  --surface: #f5f8fc;
+  --panel: #fff;
+  --ink: #18334f;
+  --border: #d2deec;
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
-  min-height: 100vh;
-  min-height: 100dvh;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  color-scheme: light;
 }
-
+.dashboard-layout--rail { grid-template-columns: 4.25rem minmax(0, 1fr); }
 .dashboard-layout__sidebar {
-  padding: 1rem;
-  background: #172335;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.55rem;
+  overflow: auto;
+  background: #102039;
+  color: #f5f9ff;
+  color-scheme: dark;
 }
-
-.dashboard-layout__title {
-  margin: 0 0 1rem;
-  font-weight: 700;
+.cms-sidebar-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.25rem; }
+.dashboard-layout--rail .cms-sidebar-header { justify-content: center; }
+.dashboard-layout__sidebar ul { display: grid; gap: 0.2rem; padding: 0; margin: 0; list-style: none; }
+.dashboard-layout__sidebar a, .dashboard-layout__sidebar button {
+  display: flex; align-items: center; gap: 0.6rem; min-height: 40px; padding: 0.45rem 0.55rem;
+  border: 0; border-radius: 0.35rem; background: transparent; color: inherit; text-decoration: none; font: inherit; cursor: pointer;
 }
-
-.dashboard-layout__sidebar ul {
-  display: grid;
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.dashboard-layout__sidebar svg { flex-shrink: 0; }
+.dashboard-layout__sidebar a:hover, .dashboard-layout__sidebar button:hover { background: #233c5e; }
+.dashboard-layout__sidebar a[aria-current='page'] { background: #1659ad; }
+.dashboard-layout--rail nav a, .dashboard-layout--rail .cms-account button { justify-content: center; }
+.dashboard-layout--rail nav a span, .dashboard-layout--rail .cms-account button span { display: none; }
+.cms-account { display: grid; gap: 0.25rem; margin-top: auto; }
+.cms-account small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: 0.5rem; }
+.dashboard-layout__content { min-width: 0; min-height: 0; overflow: auto; }
+.dashboard-layout__content > [role='alert'] { margin: 0; padding: 0.4rem 0.7rem; }
+.dashboard-layout__content a { color: #104e96; }
+.module-topbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.65rem; min-width: 0;
+  padding: 0.45rem 0.7rem; background: var(--panel, #fff); border-bottom: 1px solid var(--border, #d2deec);
 }
-
-.dashboard-layout__sidebar a,
-.dashboard-layout__sidebar button {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  border: 0;
-  border-radius: 0.375rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-decoration: none;
-}
-
-.dashboard-layout__sidebar a:hover,
-.dashboard-layout__sidebar a[aria-current='page'] {
-  background: #293951;
-}
-
-.dashboard-layout__sidebar button:disabled {
-  color: #b9c8dc;
-}
-
-.dashboard-layout__content {
-  padding: clamp(1rem, 4vw, 2.5rem);
-}
-
-@media (max-width: 42rem) {
-  .dashboard-layout {
-    grid-template-columns: 1fr;
+.module-topbar h1 { font-size: 1.05rem; margin: 0; white-space: nowrap; }
+.module-topbar .workspace-field { margin: 0; }
+.module-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface, #f5f8fc); }
+.module-panel[hidden] { display: none; }
+.module-panel h2 { font-size: 0.92rem; padding: 0.55rem 0.7rem; margin: 0; border-bottom: 1px solid var(--border, #d2deec); }
+.module-panel__body { overflow: auto; min-height: 0; padding: 0.45rem 0.65rem; }
+.module-body { padding: 0.75rem; }
+@media (max-width: 48rem) {
+  .dashboard-layout { grid-template-columns: 3.4rem minmax(0, 1fr); position: relative; }
+  .dashboard-layout--rail .dashboard-layout__sidebar { padding-inline: 0.25rem; }
+  .dashboard-layout:not(.dashboard-layout--rail) .dashboard-layout__sidebar {
+    position: absolute; inset: 0 auto 0 0; width: min(14rem, 85vw); box-shadow: 6px 0 16px #10203960;
   }
+  .dashboard-layout:not(.dashboard-layout--rail) .dashboard-layout__content { grid-column: 2; }
 }

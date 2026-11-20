@@ -18,6 +18,12 @@ function fixture() {
   const branchNames = ['main', 'feature/next'];
   const prefs = new Map<string, Selection>();
   const drafts = new Map<string, Draft>();
+  let databaseLimitMb = 350;
+  let fileLimitMb = 700;
+  const usage = () => ({
+    databaseBytes: 10, fileBytes: 20, databaseLimitMb, fileLimitMb, databaseCeilingMb: 450,
+    fileCeilingMb: 900, draftTableBytes: 0, draftContentBytes: 0,
+  });
   const draftKey = (scope: object) => JSON.stringify(scope);
   const calls: string[] = [];
   let allowed = true;
@@ -51,7 +57,28 @@ function fixture() {
 
   const handler = createWorkspaceHandler({
     origin,
+    storage: {
+      usage: async () => usage(),
+      async set(database, file) {
+        databaseLimitMb = database;
+        fileLimitMb = file;
+        return usage();
+      },
+    },
     changes: {
+      async catalog(userId) {
+        return [...drafts].flatMap(([key, value]) => {
+          const owner = JSON.parse(key);
+          return owner.userId === userId ? [{
+            repositoryId: owner.repositoryId, branch: owner.branch, path: value.path,
+            revision: value.revision, updatedAt: value.updatedAt, pending: true, contentBytes: 30,
+          }] : [];
+        });
+      },
+      async remove(userId, item) {
+        const key = draftKey({ userId, repositoryId: item.repositoryId, branch: item.branch, path: item.path });
+        return drafts.get(key)?.revision === item.revision && drafts.delete(key);
+      },
       async list(scope) {
         return [...drafts].filter(([key]) => {
           const { path: _path, ...owner } = JSON.parse(key);
@@ -184,4 +211,38 @@ Deno.test('drafts keep the GitHub baseline, reject old revisions, and list only 
   assert.equal((await f.post({ action: 'diff', ...selection, repositoryId: 99, path })).status, 403);
   await f.post({ action: 'select', repositoryId: 22 });
   assert.equal((await f.post({ action: 'diff', ...selection, path })).status, 409);
+});
+
+Deno.test('draft management rechecks role, repository, branch and revision for each manual deletion', async () => {
+  const f = fixture();
+  const selection = { repositoryId: 11, branch: 'feature/next' };
+  const path = ['site', 'index.HTML'];
+  await f.post({ action: 'select', ...selection });
+  const { draft } = await (await f.post({ action: 'save_draft', ...selection, path, commit, source: 'edit', revision: null })).json();
+  await f.post({ action: 'select', repositoryId: 22 });
+  assert.equal((await f.post({ action: 'draft_catalog' }, 'other')).status, 403);
+  const { files } = await (await f.post({ action: 'draft_catalog' })).json();
+  assert.deepEqual(files.map((item: { path: string }) => item.path), ['site/index.HTML']);
+  const file = { ...selection, path: draft.path, revision: draft.revision };
+  const { results } = await (await f.post({ action: 'delete_drafts', drafts: [
+    { ...file, repositoryId: 99 },
+    { ...file, branch: 'removed' },
+    { ...file, revision: '00000000-0000-0000-0000-000000000000' },
+    file,
+  ] })).json();
+  assert.deepEqual(results.map((item: { result: string }) => item.result), ['unavailable', 'unavailable', 'conflict', 'deleted']);
+  assert.deepEqual(await (await f.post({ action: 'draft_catalog' })).json(), { files: [] });
+});
+
+Deno.test('storage settings require Super Admin and enforce both hard ceilings', async () => {
+  const f = fixture();
+  const save = { action: 'storage_save', databaseLimitMb: 450, fileLimitMb: 900 };
+  assert.equal((await f.post(save, 'other')).status, 403);
+  assert.equal((await f.post({ ...save, databaseLimitMb: 451 })).status, 400);
+  assert.equal((await f.post({ ...save, fileLimitMb: 901 })).status, 400);
+  assert.equal((await f.post(save)).status, 200);
+  const settings = await (await f.post({ action: 'storage_status' }, 'new-session')).json();
+  assert.equal(settings.databaseLimitMb, 450);
+  assert.equal(settings.fileLimitMb, 900);
+  assert.equal(f.calls.length, 0);
 });

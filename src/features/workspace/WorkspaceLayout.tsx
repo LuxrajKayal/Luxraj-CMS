@@ -6,7 +6,8 @@ import './workspace.css';
 type WorkspaceContext = {
   workspace: Workspace;
   saving: boolean;
-  select(repositoryId: number, branch?: string): Promise<void>;
+  select(repositoryId: number, branch?: string): Promise<boolean>;
+  refresh(): void;
 };
 
 export function WorkspaceLayout() {
@@ -32,13 +33,15 @@ export function WorkspaceLayout() {
   }
 
   async function select(repositoryId: number, branch?: string) {
-    if (saving) return;
+    if (saving) return false;
     setSaving(true);
     setError('');
     try {
       setWorkspace(await workspaceRequest({ action: 'select', repositoryId, branch }));
+      return true;
     } catch (error) {
       setError(workspaceError(error));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -46,14 +49,14 @@ export function WorkspaceLayout() {
 
   return (
     <section className="workspace">
-      <div className="workspace-actions">
+      {!workspace && <div className="workspace-actions module-body">
         <button type="button" onClick={refresh} disabled={saving || (!workspace && !error)}>Refresh workspace</button>
         {!workspace && error && <Link to="/settings">GitHub Connection settings</Link>}
-      </div>
+      </div>}
       {error && <p role="alert">{error}</p>}
       {saving && <p role="status">Saving workspace selection…</p>}
       {!workspace && !error && <p role="status">Loading GitHub workspace…</p>}
-      {workspace && <Outlet context={{ workspace, saving, select } satisfies WorkspaceContext} />}
+      {workspace && <Outlet context={{ workspace, saving, select, refresh } satisfies WorkspaceContext} />}
     </section>
   );
 }
