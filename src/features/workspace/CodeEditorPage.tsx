@@ -185,7 +185,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
           </div>
           {diff && <DraftDiff key={diff} file={diff} {...{ repositoryId, branch }} onBack={() => setDiff(null)} />}
           {historyDiff && <HistoryDiff key={JSON.stringify(historyDiff)} file={historyDiff}
-            {...{ repositoryId, branch }} onBack={() => setHistoryDiff(null)} />}
+            {...{ repositoryId, branch, repository }} onBack={() => setHistoryDiff(null)} />}
         </section>
         <ModulePanel title="Source Control" hidden={!showChanges || focus}>
           <div className="workspace-actions" role="tablist" aria-label="Source Control view" onKeyDown={event => {
@@ -221,7 +221,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
                   setDiff(path);
                   if (window.matchMedia?.('(max-width: 48rem)').matches) setShowChanges(false);
                 }} refresh={() => { setDiff(null); setChangesVersion(value => value + 1); }} />
-            : <HistoryPanel key={historyVersion} {...{ repositoryId, branch }} version={historyVersion}
+            : <HistoryPanel key={historyVersion} {...{ repositoryId, branch, repository }} version={historyVersion}
                 openFile={selected => {
                   setDiff(null);
                   setHistoryDiff(selected);
