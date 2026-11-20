@@ -54,29 +54,145 @@ function open(path: string) {
   );
 }
 
-test('switches repositories and carries the selected branch into Code Editor', async () => {
-  request.mockImplementation(async (input: WorkspaceRequest) => {
-    if (input.action === 'load') return alpha;
-    if (input.action === 'select') return beta;
-    return tree;
-  });
-  open('/repositories');
-  fireEvent.click(await screen.findByRole('button', { name: 'Medium' }));
-  expect(screen.getByRole('button', { name: 'Medium' }).getAttribute('aria-pressed')).toBe('true');
-  fireEvent.click(screen.getByRole('button', { name: 'List' }));
-  expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true');
-  fireEvent.click(screen.getByRole('button', { name: 'Open owner/beta' }));
-  expect((await screen.findByRole<HTMLInputElement>('radio', { name: /trunk/ })).checked).toBe(true);
-  expect(screen.queryByRole('button', { name: 'Open owner/alpha' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'All repositories' }));
-  expect(screen.getByRole('button', { name: 'Open owner/alpha' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Open owner/beta' }));
-  fireEvent.click(screen.getByRole('link', { name: 'Open with Code Editor' }));
-  await screen.findByRole('button', { name: 'index.html' });
-  expect(request).toHaveBeenCalledWith({ action: 'select', repositoryId: 2, branch: undefined });
-  expect(request).toHaveBeenCalledWith(
-    { action: 'tree', repositoryId: 2, branch: 'trunk', path: [] }, expect.any(AbortSignal),
-  );
+test('shows the current workspace after returning and confirms a repository switch before opening Code Editor', async () => {
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  try {
+    request.mockImplementation(async (input: WorkspaceRequest) => {
+      if (input.action === 'load') return alpha;
+      if (input.action === 'select') return beta;
+      if (input.action === 'tree') return tree;
+      if (input.action === 'changes') return { files: [] };
+      throw new Error('Unexpected request');
+    });
+    open('/repositories');
+    const status = await screen.findByRole('status', { name: 'Current workspace' });
+    expect(within(status).getByText('owner/alpha / main')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Medium' }));
+    expect(screen.getByRole('button', { name: 'Medium' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+    expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open owner/alpha' }));
+    await screen.findByRole('radio', { name: /main/ });
+    fireEvent.click(screen.getByRole('button', { name: 'All repositories' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open owner/beta' }));
+
+    expect(confirm).toHaveBeenCalledWith('Want to switch from owner/alpha / main to owner/beta / trunk?');
+    await screen.findByRole('heading', { name: 'Code Editor' });
+    await screen.findByRole('button', { name: 'index.html' });
+    expect(request).toHaveBeenCalledWith({ action: 'select', repositoryId: 2, branch: undefined });
+    expect(request).toHaveBeenCalledWith(
+      { action: 'tree', repositoryId: 2, branch: 'trunk', path: [] }, expect.any(AbortSignal),
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'Repositories sidebar' }));
+    expect(within(await screen.findByRole('status', { name: 'Current workspace' }))
+      .getByText('owner/beta / trunk')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open owner/alpha' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open owner/beta' })).toBeTruthy();
+  } finally {
+    confirm.mockRestore();
+  }
+});
+
+test('canceling a repository switch leaves the selected workspace and screen unchanged', async () => {
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  try {
+    request.mockImplementation(async (input: WorkspaceRequest) => {
+      if (input.action === 'load') return alpha;
+      throw new Error('A canceled switch must not invoke the backend');
+    });
+    open('/repositories');
+    fireEvent.click(await screen.findByRole('button', { name: 'Open owner/beta' }));
+    expect(confirm).toHaveBeenCalledWith('Want to switch from owner/alpha / main to owner/beta / trunk?');
+    expect(within(screen.getByRole('status', { name: 'Current workspace' }))
+      .getByText('owner/alpha / main')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open owner/beta' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Code Editor' })).toBeNull();
+    expect(request.mock.calls.some(([input]) => input.action === 'select')).toBe(false);
+  } finally {
+    confirm.mockRestore();
+  }
+});
+
+test('changing branches in the repository view requires confirmation and opens Code Editor', async () => {
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+  try {
+    request.mockImplementation(async (input: WorkspaceRequest) => {
+      if (input.action === 'load') return alpha;
+      if (input.action === 'select') return { ...alpha, selection: { repositoryId: 1, branch: 'next' } };
+      if (input.action === 'tree') return tree;
+      if (input.action === 'changes') return { files: [] };
+      throw new Error('Unexpected request');
+    });
+    open('/repositories');
+    fireEvent.click(await screen.findByRole('button', { name: 'Open owner/alpha' }));
+    const next = await screen.findByRole('radio', { name: /next/ });
+    fireEvent.click(next);
+    expect(confirm).toHaveBeenCalledWith('Want to switch from owner/alpha / main to owner/alpha / next?');
+    expect(request.mock.calls.some(([input]) => input.action === 'select')).toBe(false);
+    expect(within(screen.getByRole('status', { name: 'Current workspace' }))
+      .getByText('owner/alpha / main')).toBeTruthy();
+
+    fireEvent.click(next);
+    await screen.findByRole('heading', { name: 'Code Editor' });
+    expect(request).toHaveBeenCalledWith({ action: 'select', repositoryId: 1, branch: 'next' });
+    expect(request).toHaveBeenCalledWith(
+      { action: 'tree', repositoryId: 1, branch: 'next', path: [] }, expect.any(AbortSignal),
+    );
+  } finally {
+    confirm.mockRestore();
+  }
+});
+
+test('a first repository selection still opens its branch list without an automatic switch', async () => {
+  const confirm = vi.spyOn(window, 'confirm');
+  try {
+    request.mockImplementation(async (input: WorkspaceRequest) => {
+      if (input.action === 'load') return { ...alpha, selection: null, branches: [] };
+      if (input.action === 'select') return beta;
+      if (input.action === 'tree') return tree;
+      if (input.action === 'changes') return { files: [] };
+      throw new Error('Unexpected request');
+    });
+    open('/repositories');
+    fireEvent.click(await screen.findByRole('button', { name: 'Open owner/beta' }));
+    expect((await screen.findByRole<HTMLInputElement>('radio', { name: /trunk/ })).checked).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Code Editor' })).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'Open with Code Editor' }));
+    await screen.findByRole('heading', { name: 'Code Editor' });
+  } finally {
+    confirm.mockRestore();
+  }
+});
+
+test('switching to another repository preserves unsaved edit buffers in this session', async () => {
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  try {
+    request.mockImplementation(async (input: WorkspaceRequest) => {
+      if (input.action === 'load') return alpha;
+      if (input.action === 'select') return beta;
+      if (input.action === 'tree') return tree;
+      if (input.action === 'changes') return { files: [] };
+      if (input.action === 'open_draft') return { current, draft: null };
+      throw new Error('Unexpected request');
+    });
+    open('/code-editor');
+    fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
+    const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
+    fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
+    fireEvent.change(editor, { target: { value: '<h1>Unsaved in alpha</h1>' } });
+    await screen.findByText('Unsaved changes');
+
+    fireEvent.click(screen.getByRole('link', { name: 'Repositories sidebar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open owner/beta' }));
+    await screen.findByRole('heading', { name: 'Code Editor' });
+    expect(await screen.findByText('Unsaved files in this session: 1. Reopen a file to continue editing or save it.')).toBeTruthy();
+  } finally {
+    confirm.mockRestore();
+  }
 });
 
 test('switching branches ignores a late source response and renders new HTML as text', async () => {
