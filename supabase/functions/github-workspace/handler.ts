@@ -2,6 +2,8 @@ import type { DraftDeletion, DraftIdentity, ManagedDraft, Selection, StorageUsag
 import { positiveId } from '../github-connection/github.ts';
 import { isBranch, isCommit, isPath, type WorkspaceGit, WorkspaceError } from './git.ts';
 import type { ChangeSets } from './change-sets.ts';
+import type { CommitReviews } from './commits.ts';
+import { createHistory } from './history.ts';
 
 interface Dependencies {
   origin: string;
@@ -11,10 +13,12 @@ interface Dependencies {
     repositories: WorkspaceGit['repositories'];
     forRepository(repositoryId: number): Promise<WorkspaceGit>;
     checkConnection(): Promise<void>;
+    write?(repositoryId: number, input: object, beforeWrite: () => Promise<void>): Promise<Response>;
   }>;
   getPreference(userId: string): Promise<Selection | null>;
   savePreference(userId: string, selection: Selection): Promise<void>;
   changes?: ChangeSets;
+  commits?: CommitReviews;
   storage?: { usage(): Promise<StorageUsage>; set(databaseLimitMb: number, fileLimitMb: number): Promise<StorageUsage> };
 }
 
@@ -63,6 +67,58 @@ export function createWorkspaceHandler(deps: Dependencies) {
           return json({ error: 'invalid_storage_limits' }, 400);
         }
         return json(await deps.storage.set(body.databaseLimitMb, body.fileLimitMb));
+      }
+      if (['review_commit', 'confirm_commit', 'history', 'commit_detail', 'commit_diff'].includes(action)) {
+        if (!positiveId(body.repositoryId) || !isBranch(body.branch)) return json({ error: 'invalid_request' }, 400);
+        const path = (value: unknown) => typeof value === 'string' && !!value && value.length <= 1024 && isPath(value.split('/'));
+        if (action === 'review_commit') {
+          if (typeof body.message !== 'string' || !body.message.trim() || body.message.trim().length > 1000 ||
+              body.message.includes('\0') || !Array.isArray(body.files) || !body.files.length || body.files.length > 20 ||
+              !body.files.every((file: any) => path(file?.path) && isRevision(file?.revision)) ||
+              new Set(body.files.map((file: { path: string }) => file.path)).size !== body.files.length) {
+            return json({ error: 'invalid_commit_review' }, 400);
+          }
+        }
+        if (action === 'confirm_commit' && !isRevision(body.reviewId)) return json({ error: 'invalid_request' }, 400);
+        if (action === 'history' && (!Number.isInteger(body.page) || body.page < 1 || body.page > 10000 ||
+            ((body.page !== 1 || body.head !== undefined) && !isCommit(body.head)))) {
+          return json({ error: 'invalid_request' }, 400);
+        }
+        if ((action === 'commit_detail' || action === 'commit_diff') &&
+            (!isCommit(body.sha) || (action === 'commit_diff' && !path(body.path)))) {
+          return json({ error: 'invalid_request' }, 400);
+        }
+        async function checkSelection() {
+          const selected = await deps.getPreference(userId!);
+          if (!selected || selected.repositoryId !== body.repositoryId || selected.branch !== body.branch) {
+            throw new WorkspaceError('selection_changed', 409);
+          }
+        }
+        await checkSelection();
+        const remote = await deps.openGit();
+        const repository = (await remote.repositories()).find(repo => repo.id === body.repositoryId);
+        if (!repository) return json({ error: 'repository_out_of_scope' }, 403);
+        const git = await remote.forRepository(repository.id);
+        async function check() {
+          await remote.checkConnection();
+          await checkSelection();
+          if (!await deps.isAdmin(userId!)) throw new WorkspaceError('forbidden', 403);
+        }
+        if (action === 'review_commit' || action === 'confirm_commit') {
+          if (!deps.commits || !deps.changes || !remote.write) throw new Error('Commit service unavailable.');
+          const input = { repository, git, changes: deps.changes, check, scope: { userId, repositoryId: repository.id, branch: body.branch } };
+          return json(action === 'review_commit'
+            ? await deps.commits.prepare(input, body.files.map(({ path, revision }: { path: string; revision: string }) => ({ path, revision })),
+              body.message)
+            : await deps.commits.confirm(input, body.reviewId, async variables => {
+              return remote.write!(repository.id, variables, check);
+            }));
+        }
+        const history = createHistory(git, repository, body.branch);
+        const result = action === 'history' ? await history.list(body.page, body.head)
+          : action === 'commit_detail' ? await history.detail(body.sha) : await history.diff(body.sha, body.path);
+        await check();
+        return json(result);
       }
       if (action === 'draft_catalog' || action === 'delete_drafts') {
         if (action === 'delete_drafts' &&

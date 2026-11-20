@@ -3,7 +3,7 @@ import type { ManagedDraft } from '../../../supabase/functions/_shared/workspace
 import { workspaceError, workspaceRequest } from '../workspace/api';
 import { useEditBuffers } from '../workspace/EditBuffers';
 
-const keyOf = ({ repositoryId, branch, path }: ManagedDraft) => JSON.stringify([repositoryId, branch, path]);
+const keyOf = ({ repositoryId, branch, path, revision }: ManagedDraft) => JSON.stringify([repositoryId, branch, path, revision]);
 
 export function DraftManagementPage() {
   const { buffers } = useEditBuffers();
@@ -82,7 +82,7 @@ export function DraftManagementPage() {
         <section className="module-body" role="alertdialog" aria-labelledby="delete-draft-title">
           <h3 id="delete-draft-title">Permanently delete {confirmation.length === 1 ? 'this draft' : 'these drafts'}?</h3>
           <p>This removes the saved Supabase drafts. The GitHub source files stay intact.</p>
-          {confirmation.some(file => !!buffers[keyOf(file)]) &&
+          {confirmation.some(({ repositoryId, branch, path }) => !!buffers[JSON.stringify([repositoryId, branch, path])]) &&
             <p role="alert">Some selected files have unsaved browser edits. Those edits stay in this session, but their saved drafts will be removed.</p>}
           <ul>{confirmation.map(file => <li key={keyOf(file)}>{file.repository} · {file.branch} · {file.path}</li>)}</ul>
           <div className="workspace-actions">
@@ -112,7 +112,8 @@ export function DraftManagementPage() {
                     }} /></td>
                   <td>{file.repository}</td><td>{file.branch}</td><td><code>{file.path}</code></td>
                   <td><time dateTime={file.updatedAt}>{new Date(file.updatedAt).toLocaleString()}</time></td>
-                  <td>{!file.available ? 'GitHub unavailable · manual cleanup' : file.pending ? 'Pending change' : 'Retained · unchanged'}</td>
+                  <td>{file.committedSha ? `Committed · ${file.committedSha.slice(0, 12)}` : file.pending ? 'Pending change' : 'Retained · unchanged'}
+                    {!file.available && <><br /><span>GitHub unavailable · manual cleanup</span></>}</td>
                   <td>{file.contentBytes.toLocaleString()} bytes</td>
                   <td><button type="button" disabled={busy} aria-label={`Delete ${file.repository} ${file.branch} ${file.path}`}
                     onClick={() => { setNotice(''); setConfirmation([file]); }}>Delete</button></td>

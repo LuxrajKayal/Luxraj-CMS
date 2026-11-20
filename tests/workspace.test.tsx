@@ -35,6 +35,85 @@ const tree = { commit: 'a'.repeat(40), entries: [{ name: 'index.html', kind: 'fi
 const original = '<h1>Original</h1>';
 const current = { source: original, blob: 'b'.repeat(40), commit: tree.commit };
 
+test('requires explicit confirmation for exact saved revisions and preserves unsaved source after a commit', async () => {
+  const draft = { path: 'index.html', revision: 'saved-revision', originalCommit: current.commit, originalBlob: current.blob,
+    originalSource: original, proposedSource: '<h1>Saved version</h1>', updatedAt: '' };
+  const other = { ...draft, path: 'styles.css', revision: 'css-revision' };
+  const sha = 'c'.repeat(40);
+  let committed = false;
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return { ...tree, commit: committed ? sha : tree.commit };
+    if (input.action === 'open_draft') return committed
+      ? { current: { ...current, commit: sha, source: draft.proposedSource }, draft: null }
+      : { current, draft };
+    if (input.action === 'changes') return { files: committed ? [] : [draft, other] };
+    if (input.action === 'review_commit') return { id: 'review-id', repository: 'owner/alpha', branch: 'main',
+      files: input.files, message: input.message,
+    };
+    if (input.action === 'confirm_commit') {
+      committed = true;
+      return { sha, url: `https://github.com/owner/alpha/commit/${sha}`, fileCount: 2, retained: 2 };
+    }
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  const filesPanel = await screen.findByRole('complementary', { name: 'Files' });
+  fireEvent.click(await within(filesPanel).findByRole('button', { name: 'index.html' }));
+  const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
+  fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
+  fireEvent.change(editor, { target: { value: '<h1>Still unsaved</h1>' } });
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Include index.html in commit' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Include styles.css in commit' }));
+  fireEvent.change(screen.getByLabelText('Commit message'), { target: { value: 'Update site' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Review & Commit' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Confirm GitHub commit' });
+  for (const value of ['owner/alpha', 'main', 'index.html', 'styles.css', 'Update site']) {
+    expect(within(dialog).getByText(value)).toBeTruthy();
+  }
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  expect(request.mock.calls.some(([input]) => input.action === 'confirm_commit')).toBe(false);
+  expect(request).toHaveBeenCalledWith({ action: 'review_commit', repositoryId: 1, branch: 'main', message: 'Update site',
+    files: [{ path: 'index.html', revision: 'saved-revision' }, { path: 'styles.css', revision: 'css-revision' }] });
+  fireEvent.click(screen.getByRole('button', { name: 'Review & Commit' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Confirm commit' }));
+  expect(request).toHaveBeenCalledWith({ action: 'confirm_commit', repositoryId: 1, branch: 'main', reviewId: 'review-id' });
+  await screen.findByRole('link', { name: sha.slice(0, 12) });
+  await screen.findByText('No saved changes for this branch.');
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value).toBe('<h1>Still unsaved</h1>');
+});
+
+test('shows remote merge history, follows its page cursor, and opens a committed diff in the center', async () => {
+  const merge = { sha: 'd'.repeat(40), parents: [current.commit, current.blob], message: 'Merge external branch',
+    author: 'External contributor', date: '2026-11-19T12:00:00Z' };
+  const previous = { ...merge, sha: current.blob, message: 'Earlier external commit', parents: [] };
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'changes') return { files: [] };
+    if (input.action === 'history') return { head: merge.sha, refs: [{ name: 'main', sha: merge.sha }, { name: 'topic', sha: previous.sha }],
+      commits: input.page === 1 ? [merge] : [previous], next: input.page === 1 ? 2 : null };
+    if (input.action === 'commit_detail') return { ...merge, complete: true, files: [{ path: 'index.html', status: 'modified' }] };
+    if (input.action === 'commit_diff') return { original, proposed: '<h1>Externally merged</h1>' };
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('tab', { name: 'History' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Load more commits' }));
+  await screen.findByRole('button', { name: /Earlier external commit.*topic/ });
+  expect(request).toHaveBeenCalledWith({ action: 'history', repositoryId: 1, branch: 'main', page: 2, head: merge.sha }, expect.any(AbortSignal));
+  fireEvent.click(screen.getByRole('button', { name: /Merge external branch/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'modified · index.html' }));
+  expect((await screen.findByLabelText('Original source')).textContent).toBe(original);
+  expect(screen.getByLabelText('Proposed source').textContent).toBe('<h1>Externally merged</h1>');
+  expect(request).toHaveBeenCalledWith({ action: 'commit_diff', repositoryId: 1, branch: 'main', sha: merge.sha, path: 'index.html' }, expect.any(AbortSignal));
+  fireEvent.click(screen.getByRole('button', { name: 'Return to editor' }));
+  expect(screen.queryByLabelText('Original source')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh history' }));
+  await screen.findByRole('button', { name: /Merge external branch/ });
+  expect(screen.queryByRole('button', { name: /Earlier external commit/ })).toBeNull();
+});
+
 beforeEach(() => { request.mockReset(); });
 afterEach(cleanup);
 

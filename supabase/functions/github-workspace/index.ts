@@ -3,6 +3,7 @@ import { createGitHub, positiveId } from '../github-connection/github.ts';
 import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
 import { createChangeSets } from './change-sets.ts';
+import { createCommitReviews } from './commits.ts';
 import type { StorageUsage } from '../_shared/workspace-contracts.ts';
 
 function env(name: string) {
@@ -39,6 +40,7 @@ function configure() {
   return createWorkspaceHandler({
     origin,
     changes: createChangeSets(client),
+    commits: createCommitReviews(client),
     storage: {
       usage,
       async set(databaseLimitMb, fileLimitMb) {
@@ -79,6 +81,10 @@ function configure() {
           return createWorkspaceGit(await github.workspace(installation, repositoryId));
         },
         checkConnection,
+        async write(repositoryId, variables, beforeWrite) {
+          await checkConnection();
+          return github.commit(installation, repositoryId, variables, beforeWrite);
+        },
       };
     },
     async getPreference(userId) {

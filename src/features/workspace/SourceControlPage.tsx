@@ -1,24 +1,28 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { Draft, DraftSummary } from '../../../supabase/functions/_shared/workspace-contracts';
+import type { CommitReceipt, Draft, DraftSummary } from '../../../supabase/functions/_shared/workspace-contracts';
 import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { workspaceError, workspaceRequest } from './api';
 import { BranchPicker, useWorkspace } from './WorkspaceLayout';
 import { useEditBuffers } from './EditBuffers';
+import { CommitControls } from './CommitControls';
 
 const MonacoDiff = lazy(() => import('./MonacoViews').then(module => ({ default: module.MonacoDiff })));
 type Scope = { repositoryId: number; branch: string };
 
-export function ChangedFiles({ repositoryId, branch, version, active, onOpen, refresh }: Scope & {
+export function ChangedFiles({ repositoryId, branch, version, active, onOpen, refresh, onCommitted }: Scope & {
   version: number; active: string | null; onOpen(path: string): void; refresh(): void;
+  onCommitted?(receipt: CommitReceipt): void;
 }) {
   const [files, setFiles] = useState<DraftSummary[] | null>(null);
   const [error, setError] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
     setFiles(null);
     setError('');
+    setSelected([]);
     workspaceRequest({ action: 'changes', repositoryId, branch }, controller.signal)
       .then(result => { if (!controller.signal.aborted) setFiles(result.files); })
       .catch(error => { if (!controller.signal.aborted) setError(workspaceError(error)); });
@@ -35,12 +39,19 @@ export function ChangedFiles({ repositoryId, branch, version, active, onOpen, re
     {!files && !error && <p role="status">Loading proposed changes…</p>}
     {files?.length === 0 && <p>No saved changes for this branch.</p>}
     <ul className="source-tree">
-      {files?.map(item => <li key={item.path}>
+      {files?.map(item => <li key={item.path} className={onCommitted ? 'commit-file-row' : undefined}>
+        {onCommitted && item.revision && <input type="checkbox" aria-label={`Include ${item.path} in commit`}
+          checked={selected.includes(item.path)} onChange={event => {
+            setSelected(event.target.checked ? [...selected, item.path] : selected.filter(path => path !== item.path));
+          }} />}
         <button type="button" aria-pressed={active === item.path} onClick={() => onOpen(item.path)} title={item.path}>
           {item.path}
         </button>
       </li>)}
     </ul>
+    {onCommitted && <CommitControls {...{ repositoryId, branch, onCommitted }}
+      files={(files ?? []).flatMap(item => selected.includes(item.path) && item.revision
+        ? [{ path: item.path, revision: item.revision }] : [])} />}
   </>;
 }
 

@@ -34,7 +34,7 @@
 }
 .workspace button, .settings-shell button { cursor: pointer; }
 .workspace button:disabled, .settings-shell button:disabled { opacity: 0.55; cursor: default; }
-.workspace button[aria-pressed='true'], .workspace button[aria-expanded='true'] {
+.workspace button[aria-pressed='true'], .workspace button[aria-expanded='true'], .workspace button[aria-selected='true'] {
   background: #e2efff;
   color: #104e96;
   border-color: #5894d9;
@@ -86,6 +86,24 @@
 .source-tree { margin: 0.35rem 0; list-style: none; padding-left: 0.55rem; }
 .source-tree button { width: 100%; border-color: transparent; background: transparent; text-align: left; overflow-wrap: anywhere; }
 .source-tree button:hover { background: #edf5ff; }
+.commit-file-row { display: flex; align-items: center; gap: .3rem; }
+.commit-file-row button { min-width: 0; }
+.commit-controls { display: grid; gap: .45rem; margin-top: .5rem; border-top: 1px solid var(--border); padding-top: .6rem; }
+.commit-controls textarea { display: block; width: 100%; resize: vertical; font: inherit; }
+.commit-controls dialog { width: min(33rem, 93vw); max-height: 85vh; overflow: auto; border: 1px solid var(--border); border-radius: .5rem; }
+.commit-controls dialog::backdrop { background: #10203980; }
+.commit-controls dialog pre, .commit-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+.commit-graph { margin: .5rem 0; padding: 0; list-style: none; overflow-x: auto; }
+.workspace .commit-graph button {
+  display: flex; gap: .35rem; align-items: center; height: 44px; width: 100%; min-width: min-content;
+  padding: 0 .2rem; border: 0; border-radius: 0; text-align: left;
+}
+.workspace .commit-graph svg { flex: none; margin: 0; }
+.graph-entry { display: flex; flex-direction: column; min-width: 0; font-size: .83rem; line-height: 1.2; }
+.graph-entry > span, .graph-entry small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.graph-refs { font-size: .65rem; color: #124e93; }
+.graph-refs > span { background: #e2efff; border-radius: .2rem; padding: 0 .2rem; margin-right: .2rem; }
+.history-details { border-top: 1px solid var(--border); margin-top: .5rem; padding-top: .5rem; }
 .settings-body { display: flex; flex: 1; min-height: 0; }
 .settings-body > .module-panel { width: 13rem; flex-shrink: 0; border-inline-end: 1px solid var(--border); }
 .settings-body > .module-scroll { flex: 1; min-width: 0; }

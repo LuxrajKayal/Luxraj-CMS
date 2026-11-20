@@ -22,6 +22,7 @@ export function positiveId(value: unknown): value is number {
 
 export function createGitHub(appId: number, privateKey: string, request: typeof fetch = fetch): GitHub & {
   workspace(installation: Installation, repositoryId?: number): Promise<(path: string) => Promise<Response>>;
+  commit(installation: Installation, repositoryId: number, variables: object, beforeWrite: () => Promise<void>): Promise<Response>;
 } {
   const key = createPrivateKey(privateKey.replace(/\\n/g, '\n'));
 
@@ -66,11 +67,11 @@ export function createGitHub(appId: number, privateKey: string, request: typeof 
       };
   }
 
-  async function installationToken(installation: Installation, repositoryId?: number) {
+  async function installationToken(installation: Installation, repositoryId?: number, contents = 'read') {
     const response = await api(`/app/installations/${installation.id}/access_tokens`, appToken(), 'POST', {
       ...(repositoryId === undefined
         ? { permissions: { metadata: 'read' } }
-        : { permissions: { metadata: 'read', contents: 'read' }, repository_ids: [repositoryId] }),
+        : { permissions: { metadata: 'read', contents }, repository_ids: [repositoryId] }),
     });
     if (!response.ok) throw new Error('Installation authorization failed.');
     const { token } = await response.json();
@@ -83,6 +84,14 @@ export function createGitHub(appId: number, privateKey: string, request: typeof 
     async workspace(installation, repositoryId) {
       const token = await installationToken(installation, repositoryId);
       return path => api(path, token);
+    },
+    async commit(installation, repositoryId, variables, beforeWrite) {
+      const token = await installationToken(installation, repositoryId, 'write');
+      await beforeWrite();
+      return api('/graphql', token, 'POST', {
+        query: 'mutation Commit($input:CreateCommitOnBranchInput!) { createCommitOnBranch(input:$input) { commit { oid } } }',
+        variables,
+      });
     },
     async existingInstallation(ownerId) {
       if (!positiveId(ownerId)) return null;

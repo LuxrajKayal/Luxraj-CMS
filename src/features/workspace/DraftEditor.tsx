@@ -46,7 +46,7 @@ export function DraftEditor({ repositoryId, branch, path, commit, onSaved }: {
     setError('');
     try {
       const result = await workspaceRequest({
-        action: 'save_draft', repositoryId, branch, path, commit: edit.commit,
+        action: 'save_draft', repositoryId, branch, path, commit: edit.revision ? current.commit : edit.commit,
         source: edit.source, revision: edit.revision,
       });
       setOpened({ current, draft: result.draft });

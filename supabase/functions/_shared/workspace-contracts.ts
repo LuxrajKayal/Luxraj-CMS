@@ -38,6 +38,7 @@ export interface FileVersion extends SourceFile {
 export interface DraftSummary {
   path: string;
   updatedAt: string;
+  revision?: string;
 }
 
 export interface Draft extends DraftSummary {
@@ -70,7 +71,17 @@ export interface ManagedDraft extends DraftIdentity {
   contentBytes: number;
   pending: boolean;
   available: boolean;
+  committedSha?: string | null;
 }
+
+export type ReviewFile = { path: string; revision: string };
+export type CommitReview = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[] };
+export type CommitReceipt = { sha: string; url: string; retained: number | null; fileCount: number };
+export type HistoryCommit = { sha: string; parents: string[]; message: string; author: string; date: string };
+export type HistoryPage = { head: string; commits: HistoryCommit[]; refs: { name: string; sha: string }[]; next: number | null };
+export type CommittedFile = { path: string; status: string; previousPath?: string };
+export type CommitDetail = HistoryCommit & { files: CommittedFile[]; complete: boolean };
+export type CommittedDiff = { original: string; proposed: string };
 
 export interface DraftDeletion extends DraftIdentity {
   result: 'deleted' | 'conflict' | 'unavailable';
@@ -98,4 +109,9 @@ export type WorkspaceRequest =
   | { action: 'draft_catalog' }
   | { action: 'delete_drafts'; drafts: DraftIdentity[] }
   | { action: 'storage_status' }
-  | { action: 'storage_save'; databaseLimitMb: number; fileLimitMb: number };
+  | { action: 'storage_save'; databaseLimitMb: number; fileLimitMb: number }
+  | { action: 'review_commit'; repositoryId: number; branch: string; message: string; files: ReviewFile[] }
+  | { action: 'confirm_commit'; repositoryId: number; branch: string; reviewId: string }
+  | { action: 'history'; repositoryId: number; branch: string; page: number; head?: string }
+  | { action: 'commit_detail'; repositoryId: number; branch: string; sha: string }
+  | { action: 'commit_diff'; repositoryId: number; branch: string; sha: string; path: string };

@@ -1,0 +1,121 @@
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.119.2';
+import type { CommitReceipt, CommitReview, Repository, ReviewFile } from '../_shared/workspace-contracts.ts';
+import type { ChangeScope, ChangeSets } from './change-sets.ts';
+import { isCommit, WorkspaceError, type WorkspaceGit } from './git.ts';
+
+type Input = { repository: Repository; scope: ChangeScope; git: WorkspaceGit; changes: ChangeSets; check(): Promise<void> };
+type Write = (input: object) => Promise<Response>;
+export interface CommitReviews {
+  prepare(input: Input, files: ReviewFile[], message: string): Promise<CommitReview>;
+  confirm(input: Input, id: string, write: Write): Promise<CommitReceipt>;
+}
+
+export async function checkedDrafts({ changes, scope, repository, git }: Input, files: ReviewFile[], head: string) {
+  const drafts = await Promise.all(files.map(async file => {
+    const draft = await changes.get({ ...scope, path: file.path });
+    if (!draft || draft.revision !== file.revision || draft.originalSource === draft.proposedSource) {
+      throw new WorkspaceError('draft_conflict', 409, { path: file.path });
+    }
+    let remote;
+    try {
+      remote = await git.fileVersion(repository, scope.branch, file.path.split('/'), head, true);
+    } catch (error) {
+      if (error instanceof WorkspaceError && ['remote_missing', 'unsupported_file', 'file_too_large'].includes(error.code)) {
+        throw new WorkspaceError('commit_file_conflict', 409, { path: file.path });
+      }
+      throw error;
+    }
+    if (remote.blob !== draft.originalBlob) throw new WorkspaceError('commit_file_conflict', 409, { path: file.path });
+    return draft;
+  }));
+  const encoder = new TextEncoder();
+  const bytes = drafts.reduce((total, draft) => total + encoder.encode(draft.proposedSource).length, 0);
+  if (bytes > 8 * 1024 * 1024) throw new WorkspaceError('commit_too_large', 422);
+  return drafts;
+}
+
+function base64(text: string) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+  }
+  return btoa(binary);
+}
+
+export async function writeCommit(write: Write, review: CommitReview, additions: { path: string; contents: string }[]) {
+  let data;
+  let response;
+  try {
+    const [headline] = review.message.split('\n', 1);
+    response = await write({ input: {
+      branch: { repositoryNameWithOwner: review.repository, branchName: review.branch },
+      expectedHeadOid: review.head, message: { headline, body: review.message.slice(headline.length + 2) },
+      fileChanges: { additions },
+    } });
+    data = await response.json().catch(() => null);
+  } catch (error) {
+    if (error instanceof WorkspaceError) throw error;
+    throw new WorkspaceError('commit_unknown', 503);
+  }
+  const sha = data?.data?.createCommitOnBranch?.commit?.oid;
+  if (isCommit(sha)) return sha;
+  if (response.status >= 500 || (response.ok && !data?.errors?.length)) {
+    throw new WorkspaceError('commit_unknown', 503);
+  }
+  const messages = (data?.errors ?? []).map((error: { message?: string }) => error.message ?? '').join(' ');
+  if (/expected.*head|head.*(match|oid)|stale/i.test(messages)) throw new WorkspaceError('branch_changed', 409);
+  throw new WorkspaceError('commit_rejected', 409);
+}
+
+type Row = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[] };
+function fromRow(row: Row): CommitReview {
+  return { id: row.id, repository: row.repository, branch: row.branch, head: row.head, message: row.message, files: row.files };
+}
+
+export function createCommitReviews(client: SupabaseClient): CommitReviews {
+  const table = 'cms_commit_reviews';
+  const keys = (scope: ChangeScope) => ({ user_id: scope.userId, repository_id: scope.repositoryId, branch: scope.branch });
+  return {
+    async prepare(input, files, message) {
+      const head = await input.git.requireBranch(input.repository, input.scope.branch);
+      await checkedDrafts(input, files, head);
+      await input.check();
+      const [first, ...lines] = message.replace(/\r\n?/g, '\n').trim().split('\n');
+      const headline = first.trimEnd();
+      const body = lines.join('\n').trim();
+      const formattedMessage = body ? `${headline}\n\n${body}` : headline;
+      if (formattedMessage.length > 1000) throw new WorkspaceError('invalid_commit_review', 400);
+      const { data, error } = await client.from(table).insert({
+        ...keys(input.scope), repository: input.repository.name, head, message: formattedMessage, files,
+      }).select('id,repository,branch,head,message,files').single();
+      if (error) throw error;
+      return fromRow(data as Row);
+    },
+    async confirm(input, id, write) {
+      const { data, error } = await client.from(table).update({ claimed: true })
+        .match(keys(input.scope)).eq('id', id).eq('claimed', false)
+        .gt('expires_at', new Date().toISOString()).select('id,repository,branch,head,message,files').maybeSingle();
+      if (error) throw error;
+      if (!data) throw new WorkspaceError('review_expired', 409);
+      const review = fromRow(data as Row);
+      if (review.repository !== input.repository.name ||
+          await input.git.requireBranch(input.repository, input.scope.branch) !== review.head) {
+        throw new WorkspaceError('branch_changed', 409);
+      }
+      const drafts = await checkedDrafts(input, review.files, review.head);
+      await input.check();
+      const sha = await writeCommit(write, review, drafts.map(draft => ({
+        path: draft.path, contents: base64(draft.proposedSource),
+      })));
+      let retained: number | null = null;
+      try {
+        const result = await client.rpc('cms_record_commit', { review_id: id, actor_id: input.scope.userId, github_sha: sha });
+        if (!result.error && typeof result.data === 'number') retained = result.data;
+      } catch {
+        // A confirmed GitHub success must still be reported if Supabase is unavailable.
+      }
+      return { sha, url: `https://github.com/${review.repository}/commit/${sha}`, retained, fileCount: drafts.length };
+    },
+  };
+}

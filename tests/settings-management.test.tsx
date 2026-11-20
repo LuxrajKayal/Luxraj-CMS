@@ -22,6 +22,23 @@ const first: ManagedDraft = {
 };
 const second = { ...first, branch: 'next', path: 'second.css', pending: false };
 
+test('a committed draft and a new pending draft for the same path can be managed independently', async () => {
+  const committed = { ...first, pending: false, revision: 'committed-revision', committedSha: 'a'.repeat(40) };
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'draft_catalog') return { files: [first, committed] };
+    if (input.action === 'delete_drafts') return { results: input.drafts.map(item => ({ ...item, result: 'deleted' })) };
+    throw new Error('Unexpected request');
+  });
+  render(<DraftManagementPage />);
+  const committedRow = await screen.findByRole('row', { name: /Committed · aaaaaaaaaaaa/ });
+  expect(screen.getByRole('row', { name: /Pending change/ })).toBeTruthy();
+  fireEvent.click(within(committedRow).getByRole('button', { name: /^Delete / }));
+  fireEvent.click(screen.getByRole('button', { name: 'Permanently delete' }));
+  expect(request).toHaveBeenCalledWith({ action: 'delete_drafts', drafts: [{
+    repositoryId: first.repositoryId, branch: first.branch, path: first.path, revision: committed.revision,
+  }] });
+});
+
 test('individual deletion requires confirmation and bulk deletion reports partial results', async () => {
   let files = [first, second];
   request.mockImplementation(async (input: WorkspaceRequest) => {
