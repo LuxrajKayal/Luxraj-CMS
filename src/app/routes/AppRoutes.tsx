@@ -10,6 +10,10 @@ import { WorkspaceLayout } from '../../features/workspace/WorkspaceLayout';
 import { RepositoriesPage } from '../../features/workspace/RepositoriesPage';
 import { CodeEditorPage } from '../../features/workspace/CodeEditorPage';
 import { SourceControlPage } from '../../features/workspace/SourceControlPage';
+import { SettingsLayout } from '../../features/settings/SettingsLayout';
+import { DraftManagementPage } from '../../features/settings/DraftManagementPage';
+import { StorageManagementPage } from '../../features/settings/StorageManagementPage';
+import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
 
 // The live CMS stays usable with Task 5 authorization until the GitHub App backend is configured.
 const githubConnectionEnabled = import.meta.env.DEV || import.meta.env.VITE_GITHUB_CONNECTION_ENABLED === 'true';
@@ -26,7 +30,7 @@ export function AppRoutes() {
         {githubConnectionEnabled && <Route path="/github/callback" element={<GithubCallback />} />}
         <Route element={githubConnectionEnabled ? <RequireGithubConnection /> : <Outlet />}>
           <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<h1>Dashboard</h1>} />
+            <Route path="/dashboard" element={<ModuleTopbar title="Dashboard" />} />
           </Route>
         </Route>
         <Route element={<DashboardLayout />}>
@@ -37,9 +41,13 @@ export function AppRoutes() {
               <Route path="/source-control" element={<SourceControlPage />} />
             </Route>
           )}
-          <Route path="/settings" element={githubConnectionEnabled
-            ? <GithubSettings />
-            : <p>GitHub connection will be available after backend setup.</p>} />
+          <Route path="/settings" element={<SettingsLayout />}>
+            <Route index element={githubConnectionEnabled
+              ? <GithubSettings />
+              : <p>GitHub connection will be available after backend setup.</p>} />
+            <Route path="drafts" element={<DraftManagementPage />} />
+            <Route path="storage" element={<StorageManagementPage />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

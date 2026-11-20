@@ -1,0 +1,4 @@
+.luxraj-brand { display: inline-flex; align-items: center; gap: 0.625rem; white-space: nowrap; }
+.luxraj-brand img { display: block; flex: 0 0 auto; border-radius: 0.4rem; object-fit: contain; }
+.luxraj-brand--compact img { width: 32px; height: 32px; }
+.page-panel .luxraj-brand { margin-bottom: 1.25rem; }

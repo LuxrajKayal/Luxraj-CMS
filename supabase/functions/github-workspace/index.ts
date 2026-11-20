@@ -3,6 +3,7 @@ import { createGitHub, positiveId } from '../github-connection/github.ts';
 import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
 import { createChangeSets } from './change-sets.ts';
+import type { StorageUsage } from '../_shared/workspace-contracts.ts';
 
 function env(name: string) {
   const value = Deno.env.get(name);
@@ -29,9 +30,24 @@ function configure() {
     return data;
   }
 
+  async function usage() {
+    const { data, error } = await client.rpc('cms_storage_usage');
+    if (error || !data) throw error ?? new Error('Storage usage unavailable.');
+    return data as StorageUsage;
+  }
+
   return createWorkspaceHandler({
     origin,
     changes: createChangeSets(client),
+    storage: {
+      usage,
+      async set(databaseLimitMb, fileLimitMb) {
+        const { error } = await client.from('cms_storage_policy')
+          .update({ database_limit_mb: databaseLimitMb, file_limit_mb: fileLimitMb }).eq('singleton', true);
+        if (error) throw error;
+        return usage();
+      },
+    },
     async authenticate(token) {
       const { data, error } = await client.auth.getUser(token);
       return error || !data.user || data.user.is_anonymous ? null : data.user.id;

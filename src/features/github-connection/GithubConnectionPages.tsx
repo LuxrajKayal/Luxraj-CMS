@@ -180,7 +180,6 @@ export function GithubOnboarding() {
 export function GithubSettings() {
   return (
     <section className="github-settings">
-      <h1>Settings</h1>
       <h2>GitHub Connection</h2>
       <ConnectionControls />
     </section>

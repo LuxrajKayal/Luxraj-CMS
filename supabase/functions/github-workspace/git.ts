@@ -16,7 +16,7 @@ export const isPath = (value: unknown): value is string[] =>
   Array.isArray(value) && value.length <= 64 && value.every(isSegment);
 
 export class WorkspaceError extends Error {
-  constructor(public code: string, public status: number) {
+  constructor(public code: string, public status: number, public details?: { usedBytes: number; limitBytes: number }) {
     super(code);
   }
 }

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CodeEditorPage } from '../src/features/workspace/CodeEditorPage';
@@ -61,10 +61,17 @@ test('switches repositories and carries the selected branch into Code Editor', a
     return tree;
   });
   open('/repositories');
-  fireEvent.click(await screen.findByRole('button', { name: 'Select owner/beta' }));
-  await screen.findByRole('button', { name: 'owner/beta selected' });
-  expect((screen.getByLabelText('Branch') as HTMLSelectElement).value).toBe('trunk');
-  fireEvent.click(screen.getByRole('link', { name: 'Open Code Editor' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Medium' }));
+  expect(screen.getByRole('button', { name: 'Medium' }).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'List' }));
+  expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Open owner/beta' }));
+  expect((await screen.findByRole<HTMLInputElement>('radio', { name: /trunk/ })).checked).toBe(true);
+  expect(screen.queryByRole('button', { name: 'Open owner/alpha' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'All repositories' }));
+  expect(screen.getByRole('button', { name: 'Open owner/alpha' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Open owner/beta' }));
+  fireEvent.click(screen.getByRole('link', { name: 'Open with Code Editor' }));
   await screen.findByRole('button', { name: 'index.html' });
   expect(request).toHaveBeenCalledWith({ action: 'select', repositoryId: 2, branch: undefined });
   expect(request).toHaveBeenCalledWith(
@@ -78,7 +85,8 @@ test('switching branches ignores a late source response and renders new HTML as 
     if (input.action === 'load') return alpha;
     if (input.action === 'select') return { ...alpha, selection: { repositoryId: 1, branch: 'next' } };
     if (input.action === 'tree') return tree;
-    if (input.branch === 'main') return new Promise(resolve => { finishOld = resolve; });
+    if (input.action === 'changes') return { files: [] };
+    if ('branch' in input && input.branch === 'main') return new Promise(resolve => { finishOld = resolve; });
     return { current: { ...current, source: '<script>newSource()</script>' }, draft: null };
   });
   open('/code-editor');
@@ -132,4 +140,32 @@ test('retains unsaved edits across navigation, saves the draft, and reviews its 
   fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
   expect((await screen.findByLabelText('Original source')).textContent).toBe(original);
   expect(screen.getByLabelText('Proposed source').textContent).toBe('<h1>Proposed</h1>');
+});
+
+test('inline Source Control opens a diff and returns to unsaved edits in the same editor', async () => {
+  const draft = { path: 'index.html', originalCommit: current.commit, originalBlob: current.blob,
+    originalSource: original, proposedSource: '<h1>Saved</h1>', updatedAt: '', revision: 'saved' };
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'open_draft') return { current, draft };
+    if (input.action === 'changes') return { files: [draft] };
+    if (input.action === 'diff') return draft;
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await within(await screen.findByRole('complementary', { name: 'Files' })).findByRole('button', { name: 'index.html' }));
+  const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
+  fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
+  fireEvent.change(editor, { target: { value: 'Unsaved HTML' } });
+  const panel = screen.getByRole('button', { name: 'Source Control panel' });
+  fireEvent.click(panel);
+  expect(screen.queryByRole('complementary', { name: 'Source Control' })).toBeNull();
+  fireEvent.click(panel);
+  fireEvent.click(await within(await screen.findByRole('complementary', { name: 'Source Control' }))
+    .findByRole('button', { name: 'index.html' }));
+  expect((await screen.findByLabelText('Proposed source')).textContent).toBe(draft.proposedSource);
+  expect(screen.getByRole('heading', { name: 'Code Editor' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Return to editor' }));
+  expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' }).value).toBe('Unsaved HTML');
 });
