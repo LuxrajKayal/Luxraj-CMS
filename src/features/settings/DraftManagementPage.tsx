@@ -67,7 +67,7 @@ export function DraftManagementPage() {
   return (
     <section aria-labelledby="draft-management">
       <h2 id="draft-management">Draft Management</h2>
-      <p>Saved drafts are retained until manually deleted. The list covers repositories and branches currently accessible to the GitHub App.</p>
+      <p>Saved drafts are retained until manually deleted. All of your saved drafts appear here, including drafts from disconnected repositories and deleted branches. Unavailable GitHub files can still be removed from Supabase.</p>
       {files && <p>{files.length} saved drafts · {files.reduce((total, item) => total + item.contentBytes, 0).toLocaleString()} bytes of source text</p>}
       <div className="workspace-actions">
         <button type="button" disabled={loading || deleting || !!confirmation.length} onClick={() => setRefresh(value => value + 1)}>Refresh drafts</button>
@@ -112,7 +112,7 @@ export function DraftManagementPage() {
                     }} /></td>
                   <td>{file.repository}</td><td>{file.branch}</td><td><code>{file.path}</code></td>
                   <td><time dateTime={file.updatedAt}>{new Date(file.updatedAt).toLocaleString()}</time></td>
-                  <td>{file.pending ? 'Pending change' : 'Retained · unchanged'}</td>
+                  <td>{!file.available ? 'GitHub unavailable · manual cleanup' : file.pending ? 'Pending change' : 'Retained · unchanged'}</td>
                   <td>{file.contentBytes.toLocaleString()} bytes</td>
                   <td><button type="button" disabled={busy} aria-label={`Delete ${file.repository} ${file.branch} ${file.path}`}
                     onClick={() => { setNotice(''); setConfirmation([file]); }}>Delete</button></td>
