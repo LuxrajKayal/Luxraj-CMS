@@ -18,7 +18,7 @@ afterEach(cleanup);
 
 const first: ManagedDraft = {
   repositoryId: 1, repository: 'owner/site', branch: 'main', path: 'first.html',
-  pending: true, revision: 'old', updatedAt: '2026-11-20T10:00:00Z', contentBytes: 150,
+  pending: true, available: true, revision: 'old', updatedAt: '2026-11-20T10:00:00Z', contentBytes: 150,
 };
 const second = { ...first, branch: 'next', path: 'second.css', pending: false };
 
