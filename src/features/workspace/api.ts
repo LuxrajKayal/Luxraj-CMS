@@ -62,6 +62,7 @@ const errors = {
   commit_file_mode: 'Commit this executable file in Git to preserve its executable permission.',
   commit_too_large: 'This commit exceeds the 8 MiB source limit. Review fewer changes at once.',
   commit_unknown: 'GitHub did not confirm the outcome. Refresh History and check the branch before starting a new review.',
+  commit_unverified: 'Could not verify this GitHub commit against the original review. The saved drafts were not changed.',
   commit_rejected: 'GitHub rejected the commit. Check branch protection, repository permissions, and the selected files.',
   review_expired: 'This review expired or has already been submitted. Check History, then start a new review if needed.',
   commit_out_of_scope: 'This commit is no longer reachable from the selected branch.',
