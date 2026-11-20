@@ -65,7 +65,7 @@ export function HistoryPanel({ repositoryId, branch, version, openFile }: Scope 
     workspaceRequest({ action: 'history', repositoryId, branch, ...query }, controller.signal)
       .then(result => {
         if (!controller.signal.aborted) setHistory(current => query.page === 1 || !current
-          ? result : { ...result, commits: [...current.commits, ...result.commits] });
+          ? result : { ...result, refs: current.refs, commits: [...current.commits, ...result.commits] });
       })
       .catch(error => { if (!controller.signal.aborted) setError(workspaceError(error)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
