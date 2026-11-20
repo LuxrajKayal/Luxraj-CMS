@@ -1,10 +1,10 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CodeEditorPage } from '../src/features/workspace/CodeEditorPage';
 import { RepositoriesPage } from '../src/features/workspace/RepositoriesPage';
 import { WorkspaceLayout } from '../src/features/workspace/WorkspaceLayout';
-import { EditBuffers } from '../src/features/workspace/EditBuffers';
+import { EditBuffers, readEditorRecovery } from '../src/features/workspace/EditBuffers';
 import { SourceControlPage } from '../src/features/workspace/SourceControlPage';
 import type { WorkspaceRequest } from '../supabase/functions/_shared/workspace-contracts';
 
@@ -114,7 +114,7 @@ test('shows remote merge history, follows its page cursor, and opens a committed
   expect(screen.queryByRole('button', { name: /Earlier external commit/ })).toBeNull();
 });
 
-beforeEach(() => { request.mockReset(); });
+beforeEach(() => { request.mockReset(); window.sessionStorage.clear(); });
 afterEach(cleanup);
 
 function open(path: string) {
@@ -122,12 +122,15 @@ function open(path: string) {
     <EditBuffers><MemoryRouter initialEntries={[path]}>
       <Link to="/repositories">Repositories sidebar</Link>
       <Link to="/source-control">Source Control sidebar</Link>
+      <Link to="/code-editor">Code Editor sidebar</Link>
+      <Link to="/settings">Settings sidebar</Link>
       <Routes>
         <Route element={<WorkspaceLayout />}>
           <Route path="/repositories" element={<RepositoriesPage />} />
           <Route path="/code-editor" element={<CodeEditorPage />} />
           <Route path="/source-control" element={<SourceControlPage />} />
         </Route>
+        <Route path="/settings" element={<h1>Mock Settings</h1>} />
       </Routes>
     </MemoryRouter></EditBuffers>,
   );
@@ -363,4 +366,73 @@ test('inline Source Control opens a diff and returns to unsaved edits in the sam
   expect(screen.getByRole('heading', { name: 'Code Editor' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Return to editor' }));
   expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' }).value).toBe('Unsaved HTML');
+});
+
+test('restores the opened file, editing mode and unsaved text after visiting Settings', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'open_draft') return { current, draft: null };
+    if (input.action === 'changes') return { files: [] };
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Enable editing' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Monaco source' }),
+    { target: { value: '<h1>Resume me</h1>' } });
+  fireEvent.click(screen.getByRole('link', { name: 'Settings sidebar' }));
+  expect(await screen.findByRole('heading', { name: 'Mock Settings' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('link', { name: 'Code Editor sidebar' }));
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value)
+    .toBe('<h1>Resume me</h1>');
+  expect(screen.getByRole('button', { name: 'Read-only mode' })).toBeTruthy();
+});
+
+test('recovers unsaved code and last file from browser session storage after remount', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'open_draft') return { current, draft: null };
+    if (input.action === 'changes') return { files: [] };
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Enable editing' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Monaco source' }),
+    { target: { value: '<h1>Recover me</h1>' } });
+  const key = JSON.stringify([1, 'main', 'index.html']);
+  await waitFor(() => {
+    expect(readEditorRecovery('owner').buffers[key]?.source).toBe('<h1>Recover me</h1>');
+  });
+  cleanup();
+  open('/code-editor');
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value)
+    .toBe('<h1>Recover me</h1>');
+  expect(screen.getByRole('button', { name: 'Read-only mode' })).toBeTruthy();
+});
+
+test('every old history entry has a direct GitHub diff even if the CMS cannot load details', async () => {
+  const oldSha = 'd'.repeat(40);
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'changes') return { files: [] };
+    if (input.action === 'history') return {
+      head: oldSha, refs: [{ name: 'main', sha: oldSha }],
+      commits: [{ sha: oldSha, parents: ['c'.repeat(40)], message: 'Older commit',
+        author: 'Contributor', date: '2026-11-19T12:00:00Z' }], next: null,
+    };
+    if (input.action === 'commit_detail') throw new Error('commit_out_of_scope');
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('tab', { name: 'History' }));
+  const link = await screen.findByRole<HTMLAnchorElement>('link', { name: 'GitHub diff ↗' });
+  expect(link.href).toBe(`https://github.com/owner/alpha/commit/${oldSha}`);
+  expect(link.target).toBe('_blank');
+  fireEvent.click(screen.getByRole('button', { name: /Older commit/ }));
+  const fallback = await screen.findByRole<HTMLAnchorElement>('link', { name: 'View this commit on GitHub' });
+  expect(fallback.href).toBe(link.href);
 });

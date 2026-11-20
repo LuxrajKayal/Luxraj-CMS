@@ -3,7 +3,10 @@ import type { CommitDetail, CommittedDiff, HistoryPage } from '../../../supabase
 import { workspaceError, workspaceRequest } from './api';
 import { commitGraph } from './commitGraph';
 
-type Scope = { repositoryId: number; branch: string };
+type Scope = { repositoryId: number; branch: string; repository: string };
+function githubCommitUrl(repository: string, sha: string) {
+  return `https://github.com/${repository.split('/').map(encodeURIComponent).join('/')}/commit/${sha}`;
+}
 export type HistoryFile = { sha: string; path: string };
 const MonacoDiff = lazy(() => import('./MonacoViews').then(module => ({ default: module.MonacoDiff })));
 const colors = ['#2469bb', '#a04392', '#27794b', '#a65418', '#634ac0', '#067486'];
@@ -21,7 +24,7 @@ function GraphRow({ lane, color, edges, width }: ReturnType<typeof commitGraph>[
   </svg>;
 }
 
-function Details({ repositoryId, branch, sha, openFile }: Scope & { sha: string; openFile(file: HistoryFile): void }) {
+function Details({ repositoryId, branch, repository, sha, openFile }: Scope & { sha: string; openFile(file: HistoryFile): void }) {
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -31,10 +34,15 @@ function Details({ repositoryId, branch, sha, openFile }: Scope & { sha: string;
       .catch(error => { if (!controller.signal.aborted) setError(workspaceError(error)); });
     return () => controller.abort();
   }, [repositoryId, branch, sha]);
-  if (!detail) return error ? <p role="alert">{error}</p> : <p role="status">Loading commit…</p>;
+  if (!detail) return error
+    ? <p role="alert">{error} <a href={githubCommitUrl(repository, sha)} target="_blank" rel="noopener noreferrer">
+        View this commit on GitHub</a></p>
+    : <p role="status">Loading commit…</p>;
 
   return <section className="history-details" aria-label="Commit details">
     <strong>Commit {detail.sha.slice(0, 12)}</strong>
+    <p><a href={githubCommitUrl(repository, sha)} target="_blank" rel="noopener noreferrer">
+      View commit diff on GitHub</a></p>
     <p className="commit-message">{detail.message}</p>
     <small>{detail.author} · {new Date(detail.date).toLocaleString()}</small>
     {detail.parents.length > 1 && <p>Merge · {detail.parents.length} parents. File diffs compare with the first parent.</p>}
@@ -50,7 +58,7 @@ function Details({ repositoryId, branch, sha, openFile }: Scope & { sha: string;
   </section>;
 }
 
-export function HistoryPanel({ repositoryId, branch, version, openFile }: Scope & {
+export function HistoryPanel({ repositoryId, branch, repository, version, openFile }: Scope & {
   version: number; openFile(file: HistoryFile): void;
 }) {
   const [history, setHistory] = useState<HistoryPage | null>(null);
@@ -101,16 +109,20 @@ export function HistoryPanel({ repositoryId, branch, version, openFile }: Scope 
               {!!refs.length && <span className="graph-refs">{refs.map(ref => <span key={ref.name}>{ref.name}</span>)}</span>}
             </span>
           </button>
+          <a className="commit-github-link" href={githubCommitUrl(repository, commit.sha)}
+            target="_blank" rel="noopener noreferrer" title={`Open ${commit.sha.slice(0, 12)} diff on GitHub`}>
+            GitHub diff ↗
+          </a>
         </li>;
       })}
     </ul>
     {history?.next && <button type="button" disabled={loading}
       onClick={() => setQuery({ head: history.head, page: history.next! })}>Load more commits</button>}
-    {selected && <Details key={selected} {...{ repositoryId, branch, openFile }} sha={selected} />}
+    {selected && <Details key={selected} {...{ repositoryId, branch, repository, openFile }} sha={selected} />}
   </section>;
 }
 
-export function HistoryDiff({ repositoryId, branch, file, onBack }: Scope & { file: HistoryFile; onBack(): void }) {
+export function HistoryDiff({ repositoryId, branch, repository, file, onBack }: Scope & { file: HistoryFile; onBack(): void }) {
   const [diff, setDiff] = useState<CommittedDiff | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -124,6 +136,7 @@ export function HistoryDiff({ repositoryId, branch, file, onBack }: Scope & { fi
     <div className="workspace-actions editor-file-toolbar">
       <strong>Committed diff · {file.path} · {file.sha.slice(0, 12)}</strong>
       <button type="button" onClick={onBack}>Return to editor</button>
+      <a href={githubCommitUrl(repository, file.sha)} target="_blank" rel="noopener noreferrer">GitHub diff ↗</a>
     </div>
     {error && <p role="alert">{error}</p>}
     {!diff && !error && <p role="status">Loading committed diff…</p>}
