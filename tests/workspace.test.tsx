@@ -4,9 +4,22 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CodeEditorPage } from '../src/features/workspace/CodeEditorPage';
 import { RepositoriesPage } from '../src/features/workspace/RepositoriesPage';
 import { WorkspaceLayout } from '../src/features/workspace/WorkspaceLayout';
+import { EditBuffers } from '../src/features/workspace/EditBuffers';
+import { SourceControlPage } from '../src/features/workspace/SourceControlPage';
 import type { WorkspaceRequest } from '../supabase/functions/_shared/workspace-contracts';
 
 const request = vi.hoisted(() => vi.fn());
+vi.mock('../src/core/auth/AuthProvider', () => ({
+  useAuth: () => ({ session: { user: { id: 'owner' } } }),
+}));
+vi.mock('../src/features/workspace/MonacoViews', () => ({
+  MonacoSource: ({ source, readOnly, onChange }: {
+    source: string; readOnly: boolean; onChange(value: string): void;
+  }) => <textarea aria-label="Monaco source" value={source} readOnly={readOnly}
+    onChange={event => onChange(event.target.value)} />,
+  MonacoDiff: ({ original, proposed }: { original: string; proposed: string }) =>
+    <><pre aria-label="Original source">{original}</pre><pre aria-label="Proposed source">{proposed}</pre></>,
+}));
 vi.mock('../src/features/workspace/api', async importOriginal => ({
   ...await importOriginal<typeof import('../src/features/workspace/api')>(),
   workspaceRequest: request,
@@ -19,21 +32,25 @@ const repositories = [
 const alpha = { repositories, selection: { repositoryId: 1, branch: 'main' }, branches: ['main', 'next'] };
 const beta = { repositories, selection: { repositoryId: 2, branch: 'trunk' }, branches: ['trunk'] };
 const tree = { commit: 'a'.repeat(40), entries: [{ name: 'index.html', kind: 'file' }] };
+const original = '<h1>Original</h1>';
+const current = { source: original, blob: 'b'.repeat(40), commit: tree.commit };
 
 beforeEach(() => { request.mockReset(); });
 afterEach(cleanup);
 
 function open(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <EditBuffers><MemoryRouter initialEntries={[path]}>
       <Link to="/repositories">Repositories sidebar</Link>
+      <Link to="/source-control">Source Control sidebar</Link>
       <Routes>
         <Route element={<WorkspaceLayout />}>
           <Route path="/repositories" element={<RepositoriesPage />} />
           <Route path="/code-editor" element={<CodeEditorPage />} />
+          <Route path="/source-control" element={<SourceControlPage />} />
         </Route>
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter></EditBuffers>,
   );
 }
 
@@ -56,22 +73,63 @@ test('switches repositories and carries the selected branch into Code Editor', a
 });
 
 test('switching branches ignores a late source response and renders new HTML as text', async () => {
-  let finishOld!: (result: { source: string }) => void;
+  let finishOld!: (result: unknown) => void;
   request.mockImplementation(async (input: WorkspaceRequest) => {
     if (input.action === 'load') return alpha;
     if (input.action === 'select') return { ...alpha, selection: { repositoryId: 1, branch: 'next' } };
     if (input.action === 'tree') return tree;
     if (input.branch === 'main') return new Promise(resolve => { finishOld = resolve; });
-    return { source: '<script>newSource()</script>' };
+    return { current: { ...current, source: '<script>newSource()</script>' }, draft: null };
   });
   open('/code-editor');
   fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
   await screen.findByText('Loading source…');
   fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'next' } });
   const newFile = await screen.findByRole('button', { name: 'index.html' });
-  await act(async () => finishOld({ source: 'old-branch-source' }));
+  await act(async () => finishOld({ current: { ...current, source: 'old-branch-source' }, draft: null }));
   expect(screen.queryByText('old-branch-source')).toBeNull();
   fireEvent.click(newFile);
-  expect((await screen.findByText('<script>newSource()</script>')).tagName).toBe('CODE');
-  expect(document.querySelector('pre script')).toBeNull();
+  const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
+  expect(editor.value).toBe('<script>newSource()</script>');
+  expect(editor.readOnly).toBe(true);
+  expect(document.querySelector('textarea script')).toBeNull();
+});
+
+test('retains unsaved edits across navigation, saves the draft, and reviews its baseline and proposal', async () => {
+  let draft: {
+    path: string; originalCommit: string; originalBlob: string; originalSource: string;
+    proposedSource: string; updatedAt: string; revision: string;
+  } | null = null;
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'open_draft') return { current, draft };
+    if (input.action === 'save_draft') {
+      draft = { path: 'index.html', originalCommit: current.commit, originalBlob: current.blob,
+        originalSource: original, proposedSource: input.source, updatedAt: '', revision: 'saved' };
+      return { draft };
+    }
+    if (input.action === 'changes') return { files: draft ? [draft] : [] };
+    if (input.action === 'diff') return draft;
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
+  const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
+  fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
+  fireEvent.change(editor, { target: { value: '<h1>Proposed</h1>' } });
+  await screen.findByText('Unsaved changes');
+  fireEvent.click(screen.getByRole('link', { name: 'Source Control sidebar' }));
+  await screen.findByText('No saved changes for this branch.');
+  fireEvent.click(screen.getByRole('link', { name: 'Code Editor' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value).toBe('<h1>Proposed</h1>');
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  await screen.findByText('Draft saved');
+  fireEvent.click(screen.getByRole('button', { name: 'Reopen saved draft' }));
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value).toBe('<h1>Proposed</h1>');
+  fireEvent.click(screen.getByRole('link', { name: 'Source Control sidebar' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'index.html' }));
+  expect((await screen.findByLabelText('Original source')).textContent).toBe(original);
+  expect(screen.getByLabelText('Proposed source').textContent).toBe('<h1>Proposed</h1>');
 });

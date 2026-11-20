@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.119.2';
 import { createGitHub, positiveId } from '../github-connection/github.ts';
 import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
+import { createChangeSets } from './change-sets.ts';
 
 function env(name: string) {
   const value = Deno.env.get(name);
@@ -30,6 +31,7 @@ function configure() {
 
   return createWorkspaceHandler({
     origin,
+    changes: createChangeSets(client),
     async authenticate(token) {
       const { data, error } = await client.auth.getUser(token);
       return error || !data.user || data.user.is_anonymous ? null : data.user.id;

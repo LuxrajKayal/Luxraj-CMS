@@ -1,6 +1,7 @@
 import type { Selection } from '../_shared/workspace-contracts.ts';
 import { positiveId } from '../github-connection/github.ts';
 import { isBranch, isCommit, isPath, type WorkspaceGit, WorkspaceError } from './git.ts';
+import type { ChangeSets } from './change-sets.ts';
 
 interface Dependencies {
   origin: string;
@@ -13,6 +14,7 @@ interface Dependencies {
   }>;
   getPreference(userId: string): Promise<Selection | null>;
   savePreference(userId: string, selection: Selection): Promise<void>;
+  changes?: ChangeSets;
 }
 
 export function createWorkspaceHandler(deps: Dependencies) {
@@ -49,6 +51,16 @@ export function createWorkspaceHandler(deps: Dependencies) {
             (action === 'file' && !body.path.length)) {
           return json({ error: 'invalid_request' }, 400);
         }
+      } else if (['open_draft', 'save_draft', 'changes', 'diff'].includes(action)) {
+        if (!positiveId(body.repositoryId) || !isBranch(body.branch) ||
+            (action !== 'changes' && (!isPath(body.path) || !body.path.length || body.path.join('/').length > 1024)) ||
+            ((action === 'open_draft' || action === 'save_draft') && !isCommit(body.commit)) ||
+            (action === 'save_draft' && (
+              typeof body.source !== 'string' || body.source.includes('\0') ||
+              new TextEncoder().encode(body.source).length > 1024 * 1024 ||
+              (body.revision !== null && (typeof body.revision !== 'string' ||
+                !/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(body.revision)))
+            ))) return json({ error: 'invalid_request' }, 400);
       } else if (action !== 'load') {
         return json({ error: 'invalid_request' }, 400);
       }
@@ -97,6 +109,26 @@ export function createWorkspaceHandler(deps: Dependencies) {
         selection?.repositoryId === repository.id && selection.branch === body.branch;
       if (!matches(saved)) return json({ error: 'selection_changed' }, 409);
       const git = await remote.forRepository(repository.id);
+      if (['open_draft', 'save_draft', 'changes', 'diff'].includes(action)) {
+        const changes = deps.changes;
+        if (!changes) throw new Error('Change sets are unavailable.');
+        const scope = { userId, repositoryId: repository.id, branch: body.branch };
+        const fileScope = { ...scope, path: action === 'changes' ? '' : body.path.join('/') };
+        if (action === 'save_draft' || action === 'open_draft') {
+          const current = await git.fileVersion(repository, body.branch, body.path, body.commit);
+          await remote.checkConnection();
+          if (!matches(await deps.getPreference(userId))) return json({ error: 'selection_changed' }, 409);
+          return action === 'save_draft'
+            ? json({ draft: await changes.save(fileScope, current, body.source, body.revision) })
+            : json({ current, draft: await changes.get(fileScope) });
+        }
+        await git.requireBranch(repository, body.branch);
+        const result = action === 'changes' ? await changes.list(scope) : await changes.get(fileScope);
+        await remote.checkConnection();
+        if (!matches(await deps.getPreference(userId))) return json({ error: 'selection_changed' }, 409);
+        if (action === 'changes') return json({ files: result });
+        return result ? json(result) : json({ error: 'remote_missing' }, 404);
+      }
       const result = action === 'tree'
         ? await git.tree(repository, body.branch, body.path, body.commit)
         : await git.file(repository, body.branch, body.path, body.commit);

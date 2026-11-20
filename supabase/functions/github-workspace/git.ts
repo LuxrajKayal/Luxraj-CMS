@@ -1,5 +1,5 @@
 import { positiveId } from '../github-connection/github.ts';
-import type { Directory, Repository, SourceFile, TreeEntry } from '../_shared/workspace-contracts.ts';
+import type { Directory, FileVersion, Repository, SourceFile, TreeEntry } from '../_shared/workspace-contracts.ts';
 
 const maxSourceBytes = 1024 * 1024;
 const sourceName = /\.(?:html?|css|js|mjs|cjs)$/i;
@@ -92,6 +92,27 @@ export function createWorkspaceGit(get: Get) {
     return { base, commit, entries };
   }
 
+  async function fileVersion(repo: Repository, branch: string, path: string[], commit: string): Promise<FileVersion> {
+    const name = path.at(-1);
+    if (!name || !sourceName.test(name)) throw new WorkspaceError('unsupported_file', 422);
+    const { base, entries } = await readDirectory(repo, branch, path.slice(0, -1), commit);
+    const entry = entries.find(item => item.path === name && file(item));
+    if (!entry) throw new WorkspaceError('unsupported_file', 422);
+    if (!Number.isSafeInteger(entry.size) || entry.size! < 0 || entry.size! > maxSourceBytes) {
+      throw new WorkspaceError('file_too_large', 422);
+    }
+    const blob = await object(`${base}/git/blobs/${entry.sha}`);
+    if (blob.encoding !== 'base64' || blob.size !== entry.size || typeof blob.content !== 'string' ||
+        blob.content.length > maxSourceBytes * 1.5) throw new Error('Invalid GitHub blob.');
+    try {
+      const bytes = Uint8Array.from(atob(blob.content), character => character.charCodeAt(0));
+      if (bytes.length !== entry.size || bytes.includes(0)) throw new Error('Invalid source data.');
+      return { source: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes), commit, blob: entry.sha };
+    } catch {
+      throw new WorkspaceError('unsupported_file', 422);
+    }
+  }
+
   return {
     async repositories(): Promise<Repository[]> {
       const values = await pages('/installation/repositories', value => value.repositories);
@@ -124,26 +145,13 @@ export function createWorkspaceGit(get: Get) {
       return { commit, entries: visible };
     },
     async file(repo: Repository, branch: string, path: string[], commit: string): Promise<SourceFile> {
-      const name = path.at(-1);
-      if (!name || !sourceName.test(name)) throw new WorkspaceError('unsupported_file', 422);
-      const { base, entries } = await readDirectory(repo, branch, path.slice(0, -1), commit);
-      const entry = entries.find(item => item.path === name && file(item));
-      if (!entry) throw new WorkspaceError('unsupported_file', 422);
-      if (!Number.isSafeInteger(entry.size) || entry.size! < 0 || entry.size! > maxSourceBytes) {
-        throw new WorkspaceError('file_too_large', 422);
-      }
-      const blob = await object(`${base}/git/blobs/${entry.sha}`);
-      if (blob.encoding !== 'base64' || blob.size !== entry.size || typeof blob.content !== 'string' ||
-          blob.content.length > maxSourceBytes * 1.5) throw new Error('Invalid GitHub blob.');
-      let source: string;
-      try {
-        const bytes = Uint8Array.from(atob(blob.content), character => character.charCodeAt(0));
-        if (bytes.length !== entry.size || bytes.includes(0)) throw new Error('Invalid source data.');
-        source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      } catch {
-        throw new WorkspaceError('unsupported_file', 422);
-      }
+      const { source } = await fileVersion(repo, branch, path, commit);
       return { source };
+    },
+    fileVersion,
+    async requireBranch(repo: Repository, branch: string) {
+      const value = await object(`${repoPath(repo)}/branches/${encodeURIComponent(branch)}`);
+      if (value.name !== branch || !isCommit(value.commit?.sha)) throw new WorkspaceError('remote_missing', 404);
     },
   };
 }
