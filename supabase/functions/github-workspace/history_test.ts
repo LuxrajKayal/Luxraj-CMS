@@ -42,7 +42,9 @@ Deno.test('history pins every page to the selected head and preserves both paren
   assertEquals(calls.filter(url => url.includes('/commits?')), [1, 2].map(page => `${base}/commits?sha=${head}&per_page=25&page=${page}`));
   currentHead = outside;
   await assertRejects(() => history.list(2, first.head), WorkspaceError, 'branch_changed');
-  assertEquals(calls.length, 4);
+  // Page 2 must not reload the full branch-label list.
+  assertEquals(calls.length, 3);
+  assertEquals(calls.filter(url => url.includes('/branches?')).length, 1);
 });
 
 Deno.test('historical rename uses the first parent and denies commits outside the selected branch before reading any files', async () => {
