@@ -12,7 +12,7 @@ type Responses = {
   open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[] }; diff: Draft;
   draft_catalog: { files: ManagedDraft[] }; delete_drafts: { results: DraftDeletion[] };
   storage_status: StorageUsage; storage_save: StorageUsage;
-  review_commit: CommitReview; confirm_commit: CommitReceipt; history: HistoryPage;
+  review_commit: CommitReview; confirm_commit: CommitReceipt; reconcile_commit: CommitReceipt; history: HistoryPage;
   commit_detail: CommitDetail; commit_diff: CommittedDiff;
 };
 
