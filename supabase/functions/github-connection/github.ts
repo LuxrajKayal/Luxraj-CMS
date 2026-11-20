@@ -20,7 +20,9 @@ export function positiveId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
-export function createGitHub(appId: number, privateKey: string, request: typeof fetch = fetch): GitHub {
+export function createGitHub(appId: number, privateKey: string, request: typeof fetch = fetch): GitHub & {
+  workspace(installation: Installation, repositoryId?: number): Promise<(path: string) => Promise<Response>>;
+} {
   const key = createPrivateKey(privateKey.replace(/\\n/g, '\n'));
 
   function appToken() {
@@ -64,8 +66,24 @@ export function createGitHub(appId: number, privateKey: string, request: typeof 
       };
   }
 
+  async function installationToken(installation: Installation, repositoryId?: number) {
+    const response = await api(`/app/installations/${installation.id}/access_tokens`, appToken(), 'POST', {
+      ...(repositoryId === undefined
+        ? { permissions: { metadata: 'read' } }
+        : { permissions: { metadata: 'read', contents: 'read' }, repository_ids: [repositoryId] }),
+    });
+    if (!response.ok) throw new Error('Installation authorization failed.');
+    const { token } = await response.json();
+    if (typeof token !== 'string' || !token) throw new Error('GitHub returned invalid authorization data.');
+    return token;
+  }
+
   return {
     installation: getInstallation,
+    async workspace(installation, repositoryId) {
+      const token = await installationToken(installation, repositoryId);
+      return path => api(path, token);
+    },
     async existingInstallation(ownerId) {
       if (!positiveId(ownerId)) return null;
       for (let page = 1; page <= 100; page += 1) {
@@ -84,12 +102,7 @@ export function createGitHub(appId: number, privateKey: string, request: typeof 
       throw new Error('Installation discovery did not finish.');
     },
     async repositories(installation) {
-      const response = await api(`/app/installations/${installation.id}/access_tokens`, appToken(), 'POST', {
-        permissions: { metadata: 'read' },
-      });
-      if (!response.ok) throw new Error('Installation authorization failed.');
-      const { token } = await response.json();
-      if (typeof token !== 'string' || !token) throw new Error('GitHub returned invalid authorization data.');
+      const token = await installationToken(installation);
 
       const names = new Set<string>();
       for (let page = 1; page <= 100; page += 1) {

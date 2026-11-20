@@ -6,6 +6,9 @@ import { RequireSuperAdmin } from './RequireSuperAdmin';
 import {
   GithubCallback, GithubOnboarding, GithubSettings, RequireGithubConnection,
 } from '../../features/github-connection/GithubConnectionPages';
+import { WorkspaceLayout } from '../../features/workspace/WorkspaceLayout';
+import { RepositoriesPage } from '../../features/workspace/RepositoriesPage';
+import { CodeEditorPage } from '../../features/workspace/CodeEditorPage';
 
 // The live CMS stays usable with Task 5 authorization until the GitHub App backend is configured.
 const githubConnectionEnabled = import.meta.env.DEV || import.meta.env.VITE_GITHUB_CONNECTION_ENABLED === 'true';
@@ -26,6 +29,12 @@ export function AppRoutes() {
           </Route>
         </Route>
         <Route element={<DashboardLayout />}>
+          {githubConnectionEnabled && (
+            <Route element={<WorkspaceLayout />}>
+              <Route path="/repositories" element={<RepositoriesPage />} />
+              <Route path="/code-editor" element={<CodeEditorPage />} />
+            </Route>
+          )}
           <Route path="/settings" element={githubConnectionEnabled
             ? <GithubSettings />
             : <p>GitHub connection will be available after backend setup.</p>} />

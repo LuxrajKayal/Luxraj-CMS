@@ -66,3 +66,27 @@ Deno.test('accepts all and selected repository scopes and discovers only the app
     assert.equal(await github.existingInstallation(888), null);
   }
 });
+
+Deno.test('workspace content uses a read-only token restricted to the chosen repository ID', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const requests: string[] = [];
+  const github = createGitHub(10, privateKey.export({ format: 'pem', type: 'pkcs1' }).toString(), async (input, init) => {
+    const url = new URL(String(input));
+    requests.push(url.pathname);
+    if (url.pathname === '/app/installations/12/access_tokens') {
+      assert.equal(init?.method, 'POST');
+      assert.deepEqual(JSON.parse(String(init.body)), {
+        permissions: { metadata: 'read', contents: 'read' }, repository_ids: [123],
+      });
+      return Response.json({ token: 'scoped-token' });
+    }
+    assert.equal(init?.method, 'GET');
+    assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer scoped-token');
+    return Response.json([]);
+  });
+  const get = await github.workspace({
+    id: 12, appId: 10, ownerId: 20, owner: 'owner', ownerType: 'User', ready: true,
+  }, 123);
+  await get('/repos/owner/site/branches');
+  assert.deepEqual(requests, ['/app/installations/12/access_tokens', '/repos/owner/site/branches']);
+});
