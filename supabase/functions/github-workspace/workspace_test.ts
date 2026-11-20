@@ -248,7 +248,7 @@ Deno.test('orphaned drafts stay visible and deletable after a branch disappears 
   const { files: orphaned } = await (await f.post({ action: 'draft_catalog' })).json();
   assert.equal(orphaned.length, 1);
   assert.equal(orphaned[0].available, false);
-  assert.equal(orphaned[0].repository, 'alpha');
+  assert.equal(orphaned[0].repository, 'owner/alpha');
 
   f.disconnect();
   const { files: disconnected } = await (await f.post({ action: 'draft_catalog' })).json();
