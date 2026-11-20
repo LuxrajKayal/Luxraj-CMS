@@ -213,7 +213,7 @@ Deno.test('drafts keep the GitHub baseline, reject old revisions, and list only 
   assert.equal((await f.post({ action: 'diff', ...selection, path })).status, 409);
 });
 
-Deno.test('draft management rechecks role, repository, branch and revision for each manual deletion', async () => {
+Deno.test('draft management rechecks role, ownership and revision for each manual deletion', async () => {
   const f = fixture();
   const selection = { repositoryId: 11, branch: 'feature/next' };
   const path = ['site', 'index.HTML'];
@@ -230,7 +230,33 @@ Deno.test('draft management rechecks role, repository, branch and revision for e
     { ...file, revision: '00000000-0000-0000-0000-000000000000' },
     file,
   ] })).json();
-  assert.deepEqual(results.map((item: { result: string }) => item.result), ['unavailable', 'unavailable', 'conflict', 'deleted']);
+  assert.deepEqual(results.map((item: { result: string }) => item.result), ['conflict', 'conflict', 'conflict', 'deleted']);
+  assert.deepEqual(await (await f.post({ action: 'draft_catalog' })).json(), { files: [] });
+});
+
+Deno.test('orphaned drafts stay visible and deletable after a branch disappears or GitHub disconnects', async () => {
+  const f = fixture();
+  const selection = { repositoryId: 11, branch: 'feature/next' };
+  const path = ['site', 'index.HTML'];
+  await f.post({ action: 'select', ...selection });
+  const { draft } = await (await f.post({
+    action: 'save_draft', ...selection, path, commit, source: 'orphan change', revision: null,
+  })).json();
+  const item = { ...selection, path: draft.path, revision: draft.revision };
+
+  f.branchNames.splice(f.branchNames.indexOf('feature/next'), 1);
+  const { files: orphaned } = await (await f.post({ action: 'draft_catalog' })).json();
+  assert.equal(orphaned.length, 1);
+  assert.equal(orphaned[0].available, false);
+  assert.equal(orphaned[0].repository, 'alpha');
+
+  f.disconnect();
+  const { files: disconnected } = await (await f.post({ action: 'draft_catalog' })).json();
+  assert.equal(disconnected.length, 1);
+  assert.equal(disconnected[0].available, false);
+  assert.match(disconnected[0].repository, /unavailable/);
+  const { results } = await (await f.post({ action: 'delete_drafts', drafts: [item] })).json();
+  assert.equal(results[0].result, 'deleted');
   assert.deepEqual(await (await f.post({ action: 'draft_catalog' })).json(), { files: [] });
 });
 
