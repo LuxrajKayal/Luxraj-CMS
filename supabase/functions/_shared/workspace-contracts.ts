@@ -112,6 +112,7 @@ export type WorkspaceRequest =
   | { action: 'storage_save'; databaseLimitMb: number; fileLimitMb: number }
   | { action: 'review_commit'; repositoryId: number; branch: string; message: string; files: ReviewFile[] }
   | { action: 'confirm_commit'; repositoryId: number; branch: string; reviewId: string }
+  | { action: 'reconcile_commit'; repositoryId: number; branch: string; reviewId: string; sha: string }
   | { action: 'history'; repositoryId: number; branch: string; page: number; head?: string }
   | { action: 'commit_detail'; repositoryId: number; branch: string; sha: string }
   | { action: 'commit_diff'; repositoryId: number; branch: string; sha: string; path: string };
