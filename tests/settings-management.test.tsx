@@ -48,6 +48,22 @@ test('individual deletion requires confirmation and bulk deletion reports partia
   expect(screen.getByText('Retained · unchanged')).toBeTruthy();
 });
 
+test('orphaned drafts are displayed with manual deletion even when GitHub is inaccessible', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'draft_catalog') return { files: [{ ...first, repository: 'Repository #1 (unavailable)', available: false }] };
+    if (input.action === 'delete_drafts') return { results: input.drafts.map(item => ({ ...item, result: 'deleted' })) };
+    throw new Error('Unexpected request');
+  });
+  render(<DraftManagementPage />);
+  expect(await screen.findByText('GitHub unavailable · manual cleanup')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Repository #1 (unavailable) main first.html' }));
+  expect(screen.getByText(/GitHub source files stay intact/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Permanently delete' }));
+  expect(request).toHaveBeenCalledWith({ action: 'delete_drafts', drafts: [{
+    repositoryId: first.repositoryId, branch: first.branch, path: first.path, revision: first.revision,
+  }] });
+});
+
 test('shows server limits and unavailable storage honestly, then persists both allocations', async () => {
   const usage = {
     databaseBytes: 352_000_000, databaseLimitMb: 350, databaseCeilingMb: 450,
