@@ -18,6 +18,7 @@ function fixture() {
   };
   const github: GitHub = {
     installation: async id => id === 42 ? verified : null,
+    existingInstallation: async () => null,
     repositories: async () => ['approved-org/site'],
     uninstall: async () => {},
   };
@@ -120,7 +121,7 @@ Deno.test('a GitHub settings update without state returns to Settings without li
   assert.equal(f.record().revision, revision);
 });
 
-Deno.test('complete verifies owner, app and selected-repository readiness before minting tokens', async () => {
+Deno.test('complete verifies owner, app and repository readiness before minting tokens', async () => {
   for (const installation of [
     null,
     { ...verified, appId: 999 },
@@ -196,4 +197,29 @@ Deno.test('an in-flight scope check cannot report a connection after a concurren
   assert.equal((await (await f.post('disconnect')).json()).status, 'disconnected');
   release(['approved-org/site']);
   assert.equal((await checking).status, 409);
+});
+
+Deno.test('existing approved-owner installation reconnects without a second GitHub installation callback', async () => {
+  const f = fixture();
+  f.github.existingInstallation = async ownerId => {
+    assert.equal(ownerId, 200);
+    return verified;
+  };
+  const response = await f.post('start');
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    status: 'connected', owner: 'approved-org', repositories: ['approved-org/site'],
+    manageUrl: 'https://github.com/organizations/approved-org/settings/installations/42',
+  });
+  assert.equal(f.record().installation_id, 42);
+  assert.equal(f.record().state_hash, null);
+});
+
+Deno.test('existing installation with another owner is never linked', async () => {
+  const f = fixture();
+  f.github.existingInstallation = async () => ({ ...verified, ownerId: 999 });
+  const response = await f.post('start');
+  assert.equal(response.status, 200);
+  assert.ok((await response.json()).installUrl);
+  assert.equal(f.record().installation_id, null);
 });

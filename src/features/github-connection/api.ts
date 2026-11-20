@@ -9,8 +9,9 @@ export interface ConnectionStatus {
 }
 
 export type ConnectionAction = 'status' | 'start' | 'complete' | 'disconnect';
+export type ConnectionStartResult = { installUrl: string } | ConnectionStatus;
 
-export async function githubConnection(action: 'start'): Promise<{ installUrl: string }>;
+export async function githubConnection(action: 'start'): Promise<ConnectionStartResult>;
 export async function githubConnection(action: Exclude<ConnectionAction, 'start'>): Promise<ConnectionStatus>;
 export async function githubConnection(action: ConnectionAction) {
   if (!supabase) throw new Error('unavailable');
@@ -26,7 +27,7 @@ export async function githubConnection(action: ConnectionAction) {
 export function connectionError(error: unknown) {
   if (error instanceof Error) {
     if (error.message === 'invalid_installation') {
-      return 'GitHub could not verify an active installation for the approved owner with selected repositories.';
+      return 'GitHub could not verify an active installation for the approved account with the required repository permissions.';
     }
     if (error.message === 'invalid_attempt') {
       return 'This GitHub setup attempt expired or was started in another session. Start again from this session.';
