@@ -56,7 +56,6 @@ function SessionBuffers({ userId, children }: { userId: string | null; children:
   const [recoveryError, setRecoveryError] = useState(false);
   const latest = useRef(snapshot);
   latest.current = snapshot;
-  const dirty = Object.keys(snapshot.buffers).length > 0;
   const flush = useCallback(() => {
     if (!userId) return;
     try {
