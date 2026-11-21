@@ -153,30 +153,31 @@ The roadmap has **20 numbered tasks (0–19)** grouped into **five initial miles
 
 ## Milestone 5 — Metadata Injector
 
-**Purpose:** Add the already-planned metadata functionality as independent modules that reuse the established repository workspace and Source Control infrastructure.
+**Purpose:** Prepare **missing metadata placeholder structures** for previously developed HTML sites, using manually declared page identities and the established shared change-set/commit system. **This is planning; documentation changes are not implementation approval.** See [Metadata Injector planning index](./docs/metadata-injector/README.md), [consolidated boilerplate specification](./docs/metadata-injector/boilerplates-v3.md), [category/page-type JSON registry](./docs/metadata-injector/boilerplates-v3.json), and [refined matrix index](./docs/metadata-injector/data/metadata-v2/index.json).
 
-- [ ] **Task 15 — Website category templates.** Store the approved Blog template and create independent initial copies for other website categories.
-  - **Your check:** Editing the E-commerce copy does not edit Blog, Business, or other category copies. No permanent shared inheritance.
-- [ ] **Task 16 — SEO eligibility selection.** Find HTML pages where the owner manually added `data-seo="true"`, allow selections, and save selections per repository/branch.
-  - **Your check:** Only eligible pages are listed; deselections persist; the CMS **never inserts the eligibility marker itself**.
-- [ ] **Task 17 — Page Type injection.** Assign official Schema.org page types per eligible file or folder, preparing the `data-page-type` attribute without disturbing other HTML.
-  - **Your check:** The intended pages receive the right type; unrelated pages and existing attributes remain intact.
-- [ ] **Task 18 — Placeholder verification.** Scan applicable fields, identify existing versus missing placeholders, and show the agreed gray, normal, and blue file states.
-  - **Your check:** Complete files are disabled, fully missing files are initially selected, and partially complete files remain selectable with clear details.
-- [ ] **Task 19 — Missing-placeholder injection.** Prepare only missing approved core, Open Graph, X/Twitter, and Schema.org template structures, then send the proposed changes through shared Source Control.
-  - **Your check:** Existing metadata and values remain unchanged; no duplicates are created; nothing is silently disabled; you review the full diff before a commit.
+- [ ] **Task 15 — Category templates, Page Type sidebar and manual boilerplates.** Present **Website Type → 12 selected website categories → Page Type → read-only, copyable boilerplate** with the human-inserted `data-cms-seo="true"`, `data-cms-website="<key>"` and `data-cms-seo-type="<key>"` attributes. Keep separate category template snapshots, one shared engine, the 28 owner-selected Blog definitions and 266 other *proposed* definitions.
+  - **Your check:** Choosing/copying a snippet never modifies GitHub or HTML; another category's template is unaffected by editing one category; all identifiers match the documented registry.
+- [ ] **Task 16 — Repository/branch HTML scanner.** Recursively inspect `.html` and `.htm` files on the selected remote repository/branch. Only pages with the manually added eligibility marker and a recognized exact category/type pair qualify; report unknown/inconsistent declarations without repairing or guessing them.
+  - **Your check:** Only marked, recognized HTML/HTM pages appear; unsupported and unmarked pages are not injected; branch/repository isolation holds; the CMS never inserts any identification attribute.
+- [ ] **Task 17 — Exact metadata-profile resolution.** Read the declared website category/page type and load the corresponding independent category metadata structures from the refined v2 matrix (core, OG, X, and page-type-aware Schema.org graph). **No automatic page-type attribute injection or separate type guessing.**
+  - **Your check:** BlogPosting, Product, Course and other sample pages resolve to their documented Schema.org/OG mappings, with no cross-category leakage.
+- [ ] **Task 18 — Element-presence verification and editable preview.** Determine expected elements and check **structural presence only, not values**. Existing `<title>`, description, canonical, OG/X tags and expected Schema.org identities are preserved whether empty, filled or still placeholders. Show **normal/all missing**, **blue/partial**, **gray/complete**; let the owner select and optionally edit **proposed missing placeholders only**.
+  - **Your check:** `<title></title>` is recognized as present; repeated text values are irrelevant; existing elements are never overwritten or duplicated; unknown/ambiguous structures are reported without unsafe changes.
+- [ ] **Task 19 — Draft, review, authorized commit and history.** Prepare only approved missing structures, save them through Supabase drafts/change sets, review in the existing Monaco/Source Control diff and explicitly commit to the chosen GitHub branch. After commit, return to Code Editor → Source Control → History to inspect the committed diff.
+  - **Your check:** Saving a draft does not change GitHub; cancel never writes; expected files/branch and conflicts are checked; existing metadata is unchanged; commit is visible in History with the correct file diff.
 
 ### Milestone 5 acceptance
 
-- [ ] The same injector works with different repository structures.
-- [ ] Eligible pages and page types determine which approved placeholders apply.
-- [ ] The Blog catalog retains its approved 11 core items, 25 OG properties, six X properties, and all 40 Schema.org catalog entries.
-- [ ] Other categories have **independent template copies**, not synchronized references to Blog.
-- [ ] The CMS injects **placeholder structures**, not real SEO descriptions, author details, image URLs, or other values.
-- [ ] The inspector can distinguish fully complete, fully missing, and partially complete files.
-- [ ] All proposed changes pass through the same draft, diff, and explicit commit pathway used by the Code Editor.
+- [ ] Independent website-category templates (initial snapshot copies, **no live shared inheritance**) and one repository-independent engine.
+- [ ] All **12 owner-selected website categories** have discoverable, manually copyable boilerplate pages; **28 Blog page types are owner-selected**; 266 additional candidate definitions remain proposed until separately accepted.
+- [ ] Manual HTML identification attributes are never auto-injected or auto-selected; exact category/type mapping is used for all eligible HTML/HTM files in the active repository/branch.
+- [ ] The approved Blog **11 core**, **25 Open Graph**, **six X/Twitter**, and **S01–S40 Schema.org** catalogs stay available, with applicable page-type-specific definitions resolved from the refined matrix.
+- [ ] **Presence-only** detection: existing expected elements are skipped regardless of values; incomplete pages may receive only the **missing structures**. Repeatable fields and JSON-LD structural identities require safe no-duplicate handling.
+- [ ] Proposed changes can be manually edited without changing the canonical category template or existing page metadata.
+- [ ] Draft → Monaco diff → explicit authorized commit → Code Editor History uses the **existing shared workflow**, with no automatic commits or unwanted branch changes.
+- [ ] Tests include complete/partial/missing files, HTML and HTM paths, unsupported markers, sample mappings, existing empty values, protected branches, stale changes, and preserved drafts.
 
-**For testing:** It is reasonable to check core metadata, OG, X, and Schema.org subsets separately. Completion still requires verifying the full approved catalog's intended behavior.
+**Separate later feature:** SEO value population, factual correctness and rich-result checks are **not** part of the structure-only injector. Detailed HTML/JSON-LD insertion and merge mechanics will be approved separately before implementation.
 
 ---
 
@@ -230,4 +231,4 @@ Notes:
 
 ---
 
-**Current next action:** **Task 0 — Read-only repository inspection.** No project implementation is authorized by creating this roadmap.
+**Current planning focus:** **Task 15 — Revised Metadata Injector planning.** The owner reports Task 14 complete in the separate implementation workflow. This documentation update does not authorize coding, deployment or migration.

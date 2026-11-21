@@ -12,7 +12,7 @@ Luxraj CMS is a **browser-first, multi-repository, branch-aware CMS** hosted as 
 
 - **GitHub is the source of truth** for source code, branches, and actual commits.
 - **Supabase handles** authentication, permissions, preferences, secure credential storage, and uncommitted CMS drafts/review requests.
-- The CMS must be **repository-independent**. Do not hardcode Luxraj Blog folder structures, Page ID formats, metadata conventions (other than the explicitly agreed universal eligibility marker), or build pipeline assumptions into the engine.
+- The CMS must be **repository-independent**. Do not hardcode Luxraj Blog folder structures, Page ID formats, metadata conventions (other than the explicitly agreed manual CMS identification attributes), or build pipeline assumptions into the engine.
 - CMS actions must always be scoped to the **selected repository and branch**. Changes on one branch must not unintentionally affect another.
 - Any tool that changes code must use the **same reviewable change workflow**. No unexpected automatic commits.
 - Keep the interface practical. Plan first, implement an approved phase, and verify actual end-to-end behavior rather than equating a passing build with feature success.
@@ -161,71 +161,39 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 - **Documentation is not implementation approval.** Build/deploy/backend changes require the owner's separate explicit authorization. The owner must verify the complete edit → draft → diff → confirm → commit → graph → committed-diff workflow on a safe test branch before Tasks 13–14 are accepted.
 
 
-## 7. Metadata Injector — category templates, page types, and placeholder injection
+## 7. Metadata Injector — manual page identification and missing metadata structures
 
-**Status: requirements/planning specification, not implemented.** Metadata Injector is a left-sidebar feature opened in the viewport for the **currently selected GitHub repository and branch**. The engine works across unrelated website repositories; it does not assume Luxraj Blog's file hierarchy or build process.
+**Status: revised planning only, not implementation authorization.** The complete catalogs, 294 page-type definitions, placeholder research, and scan/injection planning are kept in [docs/metadata-injector/README.md](./docs/metadata-injector/README.md); this README records the architectural rules without duplicating the large files.
 
-### 7.1 Template architecture — independent copies, NOT shared inheritance
+### 7.1 Website Type → Page Type → manual copyable boilerplate
 
-- The **Blog & Publishing** category is the first approved reference template.
-- **At initial setup**, copy its complete placeholder structure into the other website category templates (e.g., E-commerce, Business, News, Portfolio, Education, Software, and other planned categories).
-- After copying, **each category owns its own independent snapshot of placeholders, schema configurations, and injection rules**. These are **not** live references to one eternal shared Blog template. Changing Blog later **does not update** E-commerce, and changing E-commerce **does not affect** Blog.
-- Reuse a **single generic injection engine** to apply those independent category configurations; do not duplicate or hardcode the entire engine for each repository.
-- Category selections and relevant preferences must be scoped to the selected repository/branch, rather than applied globally to unrelated projects.
-- The specifics of other categories can be customized **later**, independently. Do not infer that another category must use Blog-specific schema forever.
-
-### 7.2 Agreed workflow in the same viewport
-
-**Category choice → Step 1: SEO-eligible HTML selection → Step 2: Page Type assignment/injection → Step 3: Placeholder verification/injection → Source Control review → explicit GitHub commit.**
-
-**Step 1 — SEO eligibility**
-
-The Admin **manually** adds this custom attribute in the Code Editor to pages that may enter the metadata workflow:
+In the Metadata Injector's internal sidebar show **Website Type → website category → Page Type → its copyable HTML boilerplate**. The human developer/maintainer inspects the page and **manually** merges the chosen attributes into its existing `<html>` opening tag:
 
 ```html
-<html data-seo="true">
+<html lang="en"
+      data-cms-seo="true"
+      data-cms-website="blog"
+      data-cms-seo-type="BlogPosting">
 ```
 
-- `data-seo="true"` is **only an eligibility test**. It does **not** mean the page automatically qualifies for indexing or Google ranking, and **the Metadata Injector must never add or modify this attribute**.
-- Scan the chosen repository/branch's HTML pages, irrespective of folder layout; show only matching pages in the eligibility dropdown.
-- Support **Select All**, manual selections, deselection, **Cancel**, and **Save Selection**.
-- Save the selected eligible files as preferences in Supabase, scoped to repository and branch, and restore them later.
-- Only saved, still-eligible files progress to Step 2; a removed eligibility marker cannot be overridden by an old saved selection.
-- Unlock the next step only after Step 1 preferences have been saved.
+- `data-cms-seo="true"` opts the page into the workflow; `data-cms-website` selects a website-category template; `data-cms-seo-type` identifies the exact page role within that category. Keep values case-sensitive and use the registered CMS key rather than guessing.
+- **Never insert, auto-select, infer, change or repair any CMS identification attribute automatically.** Boilerplate choice and insertion are always manual. A later page-template feature may offer ready-made new pages separately.
+- The owner-selected initial website categories (CMS keys) are: Blog & Publishing (`blog`), News & Magazine (`news`), Personal Portfolio (`portfolio`), Documentation & Knowledge Base (`documentation`), E-commerce (`ecommerce`), Business (`business`), Professional Services (`services`), Education (`education`), Software (`software`), Community (`community`), Entertainment (`entertainment`) and Travel (`travel`).
+- **Blog: 28 owner-selected page-type boilerplates** (26 initial concepts with Opinion/Editorial and Event/Announcement each split into two). The other **266 page types are research proposals**, not owner-approved implementation scope. Their definitions explicitly map CMS keys to Schema.org page/entity graphs and compatible Open Graph types. The categories and mappings can become Super Admin-editable in a later milestone.
+- Keep the approved category-template rule: initial snapshots from Blog, then **independent** category ownership (no permanent synchronized inheritance). Reuse one generic engine. Store workspace selections/preferences per selected repository and branch.
 
-**Step 2 — Page Type assignment and injection (a separate stage before metadata placeholders)**
+### 7.2 Detect, verify structure only, edit proposed placeholders, review and commit
 
-- The Admin assigns page types using a **page-type dropdown for individual HTML files or whole folders**. Assigning a folder applies to eligible HTML files inside that folder, avoiding repetitive file-by-file work.
-- Example choices: `site/index.html` → `WebSite`; files in `site/articles/` → `BlogPosting`. These paths are illustrative; **no folder names are hardcoded**.
-- The accepted page-type values should use **official Schema.org type names**, rather than assuming that earlier informal examples like lowercase `article` were final.
-- The CMS injects a custom attribute into the existing opening `<html>` tag, without disturbing other attributes:
+**Manual boilerplate → recursive HTML scan → auto-map category/type → existing-element check → choose/edit proposed missing placeholders → Supabase draft → existing Source Control diff/explicit commit → Code Editor History.**
 
-```html
-<html data-seo="true" data-page-type="BlogPosting">
-```
+1. Scan all `.html` and `.htm` files recursively within the **selected repository and branch**. An eligible page must have `data-cms-seo="true"` and an exact, recognized `data-cms-website` / `data-cms-seo-type` combination. Ignore unmarked pages and flag malformed or unrecognized declarations; do not guess a type or modify attributes. This supersedes the earlier `data-seo="true"` eligibility / auto-injected `data-page-type` design.
+2. Resolve the exact category/type against the independent category configuration and the **refined metadata placeholder matrix v2**. Select applicable structures from the approved core SEO, Open Graph, X/Twitter and Schema.org catalogs, including documented nested schema relationships when appropriate.
+3. **Verify element/structural presence, never value.** If a `<title>` exists, skip it even when empty or still a placeholder; otherwise make it eligible for injection. Identify `meta[name="description"]`, `meta[property="og:title"]`, `meta[name="twitter:title"]`, `link[rel="canonical"]`, etc. by element name and structural attributes—not the text, `content`, `href` or SEO quality. Existing metadata stays exactly as written; never duplicate an already-detected expected element. Repeatable metadata families require identity-aware no-duplicate rules without judging values.
+4. For JSON-LD, detect the **expected schema type/entity/property identities**, not merely any JSON-LD script. Never validate the SEO value, fill missing facts, or overwrite an existing property's value. Detailed HTML placement, repeatable-property identity, and JSON-LD merge mechanics will be planned separately.
+5. Show files as **all missing** (normal; initially checked), **partly missing** (blue; selectable; initial checked state TBD), or **complete** (gray; disabled). Allow the owner to choose files/elements and optionally edit **proposed placeholder code only**; do not modify the canonical category template through a one-page draft.
+6. Prepare changes through the **existing shared drafts/change sets, Monaco diff, final authorization/confirmation and remote branch-safe GitHub commit**. A saved draft does not touch GitHub. A completed commit appears in Code Editor → Source Control → History with its committed file diffs. Preserve drafts and unsaved buffers across failures and conflicts.
 
-- The CMS **does** inject `data-page-type` as the Admin directs, but **does not** inject `data-seo`.
-- If a page or folder does not have an approved type assignment, do not invent its type. The exact full dropdown taxonomy, assignment conflicts/overrides, and treatment of already-present values can be finalized during implementation planning.
-- The resulting code changes remain subject to review before a GitHub commit.
-
-**Step 3 — Page-type-aware placeholder verification and injection**
-
-- Read `data-page-type` on each selected eligible HTML page, then load the approved placeholders from the selected website category's **independent** template that apply to that type.
-- Check whether each expected placeholder **already exists**. Display these statuses:
-
-| State | Appearance | Selection behavior |
-| --- | --- | --- |
-| All applicable placeholders exist | **Gray, disabled** | No injection needed |
-| All applicable placeholders missing | **Normal, initially checked** | May be injected |
-| Some exist, some missing | **Blue, selectable** | Inject **only missing** placeholders |
-
-- Hovering over a filename reveals the exact existing/missing placeholders; provide a tappable details equivalent on touch devices.
-- Admin controls the eligible selections; the default checked status for partially complete blue files was **not decided**.
-- Preserve existing values and structure; do not duplicate existing placeholders or overwrite completed metadata.
-- **The placeholder injector inserts structure/template variables, not actual SEO content.** A later, separately planned metadata population feature handles actual descriptions, images, dates, author information, URLs, and other values.
-- **Do not automatically disable, comment out, suppress, remove, or deactivate approved injected placeholders.**
-- Use the approved template rules for placement (`<html>` attributes, `<head>` `<title>`/`<meta>`/`<link>`, and JSON-LD `<script type="application/ld+json">`).
-- Prepare changes as a reviewable change set. Review before/after code in Source Control before any commit; never silently commit.
+**Boundary:** The injector adds only **missing placeholder structures**. Actual SEO population, content correctness, Google rich-result validation and ranking/indexing analysis belong to a separate later feature. The refined matrix's conditional/evidence guidance informs future values but **must not turn the injector into a value validator**.
 
 ### 7.3 Locked Blog & Publishing catalog — core fields
 
@@ -245,7 +213,7 @@ The Admin **manually** adds this custom attribute in the Code Editor to pages th
 | 10 | Language alternates | `<link rel="alternate" hreflang="{{HREFLANG_CODE}}" href="{{HREFLANG_URL}}">`; supports multiple language versions without translating them |
 | 11 | RSS feed discovery | `<link rel="alternate" type="application/rss+xml" title="{{RSS_FEED_TITLE}}" href="{{RSS_FEED_URL}}">` |
 
-**Explicit exclusions:** Viewport injection is excluded because the site developer handles viewport configuration; Atom Feed Discovery was declined. The eligibility marker `data-seo="true"` is **not** an injection placeholder. A separate No Index control is deferred for later discussion; no robots directive values are assigned by the placeholder injector. Existing values are preserved wherever present.
+**Explicit exclusions:** Viewport injection is excluded because the site developer handles viewport configuration; Atom Feed Discovery was declined. CMS identification attributes (`data-cms-seo`, `data-cms-website`, `data-cms-seo-type`) are **not** injection placeholders. A separate No Index control is deferred for later discussion; no robots directive values are assigned by the placeholder injector. Existing values are preserved wherever present.
 
 ### 7.4 Locked Blog Open Graph collection — item #12
 
@@ -256,7 +224,7 @@ The Admin **manually** adds this custom attribute in the Code Editor to pages th
 | Property | Placeholder / behavior |
 | --- | --- |
 | `og:title` | `{{OG_TITLE}}` |
-| `og:type` | **Derive the compatible Open Graph type automatically from assigned `data-page-type`**; do not ask the Admin to enter another type |
+| `og:type` | **Derive the compatible Open Graph type automatically from assigned `data-cms-seo-type`**; do not ask the Admin to enter another type |
 | `og:url` | `{{OG_URL}}` (a URL, not the Page ID) |
 | `og:description` | `{{OG_DESCRIPTION}}` |
 | `og:site_name` | `{{OG_SITE_NAME}}` |
@@ -292,9 +260,9 @@ The Admin **manually** adds this custom attribute in the Code Editor to pages th
 
 **Excluded Open Graph groups:** C. Video/Audio; F. Industry/Platform Extensions; G. Specialized OG Content Types. No other OG properties were individually excluded from the retained groups.
 
-**Page-type awareness:** Article/author-related and profile-related placeholders are kept in the approved Blog template and become injection-eligible according to the Admin-assigned page type. Do not place every special-purpose schema/OG object on every page merely because its definition is in the complete Blog catalog.
+**Page-type awareness:** Article/author-related and profile-related placeholders are kept in the approved Blog template and become injection-eligible according to the manually declared page-type key. Do not place every special-purpose schema/OG object on every page merely because its definition is in the complete Blog catalog.
 
-**Type linking:** The CMS page-type assignment is reused to derive `og:type` via a **compatible vocabulary mapping**; the values are not always textually identical. Examples discussed: `BlogPosting` / `Article` / `NewsArticle` → `article`, `WebSite` / `WebPage` → `website`, `ProfilePage` → `profile`. Preserve existing `og:type` values. Other mapping entries will be handled under the same compatibility principle rather than inventing unsupported OG values.
+**Type linking:** The manually declared CMS page type is reused to derive `og:type` via a **compatible vocabulary mapping**; the values are not always textually identical. Examples discussed: `BlogPosting` / `Article` / `NewsArticle` → `article`, `WebSite` / `WebPage` → `website`, `ProfilePage` → `profile`. Preserve existing `og:type` values. Other mapping entries will be handled under the same compatibility principle rather than inventing unsupported OG values.
 
 ### 7.5 Locked Blog X / Twitter Card collection — approved items #13–#18
 
@@ -326,7 +294,7 @@ The Admin selected **all six groups, all 40 entries, no exclusions or modificati
 | **E. Specialized content** | S24–S34 | `FAQPage` / `Question` / `Answer`, `QAPage`, `HowTo`, `Review` / `AggregateRating`, `Recipe`, `Product`, `SoftwareApplication`, `Book`, `Course`, `Event`, `DiscussionForumPosting` |
 | **F. Advanced capabilities** | S35–S40 | Content relationships, article references, paywall declarations, publisher/editorial properties, `speakable`, site-search `SearchAction` / `potentialAction` |
 
-- **Primary schema selection:** Assign official Schema.org type names in the Page Type step. A `data-page-type="BlogPosting"` source value is reused as the JSON-LD primary `"@type": "BlogPosting"`—no second type selector or `{{SCHEMA_TYPE}}` value entry.
+- **Primary schema selection:** Resolve the manually declared CMS page-type key against its registered Schema.org mapping. A `data-cms-seo-type="BlogPosting"` source value is reused as the JSON-LD primary `"@type": "BlogPosting"`—no second type selector or `{{SCHEMA_TYPE}}` value entry.
 - **Associated nodes:** The selected type determines appropriate approved supporting structures such as author `Person`, publisher `Organization`, `BreadcrumbList`, `ImageObject`, and content relationships. Keep all approved templates available; no automatic disabling.
 - **Permanent Page ID:** Reuse the single `{{PAGE_ID}}` wherever a page-internal `identifier` is suitable. Schema.org `@id` references identify graph entities and may be derived from the appropriate canonical URL and entity fragment; they do **not** need additional manually assigned page IDs. Do not assign one identical `@id` to unrelated entities.
 - **Structured-data syntax:** JSON-LD uses `<script type="application/ld+json">` with the approved template variables for fields such as author, headline, publication date, images, content, and references.
@@ -335,7 +303,7 @@ The Admin selected **all six groups, all 40 entries, no exclusions or modificati
 
 ### 7.7 Global decisions and validation boundaries
 
-1. **One source for type assignment:** Admin-defined page type drives primary schema `@type`, compatible `og:type` mapping, and page-type-specific placeholder selection. No second type-value input.
+1. **One source for type assignment:** Manually declared CMS page type drives primary schema `@type`, compatible `og:type` mapping, and page-type-specific placeholder selection. No second type-value input.
 2. **One permanent Page ID per HTML page:** reuse it rather than issuing redundant IDs. This is separate from canonical/public URLs.
 3. **One category's copy never silently changes another:** Blog, E-commerce, and other templates start from a snapshot copy, then evolve independently.
 4. **Full coverage, no silent suppression:** approved template placeholders remain available for injection. No automatic disabling, hiding, removing, or commenting out.
@@ -344,7 +312,7 @@ The Admin selected **all six groups, all 40 entries, no exclusions or modificati
 7. **Explicit code review before commit.** Changes prepared by the injector must be inspectable through the shared Source Control diff workflow.
 8. **SEO compliance is distinct from injection:** Google doesn't guarantee rankings from quantity of metadata. Validate populated JSON-LD and active search directives when that later stage exists. This is **not** approval to deactivate placeholders.
 
-**Decisions not yet locked:** final Page ID HTML meta-tag name; comprehensive folder/file assignment conflict handling; full per-page-type Schema.org field layouts and mapping details; the remaining Metadata Injector stages and future SEO value population controls. The Blog catalog itself and category-template copying rule are approved; do not reopen those choices without a new owner request.
+**Decisions not yet locked:** final Page ID HTML meta-tag name; repeatable-metadata identity/merge handling; exact per-page-type JSON-LD layouts and injection mechanics; the remaining Metadata Injector stages and future SEO value population controls. The Blog catalog itself and category-template copying rule are approved; do not reopen those choices without a new owner request.
 
 ## 8. Moving source injection out of GitHub Actions
 
@@ -377,7 +345,7 @@ The precise permission matrix and approval interface are intentionally postponed
 | 1. Foundation and auth | Public frontend, secure backend, login-first UI, one Super Admin, token onboarding | Login protection, token handling, role checks verified |
 | 2. Repository workspace | Dashboard/sidebar, repository discovery/registry, branch selection, saved preferences | Switch repositories and remote branches; restore choice from another session |
 | 3. Editor and Source Control | HTML/CSS/JS editing, shared drafts, code diff review, remote commits and history | Inspect pre/post-commit diffs and commit to one branch without affecting another |
-| 4. Metadata Injector | Independent category templates; eligibility, page-type assignment, and page-type-aware placeholder injection | Verify marker eligibility, folder/file type assignment, preserved values, partial/missing classification, accurate diffs and safe commits |
+| 4. Metadata Injector | Independent templates; manual page boilerplates, recursive scanning, mapped missing-placeholder preparation | Verify human-only markers, correct category/type matching, presence-only inspection, preserved existing elements, accurate diffs and safe commits |
 | 5. Users and permissions | Invitations, restricted accounts, repository/branch authorization | Prove unauthorized users cannot read/write other workspaces |
 | 6. Author reviews | Supabase drafts, submission queue, approve/reject flow | Prove pending drafts never touch GitHub until Admin approval |
 
@@ -539,7 +507,7 @@ Because the project owner is comfortable inspecting HTML, CSS and JavaScript but
 2. **Authentication / secure backend:** Supabase Auth, backend-controlled Super Admin authorization, secure one-time GitHub App installation authorization and Super Admin-only Settings connection/disconnect management.
 3. **Repository workspace:** Selected repository/branch state, remote file read interfaces, saved user preferences and access enforcement.
 4. **Editor / draft / source control foundation:** Monaco integration, shared drafts and changesets, reviewable diffs, verified branch-safe GitHub commits and history.
-5. **Metadata Injector:** Eligibility, page-type assignment, independent category configurations and approved placeholder templates using the established shared change-set pipeline.
+5. **Metadata Injector:** Manual page boilerplates, recursive detection, exact category/type mapping, independent configurations and missing-placeholder drafts through the established shared change-set pipeline.
 6. **Later features:** User/branch permissions, restricted authors, approvals and other CMS modules as separately approved.
 
 These are **implementation slices**, not an instruction to code all six at once. The existing project-phase table above remains the controlling high-level plan; no new phase has been approved for execution merely by recording this architecture.
@@ -548,9 +516,9 @@ These are **implementation slices**, not an instruction to code all six at once.
 
 **Confirmed implementation direction:** React + TypeScript + Vite frontend; modular routing, layouts, shared UI and environment configuration; isolated feature modules and secure backend boundaries; Codex in VS Code as the coding path. This is an architectural decision, **not implementation approval**.
 
-**Discussed and established so far:** login-first UI, one Super Admin with future restricted users, GitHub App installation authorization with persisted backend status and Super Admin-only Settings management, Supabase-stored user preferences, repository and remote branch selection, future branch-level user assignments, a VS Code-style HTML/CSS/JS editor, code-level before/after reviews and commit history, and shared review-before-commit flow. **Metadata Injector:** manual SEO eligibility marker and saved file preferences; Admin-controlled file/folder Page Type assignment; page-type-aware placeholder injection; approved Blog core, Open Graph, X, and S01–S40 Schema.org catalogs; and independent snapshot copies for other website categories.
+**Discussed and established so far:** login-first UI, one Super Admin with future restricted users, GitHub App installation authorization with persisted backend status and Super Admin-only Settings management, Supabase-stored user preferences, repository and remote branch selection, future branch-level user assignments, a VS Code-style HTML/CSS/JS editor, code-level before/after reviews and commit history, and shared review-before-commit flow. **Metadata Injector:** human-only three-attribute page identification; recursive HTML/HTM scanning; exact category/type-to-matrix lookup; presence-only missing-element inspection; editable proposed placeholders; shared drafts, diffs and explicit commits; the approved Blog core, OG, X and S01–S40 catalogs; and independent website-category snapshots.
 
-**Still being discussed:** final Page ID meta element name, finer schema/template and folder-overlap implementation details, future metadata population and index-control features, exact author permissions and review controls, and finer UI details. Approved catalogs must not be silently reduced, disabled, or treated as permission to generate real SEO data.
+**Still being discussed:** final Page ID meta element name, finer schema/template and repeated-element insertion details, future metadata population and index-control features, exact author permissions and review controls, and finer UI details. Approved catalogs must not be silently reduced, disabled, or treated as permission to generate real SEO data.
 
 **No application implementation is authorized by updating this README.** This commit documents the plan only. Existing Luxraj Blog and older CMS repositories are outside the scope of this documentation update.
 this is the commit test from the vs code.

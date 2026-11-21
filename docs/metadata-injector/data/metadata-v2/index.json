@@ -1,0 +1,191 @@
+{
+  "schema_version": "2.0",
+  "status": "planning_research_not_implementation_approval",
+  "description": "Lossless logical partition of the refined v2 metadata placeholder matrix; see docs/metadata-injector/README.md for reconstruction.",
+  "source_filename": "Luxraj_CMS_All_12_Categories_294_Page_Metadata_Placeholder_Matrix_v2_refined.json",
+  "source_sha256": "4013ed6959c89e8ff3e8d3a69f0d317509b22bf524b82929df44361cc34f872e",
+  "source_git_blob_sha": "8d4846db5a4d923ca62eb4da2dee7584c6eaebb1",
+  "shared": {
+    "path": "shared.json",
+    "git_blob_sha": "166eacbb149132622f6478ceaaa7c5a1db607d18"
+  },
+  "entry_count": 294,
+  "category_count": 12,
+  "parts": [
+    {
+      "path": "parts/part-01.json",
+      "git_blob_sha": "af9acc6f6512abbb831a8296aedbbe0dd1334b60",
+      "first_entry_id": "01-01",
+      "last_entry_id": "01-12",
+      "count": 12
+    },
+    {
+      "path": "parts/part-02.json",
+      "git_blob_sha": "04345fea8e7390aeba2ab2feb6be379484ebe70b",
+      "first_entry_id": "01-13",
+      "last_entry_id": "01-23",
+      "count": 12
+    },
+    {
+      "path": "parts/part-03.json",
+      "git_blob_sha": "690cf2e600b1405bc808a52291006e1bc8bd72c7",
+      "first_entry_id": "01-24",
+      "last_entry_id": "02-08",
+      "count": 12
+    },
+    {
+      "path": "parts/part-04.json",
+      "git_blob_sha": "b597817fe3f352ba2155483737f639d63dc03664",
+      "first_entry_id": "02-09",
+      "last_entry_id": "02-20",
+      "count": 12
+    },
+    {
+      "path": "parts/part-05.json",
+      "git_blob_sha": "331579c7ec219e8b6ec6c64271632d9d75f81b48",
+      "first_entry_id": "02-21",
+      "last_entry_id": "03-07",
+      "count": 12
+    },
+    {
+      "path": "parts/part-06.json",
+      "git_blob_sha": "51380e3261fcf7ba10e7f85140ceb6b1bc5f8dfc",
+      "first_entry_id": "03-08",
+      "last_entry_id": "03-19",
+      "count": 12
+    },
+    {
+      "path": "parts/part-07.json",
+      "git_blob_sha": "5b5a0cfc8ec737bc22c2ec705a4f203d0cbe3a80",
+      "first_entry_id": "03-20",
+      "last_entry_id": "04-09",
+      "count": 12
+    },
+    {
+      "path": "parts/part-08.json",
+      "git_blob_sha": "342d34a5b8f32d2ef0258a8e704f35c9c8bc8883",
+      "first_entry_id": "04-10",
+      "last_entry_id": "04-21",
+      "count": 12
+    },
+    {
+      "path": "parts/part-09.json",
+      "git_blob_sha": "6b3effcf2fd9674acef6d99076ee0882e4e95e5b",
+      "first_entry_id": "04-22",
+      "last_entry_id": "05-11",
+      "count": 12
+    },
+    {
+      "path": "parts/part-10.json",
+      "git_blob_sha": "c8de16f96f933b951c7d0c013e6bb0cddc9df3b3",
+      "first_entry_id": "05-12",
+      "last_entry_id": "05-23",
+      "count": 12
+    },
+    {
+      "path": "parts/part-11.json",
+      "git_blob_sha": "6a9b22f590fbaf66fae69477973fbecb3437d2e9",
+      "first_entry_id": "05-24",
+      "last_entry_id": "06-11",
+      "count": 12
+    },
+    {
+      "path": "parts/part-12.json",
+      "git_blob_sha": "e8206c83c0dcbc981b801bf6713ff9096f7a6d41",
+      "first_entry_id": "06-12",
+      "last_entry_id": "06-23",
+      "count": 12
+    },
+    {
+      "path": "parts/part-13.json",
+      "git_blob_sha": "3358b2cf5f372e78f696f7d1c34ae314862f6511",
+      "first_entry_id": "06-24",
+      "last_entry_id": "07-11",
+      "count": 12
+    },
+    {
+      "path": "parts/part-14.json",
+      "git_blob_sha": "cc258a15d60542ebcd13b401e2f49ea3555a244f",
+      "first_entry_id": "07-12",
+      "last_entry_id": "08-02",
+      "count": 12
+    },
+    {
+      "path": "parts/part-15.json",
+      "git_blob_sha": "eede1c7f228191bbab48646168130e6922baf612",
+      "first_entry_id": "08-03",
+      "last_entry_id": "08-14",
+      "count": 12
+    },
+    {
+      "path": "parts/part-16.json",
+      "git_blob_sha": "504faf5d63a018fd9ae7e9e156d74ed9eed8fa44",
+      "first_entry_id": "08-15",
+      "last_entry_id": "08-26",
+      "count": 12
+    },
+    {
+      "path": "parts/part-17.json",
+      "git_blob_sha": "4dff5db98f453686e3359557c847e212190631be",
+      "first_entry_id": "08-27",
+      "last_entry_id": "09-10",
+      "count": 12
+    },
+    {
+      "path": "parts/part-18.json",
+      "git_blob_sha": "a92a9532a1ed335879e5d282bd398405d4a218c4",
+      "first_entry_id": "09-11",
+      "last_entry_id": "09-22",
+      "count": 12
+    },
+    {
+      "path": "parts/part-19.json",
+      "git_blob_sha": "72572feff554c1a3a8c2fa34fbf26f14704be18a",
+      "first_entry_id": "09-23",
+      "last_entry_id": "10-08",
+      "count": 12
+    },
+    {
+      "path": "parts/part-20.json",
+      "git_blob_sha": "9dd489a8e25e4133dfdaea6bce5e53ba22031aff",
+      "first_entry_id": "10-09",
+      "last_entry_id": "10-20",
+      "count": 12
+    },
+    {
+      "path": "parts/part-21.json",
+      "git_blob_sha": "a4dc2f2030245430a4e47c102227b3afc2c5ba6c",
+      "first_entry_id": "10-21",
+      "last_entry_id": "11-11",
+      "count": 12
+    },
+    {
+      "path": "parts/part-22.json",
+      "git_blob_sha": "03f7dc23b8948842f6e33a9a2ad40cd213f2b310",
+      "first_entry_id": "11-12",
+      "last_entry_id": "11-23",
+      "count": 12
+    },
+    {
+      "path": "parts/part-23.json",
+      "git_blob_sha": "76bcf254d12a8cf5b7981ade86b7ac06e58a4cd9",
+      "first_entry_id": "11-24",
+      "last_entry_id": "12-10",
+      "count": 12
+    },
+    {
+      "path": "parts/part-24.json",
+      "git_blob_sha": "24a58ce563afd0a4b01aae70a597535ac0827b37",
+      "first_entry_id": "12-11",
+      "last_entry_id": "12-22",
+      "count": 12
+    },
+    {
+      "path": "parts/part-25.json",
+      "git_blob_sha": "675745bb21e4ec38d960ec1fc4314f6d19e143cd",
+      "first_entry_id": "12-23",
+      "last_entry_id": "12-28",
+      "count": 6
+    }
+  ]
+}
