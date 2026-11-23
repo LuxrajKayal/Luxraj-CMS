@@ -13,6 +13,7 @@ import { SourceControlPage } from '../../features/workspace/SourceControlPage';
 import { SettingsLayout } from '../../features/settings/SettingsLayout';
 import { DraftManagementPage } from '../../features/settings/DraftManagementPage';
 import { StorageManagementPage } from '../../features/settings/StorageManagementPage';
+import { CommitLimitPage } from '../../features/settings/CommitLimitPage';
 import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { lazy, Suspense } from 'react';
 
@@ -42,7 +43,7 @@ export function AppRoutes() {
               <Route path="/repositories" element={<RepositoriesPage />} />
               <Route path="/code-editor" element={<CodeEditorPage />} />
               <Route path="/source-control" element={<SourceControlPage />} />
-              <Route path="/code-injector" element={<Suspense fallback={<p role="status">Loading Code Injector…</p>}>
+              <Route path="/code-injector/*" element={<Suspense fallback={<p role="status">Loading Code Injector…</p>}>
                 <CodeInjectorPage />
               </Suspense>} />
             </Route>
@@ -53,6 +54,7 @@ export function AppRoutes() {
               : <p>GitHub connection will be available after backend setup.</p>} />
             <Route path="drafts" element={<DraftManagementPage />} />
             <Route path="storage" element={<StorageManagementPage />} />
+            <Route path="commit-limit" element={<CommitLimitPage />} />
           </Route>
         </Route>
       </Route>

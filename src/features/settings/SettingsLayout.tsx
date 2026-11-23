@@ -17,6 +17,7 @@ export function SettingsLayout() {
             <NavLink to="/settings" end>GitHub Connection</NavLink>
             <NavLink to="/settings/drafts">Draft Management</NavLink>
             <NavLink to="/settings/storage">Storage Management</NavLink>
+            <NavLink to="/settings/commit-limit">Maximum Files Per Commit</NavLink>
           </nav>
         </ModulePanel>}
         <div className="module-body module-scroll"><Outlet /></div>

@@ -79,7 +79,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const navigate = useNavigate();
   const target = location.state?.editorTarget;
   const targetPath = target?.repositoryId === repositoryId && target.branch === branch && typeof target.path === 'string' &&
-    target.path.length <= 1024 && /\.html?$/i.test(target.path) ? target.path : null;
+    target.path.length > 0 && target.path.length <= 1024 ? target.path : null;
   const targetReview = targetPath && target.review === true ? targetPath : null;
   const { views, putView } = useEditBuffers();
   const workspaceKey = JSON.stringify([repositoryId, branch]);

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { CommitReceipt, CommitReview, ReviewFile } from '../../../supabase/functions/_shared/workspace-contracts';
 import { workspaceError, workspaceRequest } from './api';
 
-export function CommitControls({ repositoryId, branch, files, onCommitted }: {
-  repositoryId: number; branch: string; files: ReviewFile[]; onCommitted(receipt: CommitReceipt): void;
+export function CommitControls({ repositoryId, branch, files, onCommitted, maximumFiles }: {
+  repositoryId: number; branch: string; files: ReviewFile[]; maximumFiles: number; onCommitted(receipt: CommitReceipt): void;
 }) {
   const [message, setMessage] = useState('');
   const [review, setReview] = useState<CommitReview | null>(null);
@@ -47,10 +47,10 @@ export function CommitControls({ repositoryId, branch, files, onCommitted }: {
     <label>Commit message
       <textarea maxLength={1000} rows={2} value={message} disabled={busy} onChange={event => setMessage(event.target.value)} />
     </label>
-    <button type="button" onClick={() => void prepare()} disabled={busy || !message.trim() || !files.length || files.length > 20}>
+    <button type="button" onClick={() => void prepare()} disabled={busy || !message.trim() || !files.length || files.length > maximumFiles}>
       Review &amp; Commit
     </button>
-    {files.length > 20 && <p>Select up to 20 files per commit.</p>}
+    {files.length > maximumFiles && <p>Select up to {maximumFiles} files per commit.</p>}
     {error && <p role="alert">{error}</p>}
     {review && <dialog ref={dialog} aria-labelledby="commit-confirm-title" onCancel={event => {
       event.preventDefault();

@@ -4,6 +4,7 @@ import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
 import { createChangeSets } from './change-sets.ts';
 import { createCommitReviews } from './commits.ts';
+import { createInjectorStore } from './injector.ts';
 import type { StorageUsage } from '../_shared/workspace-contracts.ts';
 
 function env(name: string) {
@@ -37,10 +38,26 @@ function configure() {
     return data as StorageUsage;
   }
 
+  async function getCommitLimit() {
+    const { data, error } = await client.from('cms_storage_policy').select('maximum_files_per_commit').eq('singleton', true).single();
+    if (error) throw error;
+    return data.maximum_files_per_commit as number;
+  }
+
   return createWorkspaceHandler({
     origin,
     changes: createChangeSets(client),
-    commits: createCommitReviews(client),
+    commits: createCommitReviews(client, getCommitLimit),
+    injector: createInjectorStore(client),
+    commitLimit: {
+      get: getCommitLimit,
+      async set(maximumFiles) {
+        const { data, error } = await client.from('cms_storage_policy').update({ maximum_files_per_commit: maximumFiles })
+          .eq('singleton', true).select('maximum_files_per_commit').single();
+        if (error) throw error;
+        return data.maximum_files_per_commit as number;
+      },
+    },
     storage: {
       usage,
       async set(databaseLimitMb, fileLimitMb) {

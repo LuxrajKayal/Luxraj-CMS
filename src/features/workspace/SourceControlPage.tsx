@@ -15,6 +15,7 @@ export function ChangedFiles({ repositoryId, branch, version, active, onOpen, re
   onCommitted?(receipt: CommitReceipt): void;
 }) {
   const [files, setFiles] = useState<DraftSummary[] | null>(null);
+  const [maximumFiles, setMaximumFiles] = useState(20);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -24,7 +25,11 @@ export function ChangedFiles({ repositoryId, branch, version, active, onOpen, re
     setError('');
     setSelected([]);
     workspaceRequest({ action: 'changes', repositoryId, branch }, controller.signal)
-      .then(result => { if (!controller.signal.aborted) setFiles(result.files); })
+      .then(result => {
+        if (controller.signal.aborted) return;
+        setFiles(result.files);
+        setMaximumFiles(result.maximumFiles ?? 20);
+      })
       .catch(error => { if (!controller.signal.aborted) setError(workspaceError(error)); });
     return () => controller.abort();
   }, [repositoryId, branch, version]);
@@ -49,7 +54,7 @@ export function ChangedFiles({ repositoryId, branch, version, active, onOpen, re
         </button>
       </li>)}
     </ul>
-    {onCommitted && <CommitControls {...{ repositoryId, branch, onCommitted }}
+    {onCommitted && <CommitControls {...{ repositoryId, branch, onCommitted, maximumFiles }}
       files={(files ?? []).flatMap(item => selected.includes(item.path) && item.revision
         ? [{ path: item.path, revision: item.revision }] : [])} />}
   </>;

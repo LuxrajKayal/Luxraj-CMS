@@ -3,6 +3,7 @@ import type { Directory, FileVersion, HtmlDiscovery, Repository, SourceFile, Tre
 
 const maxSourceBytes = 1024 * 1024;
 const sourceName = /\.(?:html?|css|js|mjs|cjs)$/i;
+const nonSourceName = /\.(?:png|jpe?g|gif|webp|avif|ico|bmp|tiff?|pdf|zip|gz|7z|rar|woff2?|ttf|otf|mp[34]|webm|mov|exe|dll|wasm)$/i;
 export const isCommit = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9a-f]{40}$/i.test(value);
 export const isBranch = (value: unknown): value is string =>
@@ -120,9 +121,9 @@ export function createWorkspaceGit(get: Get) {
     repo: Repository, branch: string, path: string[], commit: string, forCommit = false,
   ): Promise<FileVersion> {
     const name = path.at(-1);
-    if (!name || !sourceName.test(name)) throw new WorkspaceError('unsupported_file', 422);
+    if (!name || nonSourceName.test(name)) throw new WorkspaceError('unsupported_file', 422);
     const { base, entries } = await readDirectory(repo, branch, path.slice(0, -1), commit);
-    const entry = entries.find(item => item.path === name && file(item));
+    const entry = entries.find(item => item.path === name && regularFile(item));
     if (!entry) throw new WorkspaceError('unsupported_file', 422);
     if (forCommit && entry.mode !== '100644') throw new WorkspaceError('commit_file_mode', 422, { path: path.join('/') });
     return { source: await readBlob(base, entry), commit, blob: entry.sha };
@@ -170,12 +171,12 @@ export function createWorkspaceGit(get: Get) {
       const values = await pages(`${repoPath(repo)}/branches`, value => value, true);
       return [...new Set<string>(values.map(value => value.name as unknown).filter(isBranch))].sort();
     },
-    async discoverHtml(repo: Repository, branch: string): Promise<HtmlDiscovery> {
+    async discoverHtml(repo: Repository, branch: string, includeTextCandidates = false): Promise<HtmlDiscovery> {
       const { base, commit, sha } = await branchTree(repo, branch);
       const recursive = await object(`${base}/git/trees/${sha}?recursive=1`);
       const files: string[] = [];
       function add(entry: GitEntry, path: string) {
-        if (typeof path === 'string' && regularFile(entry) && /\.html?$/i.test(path) &&
+        if (typeof path === 'string' && regularFile(entry) && (includeTextCandidates ? !nonSourceName.test(path) : /\.html?$/i.test(path)) &&
             path.length <= 1024 && isPath(path.split('/'))) {
           files.push(path);
         }

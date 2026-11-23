@@ -12,7 +12,7 @@ export interface CommitReviews {
 }
 
 export async function checkedDrafts({ changes, scope, repository, git }: Input, files: ReviewFile[], head: string) {
-  const drafts = await Promise.all(files.map(async file => {
+  async function checkFile(file: ReviewFile) {
     const draft = await changes.get({ ...scope, path: file.path });
     if (!draft || draft.revision !== file.revision || draft.originalSource === draft.proposedSource) {
       throw new WorkspaceError('draft_conflict', 409, { path: file.path });
@@ -28,10 +28,18 @@ export async function checkedDrafts({ changes, scope, repository, git }: Input, 
     }
     if (remote.blob !== draft.originalBlob) throw new WorkspaceError('commit_file_conflict', 409, { path: file.path });
     return draft;
-  }));
+  }
   const encoder = new TextEncoder();
-  const bytes = drafts.reduce((total, draft) => total + encoder.encode(draft.proposedSource).length, 0);
-  if (bytes > 8 * 1024 * 1024) throw new WorkspaceError('commit_too_large', 422);
+  const drafts = [];
+  let bytes = 0;
+  for (let offset = 0; offset < files.length; offset += 8) {
+    const batch = await Promise.all(files.slice(offset, offset + 8).map(checkFile));
+    for (const draft of batch) {
+      bytes += encoder.encode(draft.proposedSource).length;
+      if (bytes > 8 * 1024 * 1024) throw new WorkspaceError('commit_too_large', 422);
+      drafts.push(draft);
+    }
+  }
   return drafts;
 }
 
@@ -75,9 +83,14 @@ function fromRow(row: Row): CommitReview {
   return { id: row.id, repository: row.repository, branch: row.branch, head: row.head, message: row.message, files: row.files };
 }
 
-export function createCommitReviews(client: SupabaseClient): CommitReviews {
+export function createCommitReviews(client: SupabaseClient, commitLimit = async () => 20): CommitReviews {
   const table = 'cms_commit_reviews';
   const keys = (scope: ChangeScope) => ({ user_id: scope.userId, repository_id: scope.repositoryId, branch: scope.branch });
+
+  async function checkLimit(count: number) {
+    const maximumFiles = await commitLimit();
+    if (count > maximumFiles) throw new WorkspaceError('commit_limit_exceeded', 409, { maximumFiles });
+  }
 
   async function record(id: string, actorId: string, sha: string): Promise<number | null> {
     // The GitHub write cannot share a database transaction. Retry the status
@@ -97,6 +110,7 @@ export function createCommitReviews(client: SupabaseClient): CommitReviews {
 
   return {
     async prepare(input, files, message) {
+      await checkLimit(files.length);
       const head = await input.git.requireBranch(input.repository, input.scope.branch);
       await checkedDrafts(input, files, head);
       await input.check();
@@ -118,12 +132,14 @@ export function createCommitReviews(client: SupabaseClient): CommitReviews {
       if (error) throw error;
       if (!data) throw new WorkspaceError('review_expired', 409);
       const review = fromRow(data as Row);
+      await checkLimit(review.files.length);
       if (review.repository !== input.repository.name ||
           await input.git.requireBranch(input.repository, input.scope.branch) !== review.head) {
         throw new WorkspaceError('branch_changed', 409);
       }
       const drafts = await checkedDrafts(input, review.files, review.head);
       await input.check();
+      await checkLimit(review.files.length);
       const sha = await writeCommit(write, review, drafts.map(draft => ({
         path: draft.path, contents: base64(draft.proposedSource),
       })));
