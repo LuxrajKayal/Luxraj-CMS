@@ -156,7 +156,7 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 
 ## Milestone 5 — Boilerplate Generator and Code Injector (Tasks 15–16)
 
-**Source of truth:** [Portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md). The task definitions below are copied from that document and replace the superseded eligibility/page-type/placeholder sequence. These tasks build on the existing reviewed draft, Monaco diff, and explicit GitHub commit system. Planning is not implementation authorization.
+**Source of truth:** [Portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md) for agreed task wording; [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) in this repository for Task 15 website/page category configuration. The task definitions below are copied from that document and replace the superseded eligibility/page-type/placeholder sequence. These tasks build on the existing reviewed draft, Monaco diff, and explicit GitHub commit system. Planning is not implementation authorization.
 
 ## Task 15 — Boilerplate Generator 
 
@@ -215,7 +215,7 @@ flowchart TD
     M -->|No| O[Keep uncommitted draft]
 ```
 
-**Task 15 JSON integration and file locations:** In `LuxrajKayal/luxraj-portfolio` (`main`), this planning file is `/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md` and its configuration file is `/Luxraj_CMS_Working_Sheet_Config.json`; when both are later copied into the same Luxraj-CMS directory, use the JSON `website_categories`, `page_categories`, and `generator` data to drive Task 15 website/page selection and boilerplate generation .
+**Task 15 JSON implementation reference:** The configuration is now maintained in the Luxraj-CMS repository at [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json). Use its `website_categories`, `page_categories`, and `generator` data for the Task 15 website/page selection and boilerplate generation. The portfolio living plan remains the planning source; the former portfolio-root JSON path is superseded.
 
 ## Task 16 — Code Injector (agreed, divided into three segments)
 
