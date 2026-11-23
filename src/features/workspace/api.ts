@@ -12,7 +12,7 @@ type Responses = {
   load: Workspace; select: Workspace; tree: Directory; file: SourceFile;
   discover_html: HtmlDiscovery;
   discover_sources: HtmlDiscovery; scan_injector_html: InjectorHtmlMatches;
-  injector_catalog: CodeCatalog; injector_template_add: CodeTemplate; injector_group_add: CodeGroup;
+  injector_catalog: CodeCatalog; injector_template_add: CodeTemplate; injector_template_update: CodeTemplate; injector_group_add: CodeGroup;
   commit_limit: CommitLimit; save_commit_limit: CommitLimit;
   open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[]; maximumFiles?: number }; diff: Draft;
   draft_catalog: { files: ManagedDraft[] }; delete_drafts: { results: DraftDeletion[] };
@@ -69,6 +69,7 @@ const errors = {
   invalid_commit_limit: 'Enter a whole number from 1 to 100.',
   catalog_name_taken: 'A saved item already uses this name.',
   catalog_members: 'One or more templates are unavailable. Reload the catalog and try again.',
+  catalog_missing: 'This template is no longer available. Reload the catalog before editing.',
   invalid_catalog_input: 'Enter a name and valid content. Template source must fit within 1 MiB.',
   commit_file_conflict: 'A selected file changed on GitHub. Compare the current source and prepare a new draft before committing.',
   commit_file_mode: 'Commit this executable file in Git to preserve its executable permission.',

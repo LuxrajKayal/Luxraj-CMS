@@ -21,9 +21,18 @@
 .injector-mark--partial { color: #175bb1; font-weight: 700; }
 .injector-files { max-height: 12rem; overflow: auto; overflow-wrap: anywhere; margin-block: .4rem; }
 .injector-lines { max-height: 25rem; overflow: auto; background: #19283d; color: #f2f6fb; margin-block: .5rem; }
-.injector-line { display: flex; align-items: center; gap: .75rem; width: max-content; min-width: 100%; padding-inline-end: .6rem; }
-.injector-line code { white-space: pre; }
-.workspace .injector-line button { min-width: 4rem; min-height: 1.75rem; border: 0; border-radius: 0; padding: .15rem; position: sticky; left: 0; }
+.injector-line { width: max-content; min-width: 100%; }
+.injector-source-row { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 1.75rem; text-align: left; background: transparent; color: inherit; border: 0; padding: .15rem .6rem .15rem 0; cursor: pointer; }
+.injector-source-row:hover, .injector-source-row[aria-pressed='true'] { background: #22538b; }
+.injector-source-row code { white-space: pre; color: inherit; }
+.injector-line-number { display: inline-block; position: sticky; left: 0; min-width: 3.5rem; padding: .2rem .5rem; text-align: right; background: #263a56; color: #e6f3ff; }
+.injector-insert-slot { display: grid; gap: .5rem; padding: .7rem 1rem; background: #183c32; border-block: 2px solid #58c796; color: #e2fff1; min-width: 100%; }
+.injector-insert-slot pre { margin: 0; white-space: pre; color: #9cffcf; overflow-x: auto; }
+.workspace .injector-insert-slot button { position: static; width: max-content; min-height: 2rem; border: 1px solid #a0ebc5; border-radius: .35rem; padding: .25rem .75rem; color: #e2fff1; background: #205241; }
+.workspace .injector-insert-slot button:disabled { opacity: .6; }
+.injector-line-confirmation { font-weight: 600; }
+.injector-detection-mode { display: flex; flex-wrap: wrap; gap: 1rem; border: 1px solid var(--border); margin-block: .5rem; }
+.injector-detection-mode label { display: inline-flex; align-items: center; gap: .35rem; }
 .injector-matches { border: 1px solid var(--border); overflow-wrap: anywhere; }
 .injector-matches label { margin-inline-end: 1rem; }
 .injector-diff { display: flex; height: 26rem; min-width: 0; }

@@ -1,4 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
+import { InjectionLines } from '../src/features/code-injector/InjectionLines';
 import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CodeEditorPage } from '../src/features/workspace/CodeEditorPage';
@@ -57,11 +59,12 @@ test('injects a saved group into different source types with independent line an
   });
   open('/code-injector/inject');
   fireEvent.click(await screen.findByRole('button', { name: 'Use Theme' }, { timeout: 5000 }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Universal Mode' }));
   fireEvent.click(screen.getByRole('button', { name: 'Detect' }));
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Select file nested/page.htm' }));
   await screen.findByRole('button', { name: 'Insert before line 1' });
   expect(screen.getAllByRole('img', { name: 'All items match' })).toHaveLength(2);
-  expect(screen.queryByRole('checkbox', { name: 'Select file other.html' })).toBeNull();
+  expect(screen.getByRole('checkbox', { name: 'Select file other.html' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Insert before line 3' }));
   fireEvent.click(screen.getByRole('radio', { name: 'Duplicate' }));
   fireEvent.click(screen.getByRole('checkbox', { name: 'Select file styles.css' }));
@@ -107,6 +110,68 @@ test('creates reusable named templates and groups in the catalog without editing
   await screen.findByRole('button', { name: 'Use Metadata' });
   expect(request).toHaveBeenCalledWith({ action: 'injector_group_add', name: 'Metadata', templateIds: ['new'] });
   expect(request.mock.calls.some(([input]) => input.action === 'save_draft')).toBe(false);
+});
+
+test('Selection Mode returns only CMS-matched HTML while Universal Mode includes unrelated source candidates', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'injector_catalog') return { templates: [], groups: [] };
+    if (input.action === 'discover_sources') return { commit: tree.commit, files: ['matching.html', 'unmatched.html', 'app.css', 'script.js'] };
+    if (input.action === 'scan_injector_html') return { matches: ['matching.html'], unreadable: [] };
+    throw new Error('Unexpected request');
+  });
+  open('/code-injector/inject');
+  fireEvent.click(await screen.findByRole('button', { name: 'Detect' }));
+  await screen.findByRole('checkbox', { name: 'Select file matching.html' });
+  expect(screen.queryByRole('checkbox', { name: 'Select file unmatched.html' })).toBeNull();
+  expect(screen.queryByRole('checkbox', { name: 'Select file app.css' })).toBeNull();
+  expect(request.mock.calls.some(([input]) => input.action === 'scan_injector_html')).toBe(true);
+  fireEvent.click(screen.getByRole('radio', { name: 'Universal Mode' }));
+  expect(screen.queryByLabelText('Website Type')).toBeNull();
+  expect(screen.queryByRole('checkbox', { name: 'Select file matching.html' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Detect' }));
+  await screen.findByRole('checkbox', { name: 'Select file unmatched.html' });
+  expect(screen.getByRole('checkbox', { name: 'Select file app.css' })).toBeTruthy();
+  expect(screen.getByRole('checkbox', { name: 'Select file script.js' })).toBeTruthy();
+  expect(request.mock.calls.filter(([input]) => input.action === 'scan_injector_html')).toHaveLength(1);
+});
+
+test('clicked source rows expose inline insertion preview and the explicit preview action', () => {
+  function Lines() {
+    const [offset, setOffset] = useState<number | null>(null);
+    return <InjectionLines source={'first\nsecond'} offset={offset} choose={setOffset}
+      disabled={false} previewCode={'<meta name="description" content="Test">'}
+      canPreview={true} onPreview={() => {}} />;
+  }
+  render(<Lines />);
+  fireEvent.click(screen.getByRole('button', { name: 'Insert before line 2' }));
+  expect(screen.getByText(/Selected insertion location: before line 2/)).toBeTruthy();
+  expect(screen.getByLabelText('Inline code insertion preview').textContent).toContain('description');
+  expect(screen.getByRole('button', { name: 'Preview insertion here' })).toBeTruthy();
+  expect(screen.getByText('second')).toBeTruthy();
+});
+
+test('editing a saved template keeps its stable ID and its saved group membership', async () => {
+  const original = { id: 'a'.repeat(8) + '-bbbb-cccc-dddd-' + 'e'.repeat(12), name: 'SEO Sample',
+    kind: 'html' as const, source: '<meta name="description" content="Original">' };
+  const updated = { ...original, source: '<meta name="description" content="Updated">' };
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'injector_catalog') return { templates: [original], groups: [
+      { id: 'group', name: 'SEO Group', templateIds: [original.id] },
+    ] };
+    if (input.action === 'injector_template_update') return updated;
+    throw new Error('Unexpected request');
+  });
+  open('/code-injector/inject');
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit template SEO Sample' }));
+  fireEvent.change(screen.getByLabelText('Code'), { target: { value: updated.source } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByRole('button', { name: 'Use SEO Group' });
+  expect(request).toHaveBeenCalledWith({ action: 'injector_template_update', id: original.id,
+    name: original.name, kind: original.kind, source: updated.source });
+  fireEvent.click(screen.getByRole('button', { name: 'Edit template SEO Sample' }));
+  expect((screen.getByLabelText('Code') as HTMLTextAreaElement).value).toBe(updated.source);
 });
 
 test('Source Control enforces the saved commit limit independently of the draft list', async () => {

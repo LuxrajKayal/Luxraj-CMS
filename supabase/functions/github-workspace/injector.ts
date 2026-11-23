@@ -40,6 +40,14 @@ export function createInjectorStore(client: SupabaseClient) {
       check(error);
       return data as CodeTemplate;
     },
+    async updateTemplate(user: string, id: string, template: Omit<CodeTemplate, 'id'>): Promise<CodeTemplate> {
+      const { data, error } = await client.from('cms_code_templates')
+        .update(template).eq('id', id).eq('user_id', user)
+        .select('id,name,kind,source').maybeSingle();
+      check(error);
+      if (!data) throw new WorkspaceError('catalog_missing', 404);
+      return data as CodeTemplate;
+    },
     async addGroup(user: string, name: string, templateIds: string[]): Promise<CodeGroup> {
       for (let offset = 0; offset < templateIds.length; offset += 100) {
         const members = templateIds.slice(offset, offset + 100);
