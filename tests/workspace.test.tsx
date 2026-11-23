@@ -139,7 +139,7 @@ test('Selection Mode returns only CMS-matched HTML while Universal Mode includes
 test('clicked source rows expose inline insertion preview and the explicit preview action', () => {
   function Lines() {
     const [offset, setOffset] = useState<number | null>(null);
-    return <InjectionLines source={'first\\nsecond'} offset={offset} choose={setOffset}
+    return <InjectionLines source={'first\nsecond'} offset={offset} choose={setOffset}
       disabled={false} previewCode={'<meta name="description" content="Test">'}
       canPreview={true} onPreview={() => {}} />;
   }
