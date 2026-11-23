@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { FileCode2, Folder as FolderIcon, GitBranch, Maximize, PanelLeft, RefreshCw } from 'lucide-react';
 import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { ChangedFiles, DraftDiff } from './SourceControlPage';
@@ -75,16 +75,22 @@ function Folder({ context, path, commit, openFile }: {
 function Explorer({ selection, repository }: { selection: Selection & { branch: string }; repository: string }) {
   const tabGroupId = useId();
   const { repositoryId, branch } = selection;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const target = location.state?.editorTarget;
+  const targetPath = target?.repositoryId === repositoryId && target.branch === branch && typeof target.path === 'string' &&
+    target.path.length <= 1024 && /\.html?$/i.test(target.path) ? target.path : null;
+  const targetReview = targetPath && target.review === true ? targetPath : null;
   const { views, putView } = useEditBuffers();
   const workspaceKey = JSON.stringify([repositoryId, branch]);
   const savedView = views[workspaceKey];
   const [tree, setTree] = useState<Directory | null>(null);
   const [treeError, setTreeError] = useState('');
-  const [file, setFile] = useState<string[] | null>(() => savedView?.file ?? null);
+  const [file, setFile] = useState<string[] | null>(() => targetPath?.split('/') ?? savedView?.file ?? null);
   const [refresh, setRefresh] = useState(0);
-  const [diff, setDiff] = useState<string | null>(() => savedView?.diff ?? null);
-  const [historyDiff, setHistoryDiff] = useState<HistoryFile | null>(() => savedView?.historyDiff ?? null);
-  const [tab, setTab] = useState<'changes' | 'history'>(() => savedView?.tab ?? 'changes');
+  const [diff, setDiff] = useState<string | null>(() => targetPath ? targetReview : savedView?.diff ?? null);
+  const [historyDiff, setHistoryDiff] = useState<HistoryFile | null>(() => targetPath ? null : savedView?.historyDiff ?? null);
+  const [tab, setTab] = useState<'changes' | 'history'>(() => targetReview ? 'changes' : savedView?.tab ?? 'changes');
   const [receipt, setReceipt] = useState<CommitReceipt | null>(null);
   const [syncingReceipt, setSyncingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState('');
@@ -92,10 +98,15 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const [changesVersion, setChangesVersion] = useState(0);
   const [showFiles, setShowFiles] = useState(() => savedView?.showFiles ?? true);
   const [showChanges, setShowChanges] = useState(() =>
-    savedView?.showChanges ?? !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
-  const [focus, setFocus] = useState(() => savedView?.focus ?? false);
+    targetReview ? !(window.matchMedia?.('(max-width: 48rem)').matches ?? false)
+      : savedView?.showChanges ?? !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
+  const [focus, setFocus] = useState(() => targetReview ? false : savedView?.focus ?? false);
   const { refresh: refreshWorkspace, saving } = useWorkspace();
   const commit = tree?.commit;
+
+  useEffect(() => {
+    if (target) void navigate(location.pathname, { replace: true, state: null });
+  }, [target, location.pathname, navigate]);
 
   // This state lives above the route, so leaving for Settings does not reset the editor.
   useEffect(() => {

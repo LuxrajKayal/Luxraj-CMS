@@ -41,6 +41,9 @@ function fixture() {
     if (path === '/repos/owner/alpha/branches/feature%2Fnext') return Response.json({
       name: 'feature/next', commit: { sha: liveCommit, commit: { tree: { sha: root } } },
     });
+    if (path.endsWith(root + '?recursive=1')) return Response.json({
+      truncated: true, tree: [{ path: 'partial.html', mode: '100644', type: 'blob', sha: blob }],
+    });
     if (path.endsWith(root)) return Response.json({ tree: [
       { path: 'site', mode: '040000', type: 'tree', sha: folder },
       { path: 'link.html', mode: '120000', type: 'blob', sha: blob },
@@ -131,6 +134,47 @@ Deno.test('workspace requires an authenticated Super Admin before contacting Git
   f.disconnect();
   assert.equal((await f.post({ action: 'load' })).status, 409);
   assert.deepEqual(f.calls, []);
+});
+
+Deno.test('HTML discovery walks the pinned branch when the recursive result is truncated', async () => {
+  const f = fixture();
+  const scope = { repositoryId: 11, branch: 'feature/next' };
+  const body = { action: 'discover_html', ...scope };
+  assert.equal((await f.post(body, 'other')).status, 403);
+  assert.equal((await f.post(body, 'invalid')).status, 401);
+  assert.equal(f.calls.length, 0);
+  f.prefs.set('owner', scope);
+  assert.deepEqual(await (await f.post({ ...body, branch: 'main' })).json(), { error: 'selection_changed' });
+  assert.deepEqual(await (await f.post({ ...body, repositoryId: 999 })).json(), { error: 'repository_out_of_scope' });
+  assert.deepEqual(await (await f.post(body)).json(), { commit, files: ['site/index.HTML'] });
+  assert.ok(f.calls.includes('repository-token:11'));
+  assert.ok(f.calls.includes('/repos/owner/alpha/git/trees/' + folder));
+  assert.ok(!f.calls.some(path => path.endsWith('/git/blobs/' + blob)));
+  f.advanceBranch();
+  assert.equal((await f.post({ action: 'save_draft', ...scope, path: ['site', 'index.HTML'],
+    commit, revision: null, source: '<html data-cms-seo="true">' })).status, 409);
+});
+
+Deno.test('recursive HTML discovery returns nested HTM paths and rejects a head change during discovery', async () => {
+  let expected = commit;
+  let change = false;
+  const git = createWorkspaceGit(async path => {
+    if (path.endsWith('?recursive=1')) {
+      if (change) expected = 'f'.repeat(40);
+      return Response.json({ tree: [
+        { path: 'deep/child/page.htm', mode: '100644', type: 'blob', sha: blob },
+        { path: 'index.HTML', mode: '100644', type: 'blob', sha: blob },
+        { path: 'nested/link.html', mode: '120000', type: 'blob', sha: blob },
+        { path: 'nested/app.js', mode: '100644', type: 'blob', sha: blob },
+      ] });
+    }
+    assert.ok(path.endsWith('/branches/main'));
+    return Response.json({ name: 'main', commit: { sha: expected, commit: { tree: { sha: root } } } });
+  });
+  const repo = { id: 11, name: 'owner/alpha', defaultBranch: 'main', private: true };
+  assert.deepEqual(await git.discoverHtml(repo, 'main'), { commit, files: ['deep/child/page.htm', 'index.HTML'] });
+  change = true;
+  await assert.rejects(git.discoverHtml(repo, 'main'), { message: 'branch_changed' });
 });
 
 Deno.test('commit review, confirmation and history enforce the authenticated user and selected branch', async () => {

@@ -192,6 +192,8 @@ export function createWorkspaceHandler(deps: Dependencies) {
         if (!positiveId(body.repositoryId) || (body.branch !== undefined && !isBranch(body.branch))) {
           return json({ error: 'invalid_request' }, 400);
         }
+      } else if (action === 'discover_html') {
+        if (!positiveId(body.repositoryId) || !isBranch(body.branch)) return json({ error: 'invalid_request' }, 400);
       } else if (action === 'tree' || action === 'file') {
         if (!positiveId(body.repositoryId) || !isBranch(body.branch) || !isPath(body.path) ||
             ((action === 'file' || body.path.length > 0 || body.commit !== undefined) && !isCommit(body.commit)) ||
@@ -255,6 +257,13 @@ export function createWorkspaceHandler(deps: Dependencies) {
         selection?.repositoryId === repository.id && selection.branch === body.branch;
       if (!matches(saved)) return json({ error: 'selection_changed' }, 409);
       const git = await remote.forRepository(repository.id);
+      if (action === 'discover_html') {
+        const result = await git.discoverHtml(repository, body.branch);
+        await remote.checkConnection();
+        if (!await deps.isAdmin(userId)) return json({ error: 'forbidden' }, 403);
+        if (!matches(await deps.getPreference(userId))) return json({ error: 'selection_changed' }, 409);
+        return json(result);
+      }
       if (['open_draft', 'save_draft', 'changes', 'diff'].includes(action)) {
         const changes = deps.changes;
         if (!changes) throw new Error('Change sets are unavailable.');

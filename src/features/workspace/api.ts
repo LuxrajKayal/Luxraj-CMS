@@ -1,7 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../../core/auth/supabase';
 import type {
-  CommitDetail, CommittedDiff, CommitReceipt, CommitReview, Directory, Draft, DraftDeletion, DraftSummary, HistoryPage,
+  CommitDetail, CommittedDiff, CommitReceipt, CommitReview, Directory, Draft, DraftDeletion, DraftSummary, HistoryPage, HtmlDiscovery,
   ManagedDraft, OpenDraft, SavedDraft, SourceFile, StorageUsage, Workspace, WorkspaceRequest,
 } from '../../../supabase/functions/_shared/workspace-contracts';
 
@@ -9,6 +9,7 @@ export type { Directory, Repository, Selection, TreeEntry, Workspace } from '../
 
 type Responses = {
   load: Workspace; select: Workspace; tree: Directory; file: SourceFile;
+  discover_html: HtmlDiscovery;
   open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[] }; diff: Draft;
   draft_catalog: { files: ManagedDraft[] }; delete_drafts: { results: DraftDeletion[] };
   storage_status: StorageUsage; storage_save: StorageUsage;

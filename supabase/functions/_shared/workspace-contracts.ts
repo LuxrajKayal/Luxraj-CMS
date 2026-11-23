@@ -26,6 +26,8 @@ export interface Directory {
   entries: TreeEntry[];
 }
 
+export type HtmlDiscovery = { commit: string; files: string[] };
+
 export interface SourceFile {
   source: string;
 }
@@ -102,6 +104,7 @@ export type WorkspaceRequest =
   | { action: 'load' }
   | { action: 'select'; repositoryId: number; branch?: string }
   | { action: 'tree'; repositoryId: number; branch: string; path: string[]; commit?: string }
+  | { action: 'discover_html'; repositoryId: number; branch: string }
   | { action: 'file' | 'open_draft'; repositoryId: number; branch: string; path: string[]; commit: string }
   | { action: 'save_draft'; repositoryId: number; branch: string; path: string[]; commit: string; source: string; revision: string | null }
   | { action: 'changes'; repositoryId: number; branch: string }
