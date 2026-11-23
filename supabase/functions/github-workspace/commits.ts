@@ -1,9 +1,12 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.119.2';
-import type { CommitReceipt, CommitReview, Repository, ReviewFile } from '../_shared/workspace-contracts.ts';
+import { maxFileBytes, type CommitReceipt, type CommitReview, type Repository, type ReviewFile } from '../_shared/workspace-contracts.ts';
+import { encodeBytes } from '../_shared/file-bytes.ts';
 import type { ChangeScope, ChangeSets } from './change-sets.ts';
+import type { FileDrafts } from './file-drafts.ts';
 import { isCommit, WorkspaceError, type WorkspaceGit } from './git.ts';
 
-type Input = { repository: Repository; scope: ChangeScope; git: WorkspaceGit; changes: ChangeSets; check(): Promise<void> };
+type Input = { repository: Repository; scope: ChangeScope; git: WorkspaceGit; changes: ChangeSets;
+  fileDrafts?: Pick<FileDrafts, 'get' | 'loadBytes'>; check(): Promise<void> };
 type Write = (input: object) => Promise<Response>;
 export interface CommitReviews {
   prepare(input: Input, files: ReviewFile[], message: string): Promise<CommitReview>;
@@ -11,9 +14,26 @@ export interface CommitReviews {
   reconcile(input: Input, id: string, sha: string): Promise<CommitReceipt>;
 }
 
-export async function checkedDrafts({ changes, scope, repository, git }: Input, files: ReviewFile[], head: string) {
+export async function checkedDrafts({ changes, fileDrafts, scope, repository, git }: Input, files: ReviewFile[], head: string) {
+  const encoder = new TextEncoder();
   async function checkFile(file: ReviewFile) {
-    const draft = await changes.get({ ...scope, path: file.path });
+    const fileScope = { ...scope, path: file.path };
+    const binary = await fileDrafts?.get(fileScope);
+    if (binary && fileDrafts) {
+      if (binary.revision !== file.revision) throw new WorkspaceError('draft_conflict', 409, { path: file.path });
+      const detail = { size: binary.file_size, sha256: binary.file_digest, originalBlob: binary.original_blob };
+      if (file.file && (file.file.size !== detail.size || file.file.sha256 !== detail.sha256 ||
+          file.file.originalBlob !== detail.originalBlob)) throw new WorkspaceError('file_integrity', 409);
+      const remote = await git.fileTarget(repository, scope.branch, file.path.split('/'), head);
+      if (remote.blob !== binary.original_blob) throw new WorkspaceError('commit_file_conflict', 409, { path: file.path });
+      const data = await fileDrafts.loadBytes(binary);
+      if (data.contents === null || data.sha256 !== detail.sha256 || data.size !== detail.size) {
+        throw new WorkspaceError('file_integrity', 409);
+      }
+      return { size: data.size, contents: data.contents, reviewFile: { path: file.path, revision: file.revision, file: detail } };
+    }
+    if (file.file) throw new WorkspaceError('draft_conflict', 409, { path: file.path });
+    const draft = await changes.get(fileScope);
     if (!draft || draft.revision !== file.revision || draft.originalSource === draft.proposedSource) {
       throw new WorkspaceError('draft_conflict', 409, { path: file.path });
     }
@@ -27,29 +47,24 @@ export async function checkedDrafts({ changes, scope, repository, git }: Input, 
       throw error;
     }
     if (remote.blob !== draft.originalBlob) throw new WorkspaceError('commit_file_conflict', 409, { path: file.path });
-    return draft;
+    const bytes = encoder.encode(draft.proposedSource);
+    return { size: bytes.length, contents: encodeBytes(bytes), reviewFile: { path: file.path, revision: file.revision } };
   }
-  const encoder = new TextEncoder();
   const drafts = [];
   let bytes = 0;
   for (let offset = 0; offset < files.length; offset += 8) {
     const batch = await Promise.all(files.slice(offset, offset + 8).map(checkFile));
     for (const draft of batch) {
-      bytes += encoder.encode(draft.proposedSource).length;
-      if (bytes > 8 * 1024 * 1024) throw new WorkspaceError('commit_too_large', 422);
+      bytes += draft.size;
+      if (bytes > maxFileBytes) throw new WorkspaceError('commit_too_large', 422);
       drafts.push(draft);
     }
   }
-  return drafts;
-}
-
-function base64(text: string) {
-  const bytes = new TextEncoder().encode(text);
-  let binary = '';
-  for (let offset = 0; offset < bytes.length; offset += 8192) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+  if (drafts.some(draft => draft.reviewFile.file)) {
+    const names = drafts.map(draft => draft.reviewFile.path.normalize('NFC').toLowerCase());
+    if (new Set(names).size !== names.length) throw new WorkspaceError('file_path_collision', 409);
   }
-  return btoa(binary);
+  return drafts;
 }
 
 export async function writeCommit(write: Write, review: CommitReview, additions: { path: string; contents: string }[]) {
@@ -112,7 +127,7 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
     async prepare(input, files, message) {
       await checkLimit(files.length);
       const head = await input.git.requireBranch(input.repository, input.scope.branch);
-      await checkedDrafts(input, files, head);
+      const drafts = await checkedDrafts(input, files, head);
       await input.check();
       const [first, ...lines] = message.replace(/\r\n?/g, '\n').trim().split('\n');
       const headline = first.trimEnd();
@@ -120,7 +135,8 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
       const formattedMessage = body ? `${headline}\n\n${body}` : headline;
       if (formattedMessage.length > 1000) throw new WorkspaceError('invalid_commit_review', 400);
       const { data, error } = await client.from(table).insert({
-        ...keys(input.scope), repository: input.repository.name, head, message: formattedMessage, files,
+        ...keys(input.scope), repository: input.repository.name, head, message: formattedMessage,
+        files: drafts.map(draft => draft.reviewFile),
       }).select('id,repository,branch,head,message,files').single();
       if (error) throw error;
       return fromRow(data as Row);
@@ -141,7 +157,7 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
       await input.check();
       await checkLimit(review.files.length);
       const sha = await writeCommit(write, review, drafts.map(draft => ({
-        path: draft.path, contents: base64(draft.proposedSource),
+        path: draft.reviewFile.path, contents: draft.contents,
       })));
       const retained = await record(id, input.scope.userId, sha);
       return { sha, url: `https://github.com/${review.repository}/commit/${sha}`,
@@ -171,10 +187,26 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
           remote.message.trimEnd() !== review.message.trimEnd()) {
         throw new WorkspaceError('commit_unverified', 409);
       }
+      if (review.files.some(file => !!file.file)) {
+        const detail = await input.git.get(input.git.repoPath(input.repository) + '/commits/' + sha + '?per_page=100');
+        const value = detail.ok ? await detail.json() : null;
+        const expected = new Set(review.files.map(file => file.path));
+        if (detail.headers.get('Link')?.includes('rel="next"') || !Array.isArray(value?.files) ||
+            value.files.length !== expected.size || !value.files.every((file: { filename: string }) => expected.delete(file.filename))) {
+          throw new WorkspaceError('commit_unverified', 409);
+        }
+      }
 
       // Verify remaining identical saved revisions against the committed file
       // content before recording them. Newer edited drafts remain pending.
       for (const file of review.files) {
+        if (file.file) {
+          const remoteFile = await input.git.fileAtCommit(input.repository, sha, file.path.split('/'));
+          if (remoteFile?.sha256 !== file.file.sha256 || remoteFile.size !== file.file.size) {
+            throw new WorkspaceError('commit_unverified', 409);
+          }
+          continue;
+        }
         const draft = await input.changes.get({ ...input.scope, path: file.path });
         if (draft?.revision !== file.revision) continue;
         let source: string;

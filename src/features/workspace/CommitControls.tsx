@@ -9,6 +9,8 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
   const [review, setReview] = useState<CommitReview | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [recovery, setRecovery] = useState('');
+  const [recoverySha, setRecoverySha] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -37,10 +39,26 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
       onCommitted(receipt);
     } catch (error) {
       setError(workspaceError(error));
+      if (error instanceof Error && ['commit_unknown', 'unavailable'].includes(error.message)) setRecovery(review.id);
     } finally {
       setReview(null);
       setBusy(false);
     }
+  }
+
+  async function verifyCommit() {
+    if (!recovery || !/^[0-9a-f]{40}$/i.test(recoverySha.trim())) return;
+    setBusy(true);
+    setError('');
+    try {
+      const receipt = await workspaceRequest({ action: 'reconcile_commit', repositoryId, branch,
+        reviewId: recovery, sha: recoverySha.trim().toLowerCase() });
+      setRecovery('');
+      setRecoverySha('');
+      setMessage('');
+      onCommitted(receipt);
+    } catch (error) { setError(workspaceError(error)); }
+    finally { setBusy(false); }
   }
 
   return <div className="commit-controls">
@@ -52,6 +70,12 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
     </button>
     {files.length > maximumFiles && <p>Select up to {maximumFiles} files per commit.</p>}
     {error && <p role="alert">{error}</p>}
+    {recovery && <section aria-label="Recover commit status">
+      <p>Check the selected branch on GitHub. If it contains the reviewed commit, paste its full SHA to verify it and sync drafts.</p>
+      <label>GitHub commit SHA <input value={recoverySha} maxLength={40} onChange={event => setRecoverySha(event.target.value)} /></label>
+      <button type="button" disabled={busy || !/^[0-9a-f]{40}$/i.test(recoverySha.trim())}
+        onClick={() => void verifyCommit()}>Verify existing commit</button>
+    </section>}
     {review && <dialog ref={dialog} aria-labelledby="commit-confirm-title" onCancel={event => {
       event.preventDefault();
       if (!busy) setReview(null);
@@ -59,7 +83,10 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
       <h2 id="commit-confirm-title">Confirm GitHub commit</h2>
       <dl><dt>Repository</dt><dd>{review.repository}</dd><dt>Branch</dt><dd>{review.branch}</dd></dl>
       <p>Commit message</p><pre>{review.message}</pre>
-      <ul>{review.files.map(file => <li key={file.path}>{file.path}</li>)}</ul>
+      <ul>{review.files.map(file => <li key={file.path}>{file.path}
+        {file.file && <div>{file.file.originalBlob ? 'Replacement' : 'New file'} · {file.file.size.toLocaleString()} bytes
+          <br /><code>{file.file.sha256}</code></div>}
+      </li>)}</ul>
       <p>This commits the selected saved revisions. Unsaved editor changes stay in the browser.</p>
       <div className="workspace-actions">
         <button type="button" autoFocus disabled={busy} onClick={() => setReview(null)}>Cancel</button>

@@ -4,6 +4,7 @@ import type {
   CodeCatalog, CodeGroup, CodeTemplate, CommitLimit, InjectorHtmlMatches,
   CommitDetail, CommittedDiff, CommitReceipt, CommitReview, Directory, Draft, DraftDeletion, DraftSummary, HistoryPage, HtmlDiscovery,
   ManagedDraft, OpenDraft, SavedDraft, SourceFile, StorageUsage, Workspace, WorkspaceRequest,
+  StoredFile, FileComparison, FileInspection, ProfilePictureLocation,
 } from '../../../supabase/functions/_shared/workspace-contracts';
 
 export type { Directory, Repository, Selection, TreeEntry, Workspace } from '../../../supabase/functions/_shared/workspace-contracts';
@@ -14,7 +15,13 @@ type Responses = {
   discover_sources: HtmlDiscovery; scan_injector_html: InjectorHtmlMatches;
   injector_catalog: CodeCatalog; injector_template_add: CodeTemplate; injector_template_update: CodeTemplate; injector_group_add: CodeGroup;
   commit_limit: CommitLimit; save_commit_limit: CommitLimit;
-  open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[]; maximumFiles?: number }; diff: Draft;
+  open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[]; maximumFiles?: number };
+  diff: Draft | { kind: 'file'; revision: string };
+  file_manager_tree: Directory; file_inspect: FileInspection; file_save: { draft: StoredFile };
+  profile_picture_stage: { draft: StoredFile }; file_drafts: { drafts: StoredFile[] }; file_comparison: FileComparison;
+  profile_picture_location: { location: ProfilePictureLocation | null };
+  save_profile_picture_location: { location: ProfilePictureLocation };
+  verify_profile_picture: { url: string; sha256: string; committedSha: string };
   draft_catalog: { files: ManagedDraft[] }; delete_drafts: { results: DraftDeletion[] };
   storage_status: StorageUsage; storage_save: StorageUsage;
   review_commit: CommitReview; confirm_commit: CommitReceipt; reconcile_commit: CommitReceipt; history: HistoryPage;
@@ -30,6 +37,10 @@ export async function workspaceRequest<T extends WorkspaceRequest>(body: T, sign
   const { data, error } = await supabase.functions.invoke<Responses[T['action']]>('github-workspace', { body, signal });
   if (error instanceof FunctionsHttpError) {
     const payload = await error.context.json().catch(() => null);
+    if (payload?.error === 'file_limit' && Number.isFinite(payload.usedBytes) && Number.isFinite(payload.limitBytes)) {
+      throw new Error('file_limit:' + formatMb(payload.usedBytes) + ' used or reserved of ' + formatMb(payload.limitBytes) +
+        '. Delete unused uploads in Draft Management or adjust the allocation in Storage Management.');
+    }
     if (payload?.error === 'commit_limit_exceeded' && Number.isInteger(payload.maximumFiles)) {
       throw new Error('commit_limit_exceeded:' + payload.maximumFiles);
     }
@@ -48,6 +59,17 @@ export async function workspaceRequest<T extends WorkspaceRequest>(body: T, sign
 }
 
 const errors = {
+  invalid_file_upload: 'Choose a file of at most 8 MiB and a valid destination.',
+  file_path_collision: 'This name conflicts with a folder, link, executable file, or a differently spelled path.',
+  file_integrity: 'The file bytes could not be verified. Reload the file or stage it again.',
+  file_unavailable: 'The file draft is unavailable for this workspace.',
+  file_unchanged: 'The upload has the same bytes as the current GitHub file.',
+  file_upload_failed: 'Private Storage did not accept the upload. Check the project upload limits and try again.',
+  file_usage_unavailable: 'File Storage usage is unavailable. Uploads resume when usage can be verified.',
+  invalid_public_prefix: 'Enter an HTTPS asset URL prefix without credentials, a query, or a fragment.',
+  invalid_profile_destination: 'Choose the configured repository, branch and folder, with a .webp destination.',
+  invalid_profile_image: 'Choose a valid WebP picture between 15 KB and 150 KB.',
+  profile_image_uncommitted: 'Commit the staged WebP through Source Control before verifying the website image.',
   connection_required: 'Connect an active GitHub App in Settings to open the workspace.',
   connection_changed: 'The GitHub connection changed. Refresh the workspace and try again.',
   repository_out_of_scope: 'This repository is no longer available to the GitHub App. Refresh the workspace.',
@@ -73,7 +95,7 @@ const errors = {
   invalid_catalog_input: 'Enter a name and valid content. Template source must fit within 1 MiB.',
   commit_file_conflict: 'A selected file changed on GitHub. Compare the current source and prepare a new draft before committing.',
   commit_file_mode: 'Commit this executable file in Git to preserve its executable permission.',
-  commit_too_large: 'This commit exceeds the 8 MiB source limit. Review fewer changes at once.',
+  commit_too_large: 'This commit exceeds the 8 MiB total file limit. Review fewer changes at once.',
   commit_unknown: 'GitHub did not confirm the outcome. Refresh History and check the branch before starting a new review.',
   commit_unverified: 'Could not verify this GitHub commit against the original review. The saved drafts were not changed.',
   commit_rejected: 'GitHub rejected the commit. Check branch protection, repository permissions, and the selected files.',
@@ -83,6 +105,7 @@ const errors = {
 
 export function workspaceError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
+  if (code.startsWith('file_limit:')) return 'File Storage allocation reached. ' + code.slice('file_limit:'.length);
   if (/^commit_limit_exceeded:\d+$/.test(code)) {
     return 'The current limit is ' + code.split(':')[1] + ' files per commit. Refresh changes and select a smaller batch.';
   }

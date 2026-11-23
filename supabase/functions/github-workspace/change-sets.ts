@@ -35,7 +35,7 @@ export function createChangeSets(client: SupabaseClient): ChangeSets {
   const conflict = () => new WorkspaceError('draft_conflict', 409);
 
   async function get(scope: FileScope) {
-    const { data, error } = await client.from(table).select('*').match(fileKeys(scope)).is('committed_sha', null).maybeSingle();
+    const { data, error } = await client.from(table).select('*').match(fileKeys(scope)).is('storage_key', null).is('committed_sha', null).maybeSingle();
     if (error) throw error;
     return data ? draft(data as Row) : null;
   }
@@ -47,20 +47,21 @@ export function createChangeSets(client: SupabaseClient): ChangeSets {
       const pageSize = 200;
       for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await client.from('cms_draft_catalog')
-          .select('repository_id,branch,path,revision,updated_at,content_bytes,pending,committed_sha')
+          .select('repository_id,branch,path,revision,updated_at,content_bytes,pending,committed_sha,file_size,file_state')
           .eq('user_id', userId).order('repository_id').order('branch').order('path').order('revision')
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
         files.push(...data.map(row => ({
           repositoryId: row.repository_id, branch: row.branch, path: row.path, revision: row.revision,
           updatedAt: row.updated_at, contentBytes: row.content_bytes, pending: row.pending, committedSha: row.committed_sha,
+          fileSize: row.file_size ?? undefined, fileState: row.file_state ?? undefined,
         })));
         if (data.length < pageSize) return files;
       }
     },
     async remove(userId, item) {
       const { data, error } = await client.from(table).delete().match(fileKeys({ ...item, userId }))
-        .eq('revision', item.revision).select('path').maybeSingle();
+        .eq('revision', item.revision).is('storage_key', null).select('path').maybeSingle();
       if (error) throw error;
       return !!data;
     },
@@ -68,10 +69,10 @@ export function createChangeSets(client: SupabaseClient): ChangeSets {
       const files: DraftSummary[] = [];
       const pageSize = 200;
       for (let offset = 0; ; offset += pageSize) {
-        const { data, error } = await client.from('cms_draft_catalog').select('path,updated_at,revision').match(keys(scope)).eq('pending', true)
+        const { data, error } = await client.from('cms_draft_catalog').select('path,updated_at,revision,file_state').match(keys(scope)).eq('pending', true)
           .order('path').range(offset, offset + pageSize - 1);
         if (error) throw error;
-        files.push(...data.map(row => ({ path: row.path, updatedAt: row.updated_at, revision: row.revision })));
+        files.push(...data.map(row => ({ path: row.path, updatedAt: row.updated_at, revision: row.revision, file: row.file_state === 'saved' })));
         if (data.length < pageSize) return files;
       }
     },
@@ -80,7 +81,7 @@ export function createChangeSets(client: SupabaseClient): ChangeSets {
       if ((existing?.revision ?? null) !== revision) {
         if (existing || !revision) throw conflict();
         const { data, error } = await client.from(table).select('proposed_source').match(fileKeys(scope))
-          .eq('revision', revision).not('committed_sha', 'is', null).maybeSingle();
+          .eq('revision', revision).is('storage_key', null).not('committed_sha', 'is', null).maybeSingle();
         if (error) throw error;
         if (data?.proposed_source !== base.source) throw conflict();
       }

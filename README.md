@@ -4,7 +4,7 @@ Cloud-based CMS powered by Supabase and GitHub.
 
 **Selected frontend architecture:** React + TypeScript + Vite, with modular feature boundaries, client-side routing, independent layouts, shared UI and controlled environment configuration. **Codex in VS Code** is the planned implementation path; all coding requires explicit phase approval.
 
-> **Project status, November 23, 2026:** **Tasks 0–16 completed and owner-accepted**; live browser acceptance confirmed for Tasks 15–16. **P-1 Universal File Manager** is owner-approved planning, **not implemented**, and must precede Task 17. Tasks 17–20 remain approved future work. Code, backend, package and deployment changes require separate authorization.
+> **Project status, November 23, 2026:** **Tasks 0–16 completed and owner-accepted**. **P-1 Universal File Manager** is implemented on `codex-development` and awaits deployed integration testing and owner acceptance before Task 17. Tasks 17–20 remain approved future work.
 
 ## 1. Product purpose and non-negotiable principles
 
@@ -76,7 +76,7 @@ Planned left sidebar:
 1. **Dashboard** — current workspace summary and relevant connection status.
 2. **Repositories** — discover, add/manage, and select CMS working repositories.
 3. **Code Editor** — text/source-code browsing and editing.
-4. **File Manager (P-1, planned)** — arbitrary file uploads, saved binary drafts, format-appropriate previews, separate from Code Editor.
+4. **File Manager (P-1)** — arbitrary file uploads, saved binary drafts, format-appropriate previews, and shared Source Control review.
 5. **Source Control** — shared text and binary changes, review/diffs, explicit commits and Git history.
 6. **Code Injector** — completed Boilerplate Generator and Code Injector (Tasks 15–16).
 7. **Users & Permissions** — Task 17 user and position-based permissions/assignments.
@@ -319,7 +319,7 @@ This must remain repository-independent. GitHub Actions may still **build, valid
 
 Do not disable or remove any repository's build/injection workflow until the corresponding CMS operations have been implemented, verified, and explicitly approved for migration.
 
-### Owner-approved prerequisite P-1 — Universal File Manager (not yet implemented)
+### Owner-approved prerequisite P-1 — Universal File Manager (implemented; owner verification pending)
 
 **Owner: Luxraj Kayal (Subrata), November 23, 2026.** Full definitive requirements: [Universal File Manager Prerequisite](./docs/Luxraj_CMS_Universal_File_Manager_Prerequisite.md). This is an **unnumbered prerequisite to implement and owner-verify before Task 17**; it is not a replacement for Tasks 0–20.
 
@@ -330,7 +330,7 @@ Do not disable or remove any repository's build/injection workflow until the cor
 - **Settings → Author Profile Picture Location**: Super Admin configures **one authorized GitHub repository, branch, specific assets folder and public URL prefix for all approved profile pictures**. Task 18 stages approved WebP through P-1 and the Super Admin explicitly commits it. An approved profile is not a published image until its repository asset commit succeeds.
 - The **Super Admin** can self-manage their own profile, without ordinary Author profile-approval restrictions, and work as Owner/Admin, Author and Developer in **one account** while keeping GitHub commit safeguards.
 
-**Planning only:** P-1 implementation, package installs, Supabase migrations/functions and deployment require their own separate explicit GREEN and live acceptance.
+**Deployment and acceptance:** Apply the P-1 migration and deploy the matching `github-workspace` function and frontend in an approved environment. Owner acceptance follows live verification.
 
 ## 9. Users, Authors, and website inspection — Tasks 17–20
 
@@ -354,7 +354,7 @@ Do not disable or remove any repository's build/injection workflow until the cor
 | 6. Author editorial workflow (Task 19) | Supabase Markdown article creation, new-tab preview, editorial review and category-based HTML publication | Authors never write to GitHub; Super Admin approves and uses existing Source Control |
 | 7. Existing website preview (Task 20) | Live-site iframe inspection for permitted roles | Preview functions when embedding is allowed and grants no extra privileges |
 
-**Current delivery status:** **Tasks 0–16 completed and owner-accepted**. **P-1 and Tasks 17–20 are approved planning, not yet implemented**. The next implementation prerequisite is P-1, subject to its own permission and verification.
+**Current delivery status:** **Tasks 0–16 completed and owner-accepted**. P-1 is implemented and awaits owner verification. Tasks 17–20 remain planned.
 
 ## 11. Modular application architecture and Codex implementation path
 

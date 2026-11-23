@@ -1,0 +1,21 @@
+.file-manager, .file-compare { min-width: 0; overflow-wrap: anywhere; }
+.file-scope { display: flex; flex-wrap: wrap; gap: .5rem; border: 0; padding: 0; margin: 0; min-width: 0; }
+.file-scope select { max-width: min(100%, 16rem); }
+.file-folder, .file-side, .file-queue li { border: 1px solid var(--border); border-radius: .4rem; padding: .75rem; }
+.file-folder { margin-bottom: .65rem; }
+.file-folder .workspace-actions { margin-top: .35rem; }
+.file-queue { padding: 0; display: grid; gap: .55rem; list-style: none; }
+.file-queue li, .file-location-form { display: grid; gap: .5rem; }
+.file-location-form { max-width: 46rem; }
+.file-location-form input, .file-queue input { display: block; width: 100%; }
+.file-compare { padding: .65rem; overflow: auto; }
+.file-compare-grid { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.file-side { min-width: 0; }
+.file-side h3 { margin-top: 0; }
+.file-side dt { font-weight: 600; }
+.file-side dd { margin: 0 0 .45rem; }
+.file-preview { max-height: 36rem; overflow: auto; background: #f1f5fa; padding: .45rem; }
+.file-preview img, .file-preview canvas, .file-side video, .file-side audio { max-width: 100%; }
+.file-docx { padding: .7rem; max-height: 36rem; overflow: auto; background: white; border: 1px solid var(--border); }
+.file-docx td, .file-docx th { border: 1px solid var(--border); padding: .2rem; }
+@media (max-width: 48rem) { .file-compare-grid { grid-template-columns: 1fr; } }

@@ -4,10 +4,10 @@ import './dashboard-layout.css';
 import { useState } from 'react';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { useEditBuffers } from '../../features/workspace/EditBuffers';
-import { Braces, FileSearch, Folder, GitBranch, House, ListChecks, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users } from 'lucide-react';
+import { Braces, FileSearch, Folder, FolderUp, GitBranch, House, ListChecks, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users } from 'lucide-react';
 import { Brand } from '../../shared/ui/Brand';
 
-const icons = [House, Folder, Braces, GitBranch, FileSearch, Users, ListChecks, Settings];
+const icons = [House, Folder, Braces, FolderUp, GitBranch, FileSearch, Users, ListChecks, Settings];
 
 export function DashboardLayout() {
   const { signOut, message, session } = useAuth();
