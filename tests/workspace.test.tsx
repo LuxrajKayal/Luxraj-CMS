@@ -38,6 +38,50 @@ const tree = { commit: 'a'.repeat(40), entries: [{ name: 'index.html', kind: 'fi
 const original = '<h1>Original</h1>';
 const current = { source: original, blob: 'b'.repeat(40), commit: tree.commit };
 
+test('standalone Source Control reviews a binary file and only commits after final confirmation', async () => {
+  const path = 'uploads/unknown.payload';
+  const reviewId = 'binary-review';
+  const digest = 'd'.repeat(64);
+  const sha = 'e'.repeat(40);
+  const draft = { path, revision: 'binary-revision', file: true, updatedAt: '' };
+  let committed = false;
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'changes') return { files: committed ? [] : [draft], maximumFiles: 20 };
+    if (input.action === 'diff') return { kind: 'file', revision: draft.revision };
+    if (input.action === 'file_comparison') return {
+      draft, original: null, proposed: { size: 2, sha256: digest, mime: 'application/octet-stream', contents: 'AP8=' },
+    };
+    if (input.action === 'review_commit') return { id: reviewId, repository: 'owner/alpha', branch: 'main',
+      head: tree.commit, message: input.message, files: input.files.map(file => ({ ...file,
+        file: { size: 2, sha256: digest, originalBlob: null } })),
+    };
+    if (input.action === 'confirm_commit') {
+      committed = true;
+      return { sha, url: 'https://github.com/owner/alpha/commit/' + sha, fileCount: 1, retained: 1 };
+    }
+    throw new Error('Unexpected request');
+  });
+  open('/source-control');
+  fireEvent.click(await screen.findByRole('button', { name: /unknown.payload.*File upload/ }));
+  const comparison = await screen.findByRole('region', { name: 'File comparison' }, { timeout: 5000 });
+  expect(within(comparison).getByText('New file · ' + path)).toBeTruthy();
+  expect(within(comparison).getByText(digest)).toBeTruthy();
+  expect(screen.queryByRole('textbox', { name: 'Monaco source' })).toBeNull();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Include ' + path + ' in commit' }));
+  fireEvent.change(screen.getByLabelText('Commit message'), { target: { value: 'Publish reviewed file' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Review & Commit' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Confirm GitHub commit' });
+  expect(within(dialog).getByText(digest)).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  expect(request.mock.calls.some(([input]) => input.action === 'confirm_commit')).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Review & Commit' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Confirm commit' }));
+  await screen.findByRole('link', { name: sha.slice(0, 12) });
+  expect(request.mock.calls.filter(([input]) => input.action === 'confirm_commit'))
+    .toEqual([[{ action: 'confirm_commit', repositoryId: 1, branch: 'main', reviewId }]]);
+});
+
 test('injects a saved group into different source types with independent line and match decisions', async () => {
   const template = { id: 'card', name: 'Card CSS', kind: 'css', source: '.card { color: red }' };
   const html = '<html><head>\n<style>.card { color: blue }</style>\n</head></html>';

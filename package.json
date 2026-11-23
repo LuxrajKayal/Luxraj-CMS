@@ -13,9 +13,12 @@
   "dependencies": {
     "@supabase/supabase-js": "2.119.2",
     "acorn": "8.19.0",
+    "dompurify": "3.5.0",
     "lucide-react": "1.77.0",
+    "mammoth": "1.13.0",
     "monaco-editor": "0.57.0",
     "parse5": "8.1.1",
+    "pdfjs-dist": "6.5.438",
     "postcss": "8.5.33",
     "react": "19.3.1",
     "react-dom": "19.3.1",

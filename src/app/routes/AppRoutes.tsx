@@ -14,10 +14,12 @@ import { SettingsLayout } from '../../features/settings/SettingsLayout';
 import { DraftManagementPage } from '../../features/settings/DraftManagementPage';
 import { StorageManagementPage } from '../../features/settings/StorageManagementPage';
 import { CommitLimitPage } from '../../features/settings/CommitLimitPage';
+import { ProfilePictureLocationPage } from '../../features/settings/ProfilePictureLocationPage';
 import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { lazy, Suspense } from 'react';
 
 const CodeInjectorPage = lazy(() => import('../../features/code-injector/CodeInjectorPage'));
+const FileManagerPage = lazy(() => import('../../features/file-manager/FileManagerPage'));
 
 // The live CMS stays usable with Task 5 authorization until the GitHub App backend is configured.
 const githubConnectionEnabled = import.meta.env.DEV || import.meta.env.VITE_GITHUB_CONNECTION_ENABLED === 'true';
@@ -43,6 +45,9 @@ export function AppRoutes() {
               <Route path="/repositories" element={<RepositoriesPage />} />
               <Route path="/code-editor" element={<CodeEditorPage />} />
               <Route path="/source-control" element={<SourceControlPage />} />
+              <Route path="/file-manager" element={<Suspense fallback={<p role="status">Loading File Manager…</p>}>
+                <FileManagerPage />
+              </Suspense>} />
               <Route path="/code-injector/*" element={<Suspense fallback={<p role="status">Loading Code Injector…</p>}>
                 <CodeInjectorPage />
               </Suspense>} />
@@ -55,6 +60,9 @@ export function AppRoutes() {
             <Route path="drafts" element={<DraftManagementPage />} />
             <Route path="storage" element={<StorageManagementPage />} />
             <Route path="commit-limit" element={<CommitLimitPage />} />
+            {githubConnectionEnabled && <Route element={<WorkspaceLayout />}>
+              <Route path="profile-picture-location" element={<ProfilePictureLocationPage />} />
+            </Route>}
           </Route>
         </Route>
       </Route>

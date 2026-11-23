@@ -112,9 +112,11 @@ export function DraftManagementPage() {
                     }} /></td>
                   <td>{file.repository}</td><td>{file.branch}</td><td><code>{file.path}</code></td>
                   <td><time dateTime={file.updatedAt}>{new Date(file.updatedAt).toLocaleString()}</time></td>
-                  <td>{file.committedSha ? `Committed · ${file.committedSha.slice(0, 12)}` : file.pending ? 'Pending change' : 'Retained · unchanged'}
+                  <td>{file.fileState === 'uploading' ? 'Interrupted file upload'
+                    : file.fileState === 'deleting' ? 'File cleanup pending'
+                    : file.committedSha ? 'Committed · ' + file.committedSha.slice(0, 12) : file.pending ? 'Pending change' : 'Retained · unchanged'}
                     {!file.available && <><br /><span>GitHub unavailable · manual cleanup</span></>}</td>
-                  <td>{file.contentBytes.toLocaleString()} bytes</td>
+                  <td>{(file.fileSize ?? file.contentBytes).toLocaleString()} bytes {file.fileSize !== undefined && 'of file storage'}</td>
                   <td><button type="button" disabled={busy} aria-label={`Delete ${file.repository} ${file.branch} ${file.path}`}
                     onClick={() => { setNotice(''); setConfirmation([file]); }}>Delete</button></td>
                 </tr>

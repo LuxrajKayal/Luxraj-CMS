@@ -1,7 +1,7 @@
 # Luxraj CMS — Universal File Manager Prerequisite (P-1)
 
 > **Owner decision:** Luxraj Kayal (Subrata), November 23, 2026.
-> **Status:** Approved planning; **not implemented**. P-1 is an unnumbered prerequisite to be implemented and owner-tested **before Task 17** and the later Author phases. It does not renumber Tasks 0–20.
+> **Status:** Implemented on `codex-development`, pending deployed integration testing and owner acceptance. P-1 remains an unnumbered prerequisite before Task 17 and the later Author phases.
 > **Authorization:** Recording this plan does not authorize frontend/backend coding, package installation, Supabase changes or deployment. Those require a new, separately scoped GREEN.
 
 ## 1. Purpose, placement, and workflow
@@ -64,7 +64,13 @@ Keep the submitted **Supabase picture and committed website repository picture a
 
 ## 6. Sequence and authorization
 
-**P-1 must be implemented and owner-verified before Task 17**. The next action is to prepare a scoped Codex implementation prompt for P-1. **Do not implement or deploy it on the strength of this document**; it requires its own explicit GREEN.
+**P-1 must be owner-verified before Task 17.** Hosting changes require separate approval. To test an authorized environment, apply the P-1 migration, deploy the updated `github-workspace` function, and serve the matching frontend.
+
+The File Manager uses the existing 8 MiB total commit payload ceiling, so each staged file is limited to 8 MiB. The private bucket independently enforces this limit and the backend reserves space against the configured File Storage budget. Each upload saves independently. If interrupted, reopen the saved draft list before retrying, or remove an interrupted upload in Draft Management after its reservation is no longer in flight. The upload transport sends one bounded request per file.
+
+PDF comparison renders individual pages on canvas. DOCX preview renders sanitized document structure within a 12 MiB expansion budget. Read-only UTF-8 preview is limited to 256 KiB. Other files within the staging limit remain downloadable as attachments. Old files exceeding 8 MiB show Git blob identity and size.
+
+**Settings → Author Profile Picture Location** accepts an existing repository folder and HTTPS public URL prefix. Use **Stage an approved WebP or verify a committed picture** to prepare the website copy. Verification checks the committed repository blob and then requests the public WebP in the browser without credentials to compare SHA-256. The public host must permit cross-origin reads from the CMS. P-1 does not activate any profile identity.
 
 After P-1 approval and acceptance, proceed to Task 17 and the already-approved Author pages/workflows under Tasks 18–20.
 

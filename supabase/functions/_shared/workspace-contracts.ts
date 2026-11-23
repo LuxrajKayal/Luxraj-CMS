@@ -47,6 +47,7 @@ export interface DraftSummary {
   path: string;
   updatedAt: string;
   revision?: string;
+  file?: boolean;
 }
 
 export interface Draft extends DraftSummary {
@@ -80,9 +81,18 @@ export interface ManagedDraft extends DraftIdentity {
   pending: boolean;
   available: boolean;
   committedSha?: string | null;
+  fileSize?: number;
+  fileState?: 'uploading' | 'saved' | 'deleting';
 }
 
-export type ReviewFile = { path: string; revision: string };
+export const maxFileBytes = 8 * 1024 * 1024;
+export type FileMetadata = { size: number; sha256: string; mime: string; blob?: string };
+export type FilePayload = Omit<FileMetadata, 'sha256'> & { sha256: string | null; contents: string | null };
+export type StoredFile = FileMetadata & { path: string; revision: string; originalBlob: string | null; committedSha: string | null };
+export type FileInspection = { commit: string; original: FilePayload | null };
+export type FileComparison = { draft: StoredFile; original: FilePayload | null; proposed: FilePayload };
+export type ProfilePictureLocation = { repositoryId: number; branch: string; folder: string; publicPrefix: string };
+export type ReviewFile = { path: string; revision: string; file?: { size: number; sha256: string; originalBlob: string | null } };
 export type CommitReview = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[] };
 export type CommitReceipt = { sha: string; url: string; retained: number | null; fileCount: number; reviewId?: string };
 export type HistoryCommit = { sha: string; parents: string[]; message: string; author: string; date: string };
@@ -110,6 +120,15 @@ export type WorkspaceRequest =
   | { action: 'load' }
   | { action: 'select'; repositoryId: number; branch?: string }
   | { action: 'tree'; repositoryId: number; branch: string; path: string[]; commit?: string }
+  | { action: 'file_manager_tree'; repositoryId: number; branch: string; path: string[] }
+  | { action: 'file_inspect'; repositoryId: number; branch: string; path: string[]; commit: string }
+  | { action: 'file_save' | 'profile_picture_stage'; repositoryId: number; branch: string; path: string[]; commit: string;
+      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string }
+  | { action: 'file_drafts'; repositoryId: number; branch: string }
+  | { action: 'file_comparison'; repositoryId: number; branch: string; path: string[]; revision: string }
+  | { action: 'profile_picture_location' }
+  | ({ action: 'save_profile_picture_location' } & ProfilePictureLocation)
+  | { action: 'verify_profile_picture'; repositoryId: number; branch: string; path: string[]; revision: string }
   | { action: 'discover_html'; repositoryId: number; branch: string }
   | { action: 'discover_sources'; repositoryId: number; branch: string }
   | { action: 'scan_injector_html'; repositoryId: number; branch: string; commit: string; files: string[]; category: string; page: string }

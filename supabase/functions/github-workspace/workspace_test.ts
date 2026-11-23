@@ -153,6 +153,7 @@ Deno.test('catalog and commit settings authorize the actor and enforce persisten
         writes.push({ user, input });
         return { ...input, id: 'new' };
       },
+      updateTemplate: async (_user, id, input) => ({ id, ...input }),
       addGroup: async (user, name, templateIds) => {
         writes.push({ user, templateIds });
         return { name, templateIds, id: 'group' };

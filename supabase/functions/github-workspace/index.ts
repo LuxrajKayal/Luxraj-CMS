@@ -4,6 +4,7 @@ import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
 import { createChangeSets } from './change-sets.ts';
 import { createCommitReviews } from './commits.ts';
+import { createFileDrafts } from './file-drafts.ts';
 import { createInjectorStore } from './injector.ts';
 import type { StorageUsage } from '../_shared/workspace-contracts.ts';
 
@@ -47,6 +48,7 @@ function configure() {
   return createWorkspaceHandler({
     origin,
     changes: createChangeSets(client),
+    fileDrafts: createFileDrafts(client),
     commits: createCommitReviews(client, getCommitLimit),
     injector: createInjectorStore(client),
     commitLimit: {

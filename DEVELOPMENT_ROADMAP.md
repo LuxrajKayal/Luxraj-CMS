@@ -2,7 +2,7 @@
 
 > **For the project owner.** This is a human-readable progress and verification guide, **not a Codex prompt or an implementation specification**. The approved requirements, architecture decisions, and metadata catalogs remain in [README.md](./README.md).
 >
-> **Status, November 23, 2026:** **Tasks 0–16 are completed and owner-accepted**. Prerequisite **P-1 Universal File Manager** is approved planning **not implemented**; Tasks **17–20** remain approved future phases. Implementation, deployment and Supabase changes require a separate GREEN.
+> **Status, November 23, 2026:** **Tasks 0–16 are completed and owner-accepted**. **P-1 Universal File Manager** is implemented on `codex-development` and awaits deployed integration testing and owner acceptance. Tasks **17–20** remain approved future phases.
 
 ## What we are building
 
@@ -353,7 +353,7 @@ flowchart TD
 
 ---
 
-## Prerequisite P-1 — Universal File Manager (owner-approved planning; NOT implemented)
+## Prerequisite P-1 — Universal File Manager (implemented; owner verification pending)
 
 **Owner decision: Luxraj Kayal (Subrata), November 23, 2026.** See the full, binding planning specification: [Universal File Manager Prerequisite](./docs/Luxraj_CMS_Universal_File_Manager_Prerequisite.md). P-1 is **unnumbered and must be implemented and owner-accepted before Task 17**; do not renumber Tasks 0–20.
 
@@ -364,7 +364,7 @@ flowchart TD
 - **Settings → Author Profile Picture Location:** Super Admin selects **one authorized GitHub repository, branch, specific assets folder and public URL prefix** for **all approved Author/Owner profile pictures**. Approved WebP files are staged through P-1; the owner explicitly commits the website copy.
 - Super Admin can self-manage their own profile and access **Owner/Admin, Author and Developer** capabilities from a single account, without regular Author approval gates; explicit GitHub commit protections remain compulsory.
 
-**Next implementation stage:** Prepare a separate P-1 Codex implementation prompt and obtain a **new GREEN** before coding, dependency installation, Supabase configuration or deployment. P-1 must be verified before proceeding to Task 17.
+**Next step:** Verify P-1 with the matching frontend, Edge Function and migration in an approved environment before proceeding to Task 17.
 
 ---
 
@@ -595,4 +595,4 @@ Notes:
 
 ---
 
-**Current next implementation prerequisite:** **P-1 Universal File Manager**, approved for planning but not yet implemented. Create a separate Codex implementation prompt, obtain a new GREEN and owner-verify it before Task 17. **Tasks 0–16 are completed and owner-accepted.** Documentation approval does not authorize app/Supabase/deployment changes.
+**Current prerequisite:** Owner-verify **P-1 Universal File Manager** before Task 17. **Tasks 0–16 are completed and owner-accepted.** Deployment requires separate approval.

@@ -1,4 +1,6 @@
 import { positiveId } from '../github-connection/github.ts';
+import { maxFileBytes, type FilePayload } from '../_shared/workspace-contracts.ts';
+import { decodeBytes, filePath, gitBlobSha, sha256 } from '../_shared/file-bytes.ts';
 import type { Directory, FileVersion, HtmlDiscovery, Repository, SourceFile, TreeEntry } from '../_shared/workspace-contracts.ts';
 
 const maxSourceBytes = 1024 * 1024;
@@ -102,6 +104,30 @@ export function createWorkspaceGit(get: Get) {
     return { base, commit, entries };
   }
 
+  function target(entries: GitEntry[], path: string[]) {
+    const filename = path.at(-1)!;
+    const entry = entries.find(item => item.path === filename);
+    const normalized = filename.normalize('NFC').toLowerCase();
+    if (entries.some(item => item.path !== filename && item.path.normalize('NFC').toLowerCase() === normalized)) {
+      throw new WorkspaceError('file_path_collision', 409);
+    }
+    if (entry && (!regularFile(entry) || entry.mode !== '100644')) throw new WorkspaceError('file_path_collision', 409);
+    return entry ?? null;
+  }
+
+  async function rawBlob(base: string, entry: GitEntry): Promise<FilePayload> {
+    if (!Number.isSafeInteger(entry.size) || entry.size! < 0) throw new WorkspaceError('file_unavailable', 503);
+    const size = entry.size!;
+    if (size > maxFileBytes) return { size, sha256: null, mime: '', contents: null, blob: entry.sha };
+    const result = await object(base + '/git/blobs/' + entry.sha);
+    if (result.encoding !== 'base64' || result.size !== size || typeof result.content !== 'string' ||
+        result.content.length > (maxFileBytes * 1.5 + 4)) throw new WorkspaceError('file_integrity', 502);
+    const contents = result.content.replace(/\s/g, '');
+    const bytes = decodeBytes(contents);
+    if (bytes.length !== size || await gitBlobSha(bytes) !== entry.sha) throw new WorkspaceError('file_integrity', 502);
+    return { size, sha256: await sha256(bytes), mime: '', contents, blob: entry.sha };
+  }
+
   async function atCommit(repo: Repository, commit: string, path: string[]) {
     const base = repoPath(repo);
     const value = await object(`${base}/git/commits/${commit}`);
@@ -152,6 +178,34 @@ export function createWorkspaceGit(get: Get) {
   }
 
   return {
+    async fileManagerTree(repo: Repository, branch: string, path: string[]): Promise<Directory> {
+      const { commit, entries } = await readDirectory(repo, branch, path);
+      const visible = entries.flatMap<TreeEntry>(entry => {
+        if (!filePath([...path, entry.path])) return [];
+        if (directory(entry)) return [{ name: entry.path, kind: 'folder' }];
+        if (regularFile(entry) && entry.mode === '100644') return [{ name: entry.path, kind: 'file' }];
+        return [];
+      });
+      return { commit, entries: visible.sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'folder' ? -1 : 1) };
+    },
+    async fileTarget(repo: Repository, branch: string, path: string[], expected: string, read = false) {
+      const { base, commit, entries } = await readDirectory(repo, branch, path.slice(0, -1), expected);
+      const entry = target(entries, path);
+      return { commit, blob: entry?.sha ?? null, original: read && entry ? await rawBlob(base, entry) : null };
+    },
+    async fileAtCommit(repo: Repository, commit: string, path: string[]) {
+      const base = repoPath(repo);
+      const value = await object(base + '/git/commits/' + commit);
+      if (!isCommit(value.tree?.sha)) throw new Error('Invalid GitHub tree SHA.');
+      let entries = await getTree(base, value.tree.sha);
+      for (const segment of path.slice(0, -1)) {
+        const next = entries.find(item => item.path === segment && directory(item));
+        if (!next) throw new WorkspaceError('remote_missing', 404);
+        entries = await getTree(base, next.sha);
+      }
+      const entry = target(entries, path);
+      return entry ? await rawBlob(base, entry) : null;
+    },
     async repositories(): Promise<Repository[]> {
       const values = await pages('/installation/repositories', value => value.repositories);
       const repositories = new Map<number, Repository>();

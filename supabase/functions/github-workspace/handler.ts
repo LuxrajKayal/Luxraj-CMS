@@ -4,6 +4,8 @@ import { isBranch, isCommit, isPath, type WorkspaceGit, WorkspaceError } from '.
 import type { ChangeSets } from './change-sets.ts';
 import type { CommitReviews } from './commits.ts';
 import { createHistory } from './history.ts';
+import { fileManager } from './file-manager.ts';
+import type { FileDrafts } from './file-drafts.ts';
 import { scanInjectorHtml, type createInjectorStore } from './injector.ts';
 
 interface Dependencies {
@@ -19,6 +21,7 @@ interface Dependencies {
   getPreference(userId: string): Promise<Selection | null>;
   savePreference(userId: string, selection: Selection): Promise<void>;
   changes?: ChangeSets;
+  fileDrafts?: FileDrafts;
   commits?: CommitReviews;
   injector?: ReturnType<typeof createInjectorStore>;
   commitLimit?: { get(): Promise<number>; set(value: number): Promise<number> };
@@ -63,6 +66,8 @@ export function createWorkspaceHandler(deps: Dependencies) {
 
       const body = await request.json().catch(() => null);
       const action = body?.action;
+      const managedFile = await fileManager(body, userId, deps);
+      if (managedFile) return json(managedFile);
       if (action === 'commit_limit' || action === 'save_commit_limit') {
         if (!deps.commitLimit) throw new Error('Commit limit unavailable.');
         if (action === 'save_commit_limit' && !validLimit(body.maximumFiles, 100)) {
@@ -148,7 +153,8 @@ export function createWorkspaceHandler(deps: Dependencies) {
           if (!deps.commits || !deps.changes || (action === 'confirm_commit' && !remote.write)) {
             throw new Error('Commit service unavailable.');
           }
-          const input = { repository, git, changes: deps.changes, check, scope: { userId, repositoryId: repository.id, branch: body.branch } };
+          const input = { repository, git, changes: deps.changes, fileDrafts: deps.fileDrafts, check,
+            scope: { userId, repositoryId: repository.id, branch: body.branch } };
           if (action === 'review_commit') {
             return json(await deps.commits.prepare(input,
               body.files.map(({ path, revision }: { path: string; revision: string }) => ({ path, revision })),
@@ -217,7 +223,7 @@ export function createWorkspaceHandler(deps: Dependencies) {
           const item = { repositoryId, branch, path, revision };
           let result: DraftDeletion['result'];
           try {
-            result = await changes.remove(userId, item) ? 'deleted' : 'conflict';
+            result = (await changes.remove(userId, item) || await deps.fileDrafts?.remove(userId, item)) ? 'deleted' : 'conflict';
           } catch {
             result = 'unavailable';
           }
@@ -323,7 +329,11 @@ export function createWorkspaceHandler(deps: Dependencies) {
             : json({ current, draft: await changes.get(fileScope) });
         }
         await git.requireBranch(repository, body.branch);
-        const result = action === 'changes' ? await changes.list(scope) : await changes.get(fileScope);
+        let result: unknown = action === 'changes' ? await changes.list(scope) : await changes.get(fileScope);
+        if (action === 'diff' && !result) {
+          const binary = await deps.fileDrafts?.get(fileScope);
+          if (binary) result = { kind: 'file', revision: binary.revision };
+        }
         await remote.checkConnection();
         if (!matches(await deps.getPreference(userId))) return json({ error: 'selection_changed' }, 409);
         if (action === 'changes') return json({ files: result, maximumFiles: await deps.commitLimit?.get() });
