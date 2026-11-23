@@ -1,0 +1,14 @@
+.injector-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.injector-body > .module-panel { width: 13rem; flex-shrink: 0; border-inline-end: 1px solid var(--border); }
+.injector-body nav a { display: block; padding: .45rem; background: #e0efff; border-radius: .35rem; }
+.boilerplate { flex: 1; min-width: 0; }
+.boilerplate pre { padding: .75rem; white-space: pre-wrap; overflow-wrap: anywhere; background: #edf5ff; }
+.boilerplate label { display: grid; gap: .25rem; min-width: 0; }
+.boilerplate select { max-width: 100%; }
+.boilerplate-file { margin-block: .65rem; max-width: 36rem; }
+.boilerplate-scope, .boilerplate-confirm { overflow-wrap: anywhere; }
+.boilerplate-confirm { margin-top: .75rem; padding: .75rem; border: 1px solid var(--border); }
+@media (max-width: 48rem) {
+  .injector-body { flex-direction: column; }
+  .injector-body > .module-panel { width: auto; border-inline-end: 0; }
+}

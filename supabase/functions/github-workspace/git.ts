@@ -1,5 +1,5 @@
 import { positiveId } from '../github-connection/github.ts';
-import type { Directory, FileVersion, Repository, SourceFile, TreeEntry } from '../_shared/workspace-contracts.ts';
+import type { Directory, FileVersion, HtmlDiscovery, Repository, SourceFile, TreeEntry } from '../_shared/workspace-contracts.ts';
 
 const maxSourceBytes = 1024 * 1024;
 const sourceName = /\.(?:html?|css|js|mjs|cjs)$/i;
@@ -73,7 +73,7 @@ export function createWorkspaceGit(get: Get) {
     return regularFile(entry) && sourceName.test(entry.path);
   }
 
-  async function readDirectory(repo: Repository, branch: string, path: string[], expected?: string) {
+  async function branchTree(repo: Repository, branch: string, expected?: string) {
     const base = repoPath(repo);
     const value = await object(`${base}/branches/${encodeURIComponent(branch)}`);
     if (value.name !== branch || !isCommit(value.commit?.sha)) {
@@ -87,6 +87,11 @@ export function createWorkspaceGit(get: Get) {
       sha = gitCommit.tree?.sha;
     }
     if (!isCommit(sha)) throw new Error('Invalid GitHub tree SHA.');
+    return { base, commit, sha };
+  }
+
+  async function readDirectory(repo: Repository, branch: string, path: string[], expected?: string) {
+    const { base, commit, sha } = await branchTree(repo, branch, expected);
     let entries = await getTree(base, sha);
     for (const segment of path) {
       const entry = entries.find(item => item.path === segment && directory(item));
@@ -139,6 +144,12 @@ export function createWorkspaceGit(get: Get) {
     }
   }
 
+  async function requireBranch(repo: Repository, branch: string) {
+    const value = await object(`${repoPath(repo)}/branches/${encodeURIComponent(branch)}`);
+    if (value.name !== branch || !isCommit(value.commit?.sha)) throw new WorkspaceError('remote_missing', 404);
+    return value.commit.sha as string;
+  }
+
   return {
     async repositories(): Promise<Repository[]> {
       const values = await pages('/installation/repositories', value => value.repositories);
@@ -159,6 +170,47 @@ export function createWorkspaceGit(get: Get) {
       const values = await pages(`${repoPath(repo)}/branches`, value => value, true);
       return [...new Set<string>(values.map(value => value.name as unknown).filter(isBranch))].sort();
     },
+    async discoverHtml(repo: Repository, branch: string): Promise<HtmlDiscovery> {
+      const { base, commit, sha } = await branchTree(repo, branch);
+      const recursive = await object(`${base}/git/trees/${sha}?recursive=1`);
+      const files: string[] = [];
+      function add(entry: GitEntry, path: string) {
+        if (typeof path === 'string' && regularFile(entry) && /\.html?$/i.test(path) &&
+            path.length <= 1024 && isPath(path.split('/'))) {
+          files.push(path);
+        }
+      }
+      if (!Array.isArray(recursive.tree)) throw new Error('Invalid GitHub tree.');
+      if (!recursive.truncated) {
+        for (const entry of recursive.tree as GitEntry[]) add(entry, entry.path);
+      } else {
+        // A truncated recursive response is incomplete. Walk the same pinned tree instead.
+        const trees = new Map<string, Promise<GitEntry[]>>();
+        const queue = [{ tree: sha, path: [] as string[] }];
+        async function walk({ tree, path }: typeof queue[number]) {
+          if (!trees.has(tree)) {
+            if (trees.size >= 256) throw new WorkspaceError('list_too_large', 422);
+            trees.set(tree, getTree(base, tree));
+          }
+          const entries = await trees.get(tree)!;
+          for (const entry of entries.filter(entry => isSegment(entry.path))) {
+            const target = [...path, entry.path];
+            const name = target.join('/');
+            if (name.length > 1024) continue;
+            if (directory(entry) && target.length < 64) queue.push({ tree: entry.sha, path: target });
+            else add(entry, name);
+          }
+        }
+        for (let i = 0; i < queue.length;) {
+          if (queue.length > 10000) throw new WorkspaceError('list_too_large', 422);
+          const batch = queue.slice(i, i + 8);
+          await Promise.all(batch.map(walk));
+          i += batch.length;
+        }
+      }
+      if (await requireBranch(repo, branch) !== commit) throw new WorkspaceError('branch_changed', 409);
+      return { commit, files: files.sort((a, b) => a.localeCompare(b)) };
+    },
     async tree(repo: Repository, branch: string, path: string[], expected?: string): Promise<Directory> {
       const { commit, entries } = await readDirectory(repo, branch, path, expected);
       const visible: TreeEntry[] = [];
@@ -178,11 +230,7 @@ export function createWorkspaceGit(get: Get) {
     atCommit,
     get,
     repoPath,
-    async requireBranch(repo: Repository, branch: string) {
-      const value = await object(`${repoPath(repo)}/branches/${encodeURIComponent(branch)}`);
-      if (value.name !== branch || !isCommit(value.commit?.sha)) throw new WorkspaceError('remote_missing', 404);
-      return value.commit.sha as string;
-    },
+    requireBranch,
   };
 }
 

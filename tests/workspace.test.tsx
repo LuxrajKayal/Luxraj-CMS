@@ -6,6 +6,7 @@ import { RepositoriesPage } from '../src/features/workspace/RepositoriesPage';
 import { WorkspaceLayout } from '../src/features/workspace/WorkspaceLayout';
 import { EditBuffers, readEditorRecovery } from '../src/features/workspace/EditBuffers';
 import { SourceControlPage } from '../src/features/workspace/SourceControlPage';
+import CodeInjectorPage from '../src/features/code-injector/CodeInjectorPage';
 import type { WorkspaceRequest } from '../supabase/functions/_shared/workspace-contracts';
 
 const request = vi.hoisted(() => vi.fn());
@@ -34,6 +35,83 @@ const beta = { repositories, selection: { repositoryId: 2, branch: 'trunk' }, br
 const tree = { commit: 'a'.repeat(40), entries: [{ name: 'index.html', kind: 'file' }] };
 const original = '<h1>Original</h1>';
 const current = { source: original, blob: 'b'.repeat(40), commit: tree.commit };
+
+test('copies boilerplate, reviews replacement, saves the exact draft revision, and opens its existing Monaco diff', async () => {
+  const path = 'nested/example.htm';
+  const baseline = '<html lang="fr" data-cms-seo-type="Old"><body>GitHub</body></html>';
+  const saved = baseline.replace('GitHub', 'Previously saved draft');
+  let draft = { path, originalCommit: current.commit, originalBlob: current.blob,
+    originalSource: baseline, proposedSource: saved, updatedAt: '', revision: 'old-revision' };
+  const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+  const previousClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard });
+  try {
+    request.mockImplementation(async (input: WorkspaceRequest) => {
+      if (input.action === 'load') return alpha;
+      if (input.action === 'discover_html') return { commit: tree.commit, files: [path] };
+      if (input.action === 'tree') return tree;
+      if (input.action === 'open_draft') return { current: { ...current, source: baseline }, draft };
+      if (input.action === 'changes') return { files: [draft] };
+      if (input.action === 'diff') return draft;
+      if (input.action === 'save_draft') {
+        draft = { ...draft, proposedSource: input.source, revision: 'new-revision' };
+        return { draft };
+      }
+      throw new Error('Unexpected request');
+    });
+    open('/code-injector');
+    fireEvent.change(await screen.findByLabelText('Website Type'), { target: { value: 'blog' } });
+    expect(screen.queryByRole('option', { name: 'Article - News' })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Page Type'), { target: { value: 'BlogPosting' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await screen.findByText('Boilerplate copied.');
+    expect(clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('data-cms-seo-type="BlogPosting"'));
+    fireEvent.click(screen.getByRole('button', { name: /Detect all HTML/ }));
+    fireEvent.change(await screen.findByLabelText('HTML file'), { target: { value: path } });
+    expect(screen.getByRole('link', { name: 'Open in Code Editor' }).getAttribute('href')).toBe('/code-editor');
+    fireEvent.click(screen.getByRole('button', { name: 'Inject' }));
+    const warning = await screen.findByRole('alertdialog');
+    expect(within(warning).getByText(/replaces existing CMS identification attributes/)).toBeTruthy();
+    fireEvent.click(within(warning).getByRole('button', { name: 'Cancel' }));
+    expect(request.mock.calls.some(([input]) => input.action === 'save_draft')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Inject' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Draft' }));
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ action: 'save_draft', repositoryId: 1, branch: 'main',
+      commit: tree.commit, path: ['nested', 'example.htm'], revision: 'old-revision' }), expect.any(AbortSignal));
+    fireEvent.click(await screen.findByRole('link', { name: 'Review in Code Editor' }));
+    expect((await screen.findByLabelText('Original source')).textContent).toBe(baseline);
+    expect(screen.getByLabelText('Proposed source').textContent).toBe(
+      '<html lang="fr" data-cms-seo-type="BlogPosting" data-cms-seo="true" data-cms-website="blog"><body>Previously saved draft</body></html>',
+    );
+    expect(request.mock.calls.some(([input]) => ['confirm_commit', 'review_commit'].includes(input.action))).toBe(false);
+  } finally {
+    if (previousClipboard) Object.defineProperty(navigator, 'clipboard', previousClipboard);
+    else Reflect.deleteProperty(navigator, 'clipboard');
+  }
+});
+
+test('HTML injection leaves a target with unsaved editor changes untouched and inspection restores the buffer', async () => {
+  const path = 'nested/example.htm';
+  window.sessionStorage.setItem('luxraj-cms-editor-session-v1:owner', JSON.stringify({
+    buffers: { [JSON.stringify([1, 'main', path])]: { source: 'Unsaved content', commit: tree.commit, revision: null } },
+  }));
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'discover_html') return { commit: tree.commit, files: [path] };
+    if (input.action === 'tree') return tree;
+    if (input.action === 'changes') return { files: [] };
+    if (input.action === 'open_draft') return { current, draft: null };
+    throw new Error('Unexpected request');
+  });
+  open('/code-injector');
+  fireEvent.click(await screen.findByRole('button', { name: /Detect all HTML/ }));
+  fireEvent.change(await screen.findByLabelText('HTML file'), { target: { value: path } });
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Inject' }).disabled).toBe(true);
+  expect(screen.getByRole('alert').textContent).toContain('unsaved editor changes');
+  fireEvent.click(screen.getByRole('link', { name: 'Open in Code Editor' }));
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value).toBe('Unsaved content');
+  expect(request.mock.calls.some(([input]) => input.action === 'save_draft')).toBe(false);
+});
 
 test('requires explicit confirmation for exact saved revisions and preserves unsaved source after a commit', async () => {
   const draft = { path: 'index.html', revision: 'saved-revision', originalCommit: current.commit, originalBlob: current.blob,
@@ -129,6 +207,7 @@ function open(path: string) {
           <Route path="/repositories" element={<RepositoriesPage />} />
           <Route path="/code-editor" element={<CodeEditorPage />} />
           <Route path="/source-control" element={<SourceControlPage />} />
+          <Route path="/code-injector" element={<CodeInjectorPage />} />
         </Route>
         <Route path="/settings" element={<h1>Mock Settings</h1>} />
       </Routes>
