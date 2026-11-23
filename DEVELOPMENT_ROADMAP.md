@@ -125,6 +125,8 @@ The roadmap has **20 numbered tasks (0–19)** grouped into **five initial miles
 - [ ] Commit only the confirmed files to the confirmed **test branch**; show commit SHA/link. Preserve saved drafts in Draft Management (including committed drafts), and do not discard unsaved browser edits.
 - **Your check:** A commit reaches exactly its intended test branch, the other branch remains unchanged, cancel writes nothing, conflicts stop the commit, and drafts remain available for manual management.
 
+**Approved later enhancement to Task 13 (planning only):** Move the currently fixed 20-file commit selection limit into Super Admin **Settings → Maximum Files Per Commit** (range **1–100**, default **20**), enforced in frontend and backend. Preserve the existing safe review/commit process. This is not recorded as already implemented, and the detailed Code Injector/Author plans live in the portfolio planning document.
+
 **Task 14 — History/Git Commit Graph:**
 
 - [ ] The right-panel **History** tab displays a **Git Commit Graph**, similar to VS Code's graph: commit dots, colored graph lanes, actual parent/merge/split lines, accurate known branch labels, and compact messages/authors/dates/SHAs. Do not invent graph branches or local refs.
