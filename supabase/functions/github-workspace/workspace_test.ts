@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import type { Draft, Selection } from '../_shared/workspace-contracts.ts';
 import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { createWorkspaceHandler } from './handler.ts';
+import { scanInjectorHtml } from './injector.ts';
 
 const origin = 'https://cms.example.test';
 const commit = '1'.repeat(40);
@@ -134,6 +135,71 @@ Deno.test('workspace requires an authenticated Super Admin before contacting Git
   f.disconnect();
   assert.equal((await f.post({ action: 'load' })).status, 409);
   assert.deepEqual(f.calls, []);
+});
+
+Deno.test('catalog and commit settings authorize the actor and enforce persistent input bounds', async () => {
+  let maximumFiles = 20;
+  const writes: unknown[] = [];
+  const handler = createWorkspaceHandler({
+    origin,
+    authenticate: async token => token,
+    isAdmin: async user => user === 'owner',
+    openGit: async () => { throw new Error('Catalog and over-limit reviews must not contact GitHub.'); },
+    getPreference: async () => null, savePreference: async () => {},
+    commitLimit: { get: async () => maximumFiles, set: async limit => maximumFiles = limit },
+    injector: {
+      load: async () => ({ templates: [], groups: [] }),
+      addTemplate: async (user, input) => {
+        writes.push({ user, input });
+        return { ...input, id: 'new' };
+      },
+      addGroup: async (user, name, templateIds) => {
+        writes.push({ user, templateIds });
+        return { name, templateIds, id: 'group' };
+      },
+    },
+  });
+  const post = (body: object, token = 'owner') => handler(new Request('https://example.test/workspace', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: JSON.stringify(body),
+  }));
+  const id = '11111111-1111-4111-8111-811111111111';
+  const card = { action: 'injector_template_add', kind: 'css', name: ' Theme ', source: '.x { color: red }', userId: 'other' };
+  for (const action of ['injector_catalog', 'injector_template_add', 'injector_group_add', 'commit_limit', 'save_commit_limit', 'discover_sources', 'scan_injector_html']) {
+    assert.equal((await post({ action }, 'other')).status, 403);
+  }
+  assert.equal((await post({ ...card, kind: 'binary' })).status, 400);
+  assert.equal((await post(card)).status, 200);
+  assert.equal((await post({ action: 'injector_group_add', name: 'Collection', templateIds: [id, id] })).status, 200);
+  assert.deepEqual(writes, [{ user: 'owner', input: { kind: 'css', name: 'Theme', source: card.source } },
+    { user: 'owner', templateIds: [id] }]);
+  assert.deepEqual(await (await post({ action: 'commit_limit' })).json(), { maximumFiles: 20 });
+  assert.equal((await post({ action: 'save_commit_limit', maximumFiles: 101 })).status, 400);
+  assert.deepEqual(await (await post({ action: 'save_commit_limit', maximumFiles: 1 })).json(), { maximumFiles: 1 });
+  assert.deepEqual(await (await post({ action: 'review_commit', repositoryId: 11, branch: 'main', message: 'Check',
+    files: [{ path: 'one.js', revision: id }, { path: 'two.css', revision: id }] })).json(),
+  { error: 'commit_limit_exceeded', maximumFiles: 1 });
+});
+
+Deno.test('injector HTML scan requires all three real root markers and reports unreadable files', async () => {
+  const repo = { id: 1, name: 'owner/site', defaultBranch: 'main', private: true };
+  const markers = ' data-cms-seo="true" data-cms-website="blog" data-cms-seo-type="BlogPosting"';
+  const sources: Record<string, string> = {
+    'nested/match.htm': '<!DOCTYPE html><HTML' + markers + '><body>Match</body></HTML>',
+    'comment.html': '<!-- <html' + markers + '> --><html><body>Not a match</body></html>',
+    'recovered.html': '<html><body><html' + markers + '></body></html>',
+    'other.html': '<html' + markers.replace('BlogPosting', 'AboutPage') + '></html>',
+  };
+  const git = { requireBranch: async () => commit,
+    async atCommit(_repo: unknown, hash: string, path: string[]) {
+      assert.equal(hash, commit);
+      const source = sources[path.join('/')];
+      if (!source) throw new WorkspaceError('unsupported_file', 422);
+      return source;
+    },
+  };
+  assert.deepEqual(await scanInjectorHtml(git, repo, 'main', commit,
+    [...Object.keys(sources), 'bad.html'], 'blog', 'BlogPosting'),
+  { matches: ['nested/match.htm'], unreadable: ['bad.html'] });
 });
 
 Deno.test('HTML discovery walks the pinned branch when the recursive result is truncated', async () => {

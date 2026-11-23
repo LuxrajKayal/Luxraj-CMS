@@ -4,6 +4,7 @@ import { isBranch, isCommit, isPath, type WorkspaceGit, WorkspaceError } from '.
 import type { ChangeSets } from './change-sets.ts';
 import type { CommitReviews } from './commits.ts';
 import { createHistory } from './history.ts';
+import { scanInjectorHtml, type createInjectorStore } from './injector.ts';
 
 interface Dependencies {
   origin: string;
@@ -19,6 +20,8 @@ interface Dependencies {
   savePreference(userId: string, selection: Selection): Promise<void>;
   changes?: ChangeSets;
   commits?: CommitReviews;
+  injector?: ReturnType<typeof createInjectorStore>;
+  commitLimit?: { get(): Promise<number>; set(value: number): Promise<number> };
   storage?: { usage(): Promise<StorageUsage>; set(databaseLimitMb: number, fileLimitMb: number): Promise<StorageUsage> };
 }
 
@@ -60,6 +63,33 @@ export function createWorkspaceHandler(deps: Dependencies) {
 
       const body = await request.json().catch(() => null);
       const action = body?.action;
+      if (action === 'commit_limit' || action === 'save_commit_limit') {
+        if (!deps.commitLimit) throw new Error('Commit limit unavailable.');
+        if (action === 'save_commit_limit' && !validLimit(body.maximumFiles, 100)) {
+          return json({ error: 'invalid_commit_limit' }, 400);
+        }
+        const maximumFiles = action === 'commit_limit' ? await deps.commitLimit.get() : await deps.commitLimit.set(body.maximumFiles);
+        return json({ maximumFiles });
+      }
+      if (['injector_catalog', 'injector_template_add', 'injector_group_add'].includes(action)) {
+        if (!deps.injector) throw new Error('Code catalog unavailable.');
+        if (action === 'injector_catalog') return json(await deps.injector.load(userId));
+        const name = typeof body.name === 'string' ? body.name.trim() : '';
+        if (!name || name.length > 100 || name.includes('\0')) return json({ error: 'invalid_catalog_input' }, 400);
+        if (action === 'injector_template_add') {
+          const { kind, source } = body;
+          if (!['html', 'script', 'css'].includes(kind) || typeof source !== 'string' || !source.trim() ||
+              source.includes('\0') || new TextEncoder().encode(source).length > 1048576) {
+            return json({ error: 'invalid_catalog_input' }, 400);
+          }
+          return json(await deps.injector.addTemplate(userId, { name, kind, source }));
+        }
+        if (!Array.isArray(body.templateIds) || !body.templateIds.length || !body.templateIds.every(isRevision)) {
+          return json({ error: 'invalid_catalog_input' }, 400);
+        }
+        const ids = [...new Set<string>(body.templateIds.map((id: string) => id.toLowerCase()))];
+        return json(await deps.injector.addGroup(userId, name, ids));
+      }
       if (action === 'storage_status' || action === 'storage_save') {
         if (!deps.storage) throw new Error('Storage policy unavailable.');
         if (action === 'storage_status') return json(await deps.storage.usage());
@@ -73,11 +103,13 @@ export function createWorkspaceHandler(deps: Dependencies) {
         const path = (value: unknown) => typeof value === 'string' && !!value && value.length <= 1024 && isPath(value.split('/'));
         if (action === 'review_commit') {
           if (typeof body.message !== 'string' || !body.message.trim() || body.message.trim().length > 1000 ||
-              body.message.includes('\0') || !Array.isArray(body.files) || !body.files.length || body.files.length > 20 ||
+              body.message.includes('\0') || !Array.isArray(body.files) || !body.files.length || body.files.length > 100 ||
               !body.files.every((file: any) => path(file?.path) && isRevision(file?.revision)) ||
               new Set(body.files.map((file: { path: string }) => file.path)).size !== body.files.length) {
             return json({ error: 'invalid_commit_review' }, 400);
           }
+          const maximumFiles = await deps.commitLimit?.get() ?? 20;
+          if (body.files.length > maximumFiles) return json({ error: 'commit_limit_exceeded', maximumFiles }, 409);
         }
         if ((action === 'confirm_commit' || action === 'reconcile_commit') &&
             (!isRevision(body.reviewId) || (action === 'reconcile_commit' && !isCommit(body.sha)))) {
@@ -192,8 +224,14 @@ export function createWorkspaceHandler(deps: Dependencies) {
         if (!positiveId(body.repositoryId) || (body.branch !== undefined && !isBranch(body.branch))) {
           return json({ error: 'invalid_request' }, 400);
         }
-      } else if (action === 'discover_html') {
+      } else if (action === 'discover_html' || action === 'discover_sources' || action === 'scan_injector_html') {
         if (!positiveId(body.repositoryId) || !isBranch(body.branch)) return json({ error: 'invalid_request' }, 400);
+        if (action === 'scan_injector_html' && (!isCommit(body.commit) || !Array.isArray(body.files) || body.files.length > 12 ||
+            !body.files.every((file: unknown) => typeof file === 'string' && file.length <= 1024 && /\.html?$/i.test(file) &&
+              isPath(file.split('/'))) || typeof body.category !== 'string' || !/^[\w-]{1,100}$/.test(body.category) ||
+            typeof body.page !== 'string' || !/^[\w-]{1,100}$/.test(body.page))) {
+          return json({ error: 'invalid_request' }, 400);
+        }
       } else if (action === 'tree' || action === 'file') {
         if (!positiveId(body.repositoryId) || !isBranch(body.branch) || !isPath(body.path) ||
             ((action === 'file' || body.path.length > 0 || body.commit !== undefined) && !isCommit(body.commit)) ||
@@ -257,8 +295,10 @@ export function createWorkspaceHandler(deps: Dependencies) {
         selection?.repositoryId === repository.id && selection.branch === body.branch;
       if (!matches(saved)) return json({ error: 'selection_changed' }, 409);
       const git = await remote.forRepository(repository.id);
-      if (action === 'discover_html') {
-        const result = await git.discoverHtml(repository, body.branch);
+      if (action === 'discover_html' || action === 'discover_sources' || action === 'scan_injector_html') {
+        const result = action === 'scan_injector_html'
+          ? await scanInjectorHtml(git, repository, body.branch, body.commit, body.files, body.category, body.page)
+          : await git.discoverHtml(repository, body.branch, action === 'discover_sources');
         await remote.checkConnection();
         if (!await deps.isAdmin(userId)) return json({ error: 'forbidden' }, 403);
         if (!matches(await deps.getPreference(userId))) return json({ error: 'selection_changed' }, 409);
@@ -281,7 +321,7 @@ export function createWorkspaceHandler(deps: Dependencies) {
         const result = action === 'changes' ? await changes.list(scope) : await changes.get(fileScope);
         await remote.checkConnection();
         if (!matches(await deps.getPreference(userId))) return json({ error: 'selection_changed' }, 409);
-        if (action === 'changes') return json({ files: result });
+        if (action === 'changes') return json({ files: result, maximumFiles: await deps.commitLimit?.get() });
         return result ? json(result) : json({ error: 'remote_missing' }, 404);
       }
       const result = action === 'tree'

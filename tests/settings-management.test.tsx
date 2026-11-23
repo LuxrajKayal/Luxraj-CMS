@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { DraftManagementPage } from '../src/features/settings/DraftManagementPage';
 import { StorageManagementPage } from '../src/features/settings/StorageManagementPage';
+import { CommitLimitPage } from '../src/features/settings/CommitLimitPage';
 import type { ManagedDraft, WorkspaceRequest } from '../supabase/functions/_shared/workspace-contracts';
 
 const request = vi.hoisted(() => vi.fn());
@@ -15,6 +16,23 @@ vi.mock('../src/features/workspace/EditBuffers', () => ({
 
 beforeEach(() => { request.mockReset(); });
 afterEach(cleanup);
+
+test('loads the persisted commit limit and saves an integer up to 100', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'commit_limit') return { maximumFiles: 20 };
+    if (input.action === 'save_commit_limit') return { maximumFiles: input.maximumFiles };
+    throw new Error('Unexpected request');
+  });
+  render(<CommitLimitPage />);
+  const input = await screen.findByRole<HTMLInputElement>('spinbutton', { name: 'Files per commit' });
+  expect(input.value).toBe('20');
+  expect(input.min).toBe('1');
+  expect(input.max).toBe('100');
+  fireEvent.change(input, { target: { value: '100' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save commit limit' }));
+  await screen.findByText('Commit limit saved.');
+  expect(request).toHaveBeenCalledWith({ action: 'save_commit_limit', maximumFiles: 100 });
+});
 
 const first: ManagedDraft = {
   repositoryId: 1, repository: 'owner/site', branch: 'main', path: 'first.html',

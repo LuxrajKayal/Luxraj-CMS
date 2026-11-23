@@ -27,6 +27,12 @@ export interface Directory {
 }
 
 export type HtmlDiscovery = { commit: string; files: string[] };
+export type InjectorHtmlMatches = { matches: string[]; unreadable: string[] };
+export type CodeKind = 'html' | 'script' | 'css';
+export type CodeTemplate = { id: string; name: string; kind: CodeKind; source: string };
+export type CodeGroup = { id: string; name: string; templateIds: string[] };
+export type CodeCatalog = { templates: CodeTemplate[]; groups: CodeGroup[] };
+export type CommitLimit = { maximumFiles: number };
 
 export interface SourceFile {
   source: string;
@@ -105,6 +111,13 @@ export type WorkspaceRequest =
   | { action: 'select'; repositoryId: number; branch?: string }
   | { action: 'tree'; repositoryId: number; branch: string; path: string[]; commit?: string }
   | { action: 'discover_html'; repositoryId: number; branch: string }
+  | { action: 'discover_sources'; repositoryId: number; branch: string }
+  | { action: 'scan_injector_html'; repositoryId: number; branch: string; commit: string; files: string[]; category: string; page: string }
+  | { action: 'injector_catalog' }
+  | { action: 'injector_template_add'; name: string; kind: CodeKind; source: string }
+  | { action: 'injector_group_add'; name: string; templateIds: string[] }
+  | { action: 'commit_limit' }
+  | { action: 'save_commit_limit'; maximumFiles: number }
   | { action: 'file' | 'open_draft'; repositoryId: number; branch: string; path: string[]; commit: string }
   | { action: 'save_draft'; repositoryId: number; branch: string; path: string[]; commit: string; source: string; revision: string | null }
   | { action: 'changes'; repositoryId: number; branch: string }

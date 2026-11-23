@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Link, NavLink, useMatch } from 'react-router';
 import { PanelLeft } from 'lucide-react';
 import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import type { HtmlDiscovery } from '../../../supabase/functions/_shared/workspace-contracts';
@@ -8,6 +8,8 @@ import { BranchPicker, useWorkspace } from '../workspace/WorkspaceLayout';
 import { workspaceError, workspaceRequest } from '../workspace/api';
 import { defaultSelection, identification, openingTag, pagesFor, prepareBoilerplate, websites } from './boilerplate';
 import './code-injector.css';
+
+const SourceInjector = lazy(() => import('./SourceInjector'));
 
 type Scope = { repositoryId: number; branch: string };
 type Injection = { path: string; commit: string; source: string; revision: string | null; replacesMarkers: boolean };
@@ -173,6 +175,7 @@ function BoilerplateGenerator({ scope, repository }: { scope: Scope | null; repo
 }
 
 export default function CodeInjectorPage() {
+  const injector = useMatch('/code-injector/inject');
   const { workspace: { repositories, selection }, saving } = useWorkspace();
   const [expanded, setExpanded] = useState(true);
   const repository = repositories.find(item => item.id === selection?.repositoryId);
@@ -188,9 +191,16 @@ export default function CodeInjectorPage() {
     </ModuleTopbar>
     <div className="injector-body">
       <ModulePanel title="Code Injector sections" hidden={!expanded}>
-        <nav aria-label="Code Injector sections"><Link to="/code-injector" aria-current="page">Boilerplate Generator</Link></nav>
+        <nav aria-label="Code Injector sections">
+          <NavLink to="/code-injector" end>Boilerplate Generator</NavLink>
+          <NavLink to="/code-injector/inject">Code Injector</NavLink>
+        </nav>
       </ModulePanel>
-      <BoilerplateGenerator key={JSON.stringify(scope)} scope={scope} repository={repository?.name} />
+      {injector
+        ? <Suspense fallback={<p role="status">Loading injector tools…</p>}>
+          <SourceInjector key={JSON.stringify(scope)} scope={scope} repository={repository?.name} />
+        </Suspense>
+        : <BoilerplateGenerator key={JSON.stringify(scope)} scope={scope} repository={repository?.name} />}
     </div>
   </div>;
 }

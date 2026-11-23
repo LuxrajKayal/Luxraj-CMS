@@ -36,6 +36,101 @@ const tree = { commit: 'a'.repeat(40), entries: [{ name: 'index.html', kind: 'fi
 const original = '<h1>Original</h1>';
 const current = { source: original, blob: 'b'.repeat(40), commit: tree.commit };
 
+test('injects a saved group into different source types with independent line and match decisions', async () => {
+  const template = { id: 'card', name: 'Card CSS', kind: 'css', source: '.card { color: red }' };
+  const html = '<html><head>\n<style>.card { color: blue }</style>\n</head></html>';
+  const css = '.card { color: blue }\n.keep { padding: 3px }\n';
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'injector_catalog') return { templates: [template],
+      groups: [{ id: 'group', name: 'Theme', templateIds: ['card'] }] };
+    if (input.action === 'discover_sources') return { commit: tree.commit, files: ['nested/page.htm', 'other.html', 'styles.css'] };
+    if (input.action === 'scan_injector_html') return { matches: ['nested/page.htm'], unreadable: [] };
+    if (input.action === 'open_draft') return {
+      current: { ...current, source: input.path.at(-1) === 'styles.css' ? css : html }, draft: null,
+    };
+    if (input.action === 'save_draft') {
+      if (input.path[0] === 'styles.css') throw new Error('draft_conflict');
+      return { draft: { revision: 'saved' } };
+    }
+    throw new Error('Unexpected request');
+  });
+  open('/code-injector/inject');
+  fireEvent.click(await screen.findByRole('button', { name: 'Use Theme' }, { timeout: 5000 }));
+  fireEvent.click(screen.getByRole('button', { name: 'Detect' }));
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Select file nested/page.htm' }));
+  await screen.findByRole('button', { name: 'Insert before line 1' });
+  expect(screen.getAllByRole('img', { name: 'All items match' })).toHaveLength(2);
+  expect(screen.queryByRole('checkbox', { name: 'Select file other.html' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Insert before line 3' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Duplicate' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select file styles.css' }));
+  await screen.findByText('.keep { padding: 3px }');
+  fireEvent.click(screen.getByRole('radio', { name: 'Replace' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Preview insertion' }));
+  await screen.findByText(/styles.css: Choose an insertion line/);
+  expect(screen.queryByRole('button', { name: 'Save Draft' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Insert before line 2' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Preview insertion' }));
+  const proposal = await screen.findByLabelText('Proposed source');
+  expect(proposal.textContent).toContain('.card { color: blue }');
+  expect(proposal.textContent).toContain('.card { color: red }');
+  fireEvent.change(screen.getByLabelText('Active source file'), { target: { value: 'styles.css' } });
+  await waitFor(() => expect(screen.getByLabelText('Proposed source').textContent).toContain('.keep { padding: 3px }'));
+  expect(screen.getByLabelText('Proposed source').textContent).not.toContain('color: blue');
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByRole('link', { name: 'Saved · review in Code Editor' });
+  await screen.findByText(/draft changed in another session/i);
+  expect(request.mock.calls.filter(([input]) => input.action === 'save_draft').map(([input]) => input.path))
+    .toEqual([['nested', 'page.htm'], ['styles.css']]);
+  expect(request.mock.calls.some(([input]) => ['confirm_commit', 'review_commit'].includes(input.action))).toBe(false);
+});
+
+test('creates reusable named templates and groups in the catalog without editing source', async () => {
+  const template = { id: 'new', name: 'Site title', kind: 'html', source: '<title>Example</title>' };
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'injector_catalog') return { templates: [], groups: [] };
+    if (input.action === 'injector_template_add') return template;
+    if (input.action === 'injector_group_add') return { id: 'g', name: 'Metadata', templateIds: ['new'] };
+    throw new Error('Unexpected request');
+  });
+  open('/code-injector/inject');
+  fireEvent.click(await screen.findByRole('button', { name: 'Add code template' }));
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Site title' } });
+  fireEvent.change(screen.getByLabelText('Code'), { target: { value: template.source } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Select template Site title' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create New Group' }));
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Metadata' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByRole('button', { name: 'Use Metadata' });
+  expect(request).toHaveBeenCalledWith({ action: 'injector_group_add', name: 'Metadata', templateIds: ['new'] });
+  expect(request.mock.calls.some(([input]) => input.action === 'save_draft')).toBe(false);
+});
+
+test('Source Control enforces the saved commit limit independently of the draft list', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return tree;
+    if (input.action === 'changes') return { maximumFiles: 1, files: [
+      { path: 'index.html', revision: 'first', updatedAt: '' },
+      { path: 'site.css', revision: 'second', updatedAt: '' },
+    ] };
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Include index.html in commit' }));
+  const second = screen.getByRole('checkbox', { name: 'Include site.css in commit' });
+  fireEvent.click(second);
+  fireEvent.change(screen.getByLabelText('Commit message'), { target: { value: 'Test' } });
+  const review = screen.getByRole<HTMLButtonElement>('button', { name: 'Review & Commit' });
+  expect(review.disabled).toBe(true);
+  expect(screen.getByText('Select up to 1 files per commit.')).toBeTruthy();
+  fireEvent.click(second);
+  expect(review.disabled).toBe(false);
+});
+
 test('copies boilerplate, reviews replacement, saves the exact draft revision, and opens its existing Monaco diff', async () => {
   const path = 'nested/example.htm';
   const baseline = '<html lang="fr" data-cms-seo-type="Old"><body>GitHub</body></html>';
@@ -207,7 +302,7 @@ function open(path: string) {
           <Route path="/repositories" element={<RepositoriesPage />} />
           <Route path="/code-editor" element={<CodeEditorPage />} />
           <Route path="/source-control" element={<SourceControlPage />} />
-          <Route path="/code-injector" element={<CodeInjectorPage />} />
+          <Route path="/code-injector/*" element={<CodeInjectorPage />} />
         </Route>
         <Route path="/settings" element={<h1>Mock Settings</h1>} />
       </Routes>

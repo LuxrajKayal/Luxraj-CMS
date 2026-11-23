@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../../core/auth/supabase';
 import type {
+  CodeCatalog, CodeGroup, CodeTemplate, CommitLimit, InjectorHtmlMatches,
   CommitDetail, CommittedDiff, CommitReceipt, CommitReview, Directory, Draft, DraftDeletion, DraftSummary, HistoryPage, HtmlDiscovery,
   ManagedDraft, OpenDraft, SavedDraft, SourceFile, StorageUsage, Workspace, WorkspaceRequest,
 } from '../../../supabase/functions/_shared/workspace-contracts';
@@ -10,7 +11,10 @@ export type { Directory, Repository, Selection, TreeEntry, Workspace } from '../
 type Responses = {
   load: Workspace; select: Workspace; tree: Directory; file: SourceFile;
   discover_html: HtmlDiscovery;
-  open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[] }; diff: Draft;
+  discover_sources: HtmlDiscovery; scan_injector_html: InjectorHtmlMatches;
+  injector_catalog: CodeCatalog; injector_template_add: CodeTemplate; injector_group_add: CodeGroup;
+  commit_limit: CommitLimit; save_commit_limit: CommitLimit;
+  open_draft: OpenDraft; save_draft: SavedDraft; changes: { files: DraftSummary[]; maximumFiles?: number }; diff: Draft;
   draft_catalog: { files: ManagedDraft[] }; delete_drafts: { results: DraftDeletion[] };
   storage_status: StorageUsage; storage_save: StorageUsage;
   review_commit: CommitReview; confirm_commit: CommitReceipt; reconcile_commit: CommitReceipt; history: HistoryPage;
@@ -26,6 +30,9 @@ export async function workspaceRequest<T extends WorkspaceRequest>(body: T, sign
   const { data, error } = await supabase.functions.invoke<Responses[T['action']]>('github-workspace', { body, signal });
   if (error instanceof FunctionsHttpError) {
     const payload = await error.context.json().catch(() => null);
+    if (payload?.error === 'commit_limit_exceeded' && Number.isInteger(payload.maximumFiles)) {
+      throw new Error('commit_limit_exceeded:' + payload.maximumFiles);
+    }
     if (['commit_file_conflict', 'commit_file_mode', 'draft_conflict'].includes(payload?.error) && typeof payload.path === 'string') {
       throw new Error(`${payload.error}:${payload.path}`);
     }
@@ -48,7 +55,7 @@ const errors = {
   remote_missing: 'This branch or path is no longer available. Refresh the workspace.',
   selection_changed: 'The saved repository or branch changed. Refresh the workspace to open the current selection.',
   branch_changed: 'This branch received new changes. Refresh the file tree or History, then review your changes again.',
-  unsupported_file: 'This file is unavailable or is not supported UTF-8 HTML, CSS, or JavaScript source.',
+  unsupported_file: 'This file is unavailable or is not supported UTF-8 text source.',
   unsupported_history_file: 'A text diff is unavailable for this change. History supports UTF-8 files with a readable before or after version.',
   file_too_large: 'This file exceeds the 1 MiB preview limit.',
   directory_too_large: 'GitHub returned an incomplete listing for this directory.',
@@ -58,7 +65,11 @@ const errors = {
   draft_conflict: 'This draft changed in another session. Reopen the saved draft before saving again.',
   invalid_request: 'This change could not be saved. Source must be UTF-8 text of at most 1 MiB.',
   invalid_storage_limits: 'Use whole megabytes within the PostgreSQL and File Storage ceilings.',
-  invalid_commit_review: 'Select up to 20 saved changes and enter a commit message of up to 1,000 characters.',
+  invalid_commit_review: 'Select saved changes within the commit limit and enter a commit message of up to 1,000 characters.',
+  invalid_commit_limit: 'Enter a whole number from 1 to 100.',
+  catalog_name_taken: 'A saved item already uses this name.',
+  catalog_members: 'One or more templates are unavailable. Reload the catalog and try again.',
+  invalid_catalog_input: 'Enter a name and valid content. Template source must fit within 1 MiB.',
   commit_file_conflict: 'A selected file changed on GitHub. Compare the current source and prepare a new draft before committing.',
   commit_file_mode: 'Commit this executable file in Git to preserve its executable permission.',
   commit_too_large: 'This commit exceeds the 8 MiB source limit. Review fewer changes at once.',
@@ -71,6 +82,9 @@ const errors = {
 
 export function workspaceError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
+  if (/^commit_limit_exceeded:\d+$/.test(code)) {
+    return 'The current limit is ' + code.split(':')[1] + ' files per commit. Refresh changes and select a smaller batch.';
+  }
   if (code.startsWith('database_limit:')) return `PostgreSQL storage limit reached. ${code.slice('database_limit:'.length)}`;
   const separator = code.indexOf(':');
   if (separator > 0 && ['commit_file_conflict', 'commit_file_mode', 'draft_conflict'].includes(code.slice(0, separator))) {

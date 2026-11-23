@@ -11,7 +11,7 @@ const scope = { userId: 'admin', repositoryId: 22, branch: 'feature/test' };
 const repository = { id: 22, name: 'owner/site', defaultBranch: 'main', private: true };
 const files = paths.map((path, index) => ({ path, revision: `version-${index}` }));
 
-function setup() {
+function setup(limit?: () => Promise<number>) {
   const review = { id: 'review', repository: repository.name, branch: scope.branch, head, message: 'Two files',
     files, claimed: true, commit_sha: null };
   let active = true;
@@ -62,13 +62,22 @@ function setup() {
       return `new ${path.join('/')}`;
     },
   } as unknown as WorkspaceGit;
-  return { commits: createCommitReviews(db), review, archived, filters,
+  return { commits: createCommitReviews(db, limit), review, archived, filters,
     input: { repository, scope, git, changes: source, check: async () => {} },
     moveHead: () => { current = '4'.repeat(40); },
     changeFile: () => { remoteBlob = '5'.repeat(40); },
     failRecordOnce: () => { rpcFailures = 1; },
   };
 }
+
+Deno.test('a lower live commit limit stops a previously prepared review before any GitHub mutation', async () => {
+  let calls = 0;
+  const f = setup(async () => ++calls === 1 ? 2 : 1);
+  await assert.rejects(f.commits.confirm(f.input, 'review', () => { throw new Error('unexpected write'); }),
+    { message: 'commit_limit_exceeded', status: 409, details: { maximumFiles: 1 } });
+  assert.equal(calls, 2);
+  assert.deepEqual(f.archived, []);
+});
 
 Deno.test('confirmation writes a single atomic mutation to the reviewed branch, then archives the exact revisions', async () => {
   const f = setup();

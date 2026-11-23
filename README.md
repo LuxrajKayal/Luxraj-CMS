@@ -181,6 +181,13 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 - Reuse existing Supabase drafts, Monaco diffs and the one explicit Source Control commit workflow. Do not constrain the number of discovered/prepared files to the commit-file limit.
 - **Settings → Maximum Files Per Commit:** Super Admin-selectable **1–100**, default **20**, enforced in both frontend and trusted backend; any bulk change exceeding the selected limit is reviewed and committed in batches.
 
+#### Task 16 matching and conflict handling
+
+- HTML cards count top-level elements. A JSON-LD block counts distinct schema types declared at its root or in its graph. Inline scripts and styles count their parsed declarations, statements, or rules. JavaScript cards count each named binding/import or other top-level statement. CSS cards count top-level rules, at-rules and standalone declarations. Comments do not count as code items.
+- HTML matches use identities such as document title, meta name/property, script URL, or element ID. Other elements use exact source. JavaScript uses parsed binding/import identities and structurally equal statements. CSS matches selectors or at-rule identities within the same block level. Presence indicators report syntax matches and leave value correctness to the reviewer.
+- **Replace** removes the matched source spans and inserts the selected templates at the line chosen in that file. It is blocked if a matched span also contains unselected JS bindings, unrelated CSS rules/properties, other JSON-LD graph types, or protected element contents. Overlapping existing spans and repeated identities across selected templates need a narrower selection or manual editing. When the parser cannot assess a format, review the source manually before continuing.
+- Bulk saves use independent versioned drafts. Each file reports success or the specific conflict, and earlier successful drafts stay available in Source Control. File type is checked on open. Existing UTF-8, repository path, per-file 1 MiB and aggregate commit payload limits still apply.
+
 ### 7.3–7.6 Approved SEO catalog reference (preserved)
 
 The following previously approved Blog core, Open Graph, X and Schema.org **catalog entries** are retained as reference material. Their earlier examples of `data-page-type` and the old automated placeholder workflow do **not** supersede the new Task 15 identification attributes or Task 16 user-controlled code injection. Inclusion of catalog entries does not authorize injecting or overwriting their values automatically.
