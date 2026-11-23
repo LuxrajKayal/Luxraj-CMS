@@ -22,8 +22,8 @@
 .injector-files { max-height: 12rem; overflow: auto; overflow-wrap: anywhere; margin-block: .4rem; }
 .injector-lines { max-height: 25rem; overflow: auto; background: #19283d; color: #f2f6fb; margin-block: .5rem; }
 .injector-line { width: max-content; min-width: 100%; }
-.injector-source-row { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 1.75rem; text-align: left; background: transparent; color: inherit; border: 0; padding: .15rem .6rem .15rem 0; cursor: pointer; }
-.injector-source-row:hover, .injector-source-row[aria-pressed='true'] { background: #22538b; }
+.workspace .injector-source-row { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 1.75rem; text-align: left; background: transparent; color: inherit; border: 0; padding: .15rem .6rem .15rem 0; cursor: pointer; }
+.workspace .injector-source-row:hover, .workspace .injector-source-row[aria-pressed='true'] { background: #22538b; color: #fff; }
 .injector-source-row code { white-space: pre; color: inherit; }
 .injector-line-number { display: inline-block; position: sticky; left: 0; min-width: 3.5rem; padding: .2rem .5rem; text-align: right; background: #263a56; color: #e6f3ff; }
 .injector-insert-slot { display: grid; gap: .5rem; padding: .7rem 1rem; background: #183c32; border-block: 2px solid #58c796; color: #e2fff1; min-width: 100%; }

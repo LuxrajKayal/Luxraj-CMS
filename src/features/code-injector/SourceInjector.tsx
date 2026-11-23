@@ -76,6 +76,7 @@ export default function SourceInjector({ scope, repository }: { scope: Scope | n
     setTargets({});
     setActive('');
     setFilePage(0);
+    setFilter('');
     setResults([]);
     setError('');
   }
