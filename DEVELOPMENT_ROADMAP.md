@@ -2,7 +2,7 @@
 
 > **For the project owner.** This is a human-readable progress and verification guide, **not a Codex prompt or an implementation specification**. The approved requirements, architecture decisions, and metadata catalogs remain in [README.md](./README.md).
 >
-> **Status:** Tasks 0–14 have implementations in the repository's source code; their runtime/owner acceptance checks are not established by this document. Tasks 15–20 are agreed planning, not implemented. Document created November 19, 2026. Implementation, deployment, and external-service changes require separate explicit approval.
+> **Status, November 23, 2026:** **Tasks 0–16 are completed and owner-accepted**. Prerequisite **P-1 Universal File Manager** is approved planning **not implemented**; Tasks **17–20** remain approved future phases. Implementation, deployment and Supabase changes require a separate GREEN.
 
 ## What we are building
 
@@ -10,19 +10,19 @@ Luxraj CMS is a browser-based system for managing multiple GitHub repositories a
 
 **Our order of work:** First create a working, secure CMS foundation. Then add agreed feature modules, beginning with Boilerplate Generator and Code Injector. We will use **Codex in VS Code to implement approved tasks**, while the owner reviews the results and decides when to advance.
 
-The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones**. Tasks 0–14 are the existing developed foundation; Tasks 15–20 follow the portfolio living plan. Task 21 remains outside this approved roadmap.
+The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones**. Tasks 0–16 are the accepted completed baseline; P-1 is the next unnumbered prerequisite before the remaining Tasks 17–20. Task 21 remains outside this approved roadmap.
 
 ## Progress at a glance
 
 | Milestone | Tasks | Goal | Current status |
 | --- | --- | --- | --- |
-| **1. Application Foundation** | 0–3 | Maintainable frontend with routing and readable errors | Code implemented; acceptance not independently verified |
-| **2. Authentication & Security** | 4–6 | Secure login and GitHub App connection | Code implemented; acceptance not independently verified |
-| **3. Repository & Branch Workspace** | 7–9 | Select repositories/branches and browse files | Code implemented; acceptance not independently verified |
-| **4. Code Editor & Source Control** | 10–14 | Edit, save drafts, review diffs, and commit safely | Code implemented; acceptance not independently verified |
-| **5. Boilerplate Generator & Code Injector** | 15–16 | Template identification, source injection and safe review | Agreed planning; not implemented |
-| **6. Users & Author Publishing** | 17–19 | Permissions, Author Workspace and editorial publishing | Agreed planning; not implemented |
-| **7. Website Preview** | 20 | View the existing live website in permitted workspaces | Agreed planning; not implemented |
+| **1. Application Foundation** | 0–3 | Maintainable frontend with routing and readable errors | Completed; owner-accepted |
+| **2. Authentication & Security** | 4–6 | Secure login and GitHub App connection | Completed; owner-accepted |
+| **3. Repository & Branch Workspace** | 7–9 | Select repositories/branches and browse files | Completed; owner-accepted |
+| **4. Code Editor & Source Control** | 10–14 | Edit, save drafts, review diffs, and commit safely | Completed; owner-accepted |
+| **5. Boilerplate Generator & Code Injector** | 15–16 | Template identification, source injection and safe review | Completed; owner live-tested |
+| **6. Users & Author Publishing** | 17–19 | Permissions, Author Workspace and editorial publishing | Approved; implementation pending |
+| **7. Website Preview** | 20 | View the existing live website in permitted workspaces | Approved; implementation pending |
 
 **Progress rule:** Mark a task complete only after the implementation is working, its checks have passed, and you have personally reviewed the result. Finishing a task does **not** automatically authorize the next one.
 
@@ -32,22 +32,22 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 
 **Purpose:** Get Luxraj CMS running locally with the agreed modular React + TypeScript + Vite structure, before connecting sensitive services.
 
-- [ ] **Task 0 — Inspect the repository.** Read the existing README and files; establish what is present and what the first implementation change would involve. **Inspection only.**
+- [x] **Task 0 — Inspect the repository.** Read the existing README and files; establish what is present and what the first implementation change would involve. **Inspection only.**
   - **Your check:** The proposed work matches the approved architecture; nothing has been edited during inspection.
-- [ ] **Task 1 — Set up React, TypeScript and Vite.** Establish the application entry point, dependencies, build configuration, and basic module layout.
+- [x] **Task 1 — Set up React, TypeScript and Vite.** Establish the application entry point, dependencies, build configuration, and basic module layout.
   - **Your check:** The local development server opens the application; the production build succeeds.
-- [ ] **Task 2 — Add routing and layouts.** Separate the login screen layout from the future authenticated dashboard/sidebar layout. Add navigation structure without pretending authentication works yet.
+- [x] **Task 2 — Add routing and layouts.** Separate the login screen layout from the future authenticated dashboard/sidebar layout. Add navigation structure without pretending authentication works yet.
   - **Your check:** Navigation behaves as expected. No real repository data is exposed to unauthenticated visitors.
-- [ ] **Task 3 — Shared UI and understandable diagnostics.** Establish genuinely reusable interface components, visible error messages, and initial checks/tests.
+- [x] **Task 3 — Shared UI and understandable diagnostics.** Establish genuinely reusable interface components, visible error messages, and initial checks/tests.
   - **Your check:** Common UI looks consistent, errors are understandable, and checks/build succeed.
 
 ### Milestone 1 acceptance
 
-- [ ] The application starts locally without errors.
-- [ ] The production build passes.
-- [ ] Login and dashboard layouts are cleanly separated.
-- [ ] Core folders are modular, not one giant component.
-- [ ] You know how to run the site and how to see a useful error message.
+- [x] The application starts locally without errors.
+- [x] The production build passes.
+- [x] Login and dashboard layouts are cleanly separated.
+- [x] Core folders are modular, not one giant component.
+- [x] You know how to run the site and how to see a useful error message.
 
 **Important:** A visible login screen is not the same thing as secure, working login. That comes in Milestone 2.
 
@@ -57,20 +57,20 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 
 **Purpose:** Make sure only authorized users can access the CMS, and that GitHub credentials are never exposed through the public frontend.
 
-- [ ] **Task 4 — Supabase login and sessions.** Implement the approved login-first behavior, logout, session restoration, and protected navigation.
+- [x] **Task 4 — Supabase login and sessions.** Implement the approved login-first behavior, logout, session restoration, and protected navigation.
   - **Your check:** Login and logout work. Without a valid login, the dashboard cannot be accessed.
-- [ ] **Task 5 — Protected Super Admin permissions.** Establish the backend-controlled initial Super Admin identity, authorization checks, and database access restrictions.
+- [x] **Task 5 — Protected Super Admin permissions.** Establish the backend-controlled initial Super Admin identity, authorization checks, and database access restrictions.
   - **Your check:** The approved account is recognized. A non-approved account cannot bypass access rules simply by changing browser code.
-- [ ] **Task 6 — Secure GitHub App installation connection.** Implement Super Admin-only **Connect GitHub** installation approval, verified backend callback/installation ownership, protected persisted installation ID and status, and short-lived installation tokens minted only by Supabase Edge Functions. Provide Super Admin-only status, selected-repository scope, reconnect and GitHub-side uninstall/revocation controls in Settings; never request a personal access token.
+- [x] **Task 6 — Secure GitHub App installation connection.** Implement Super Admin-only **Connect GitHub** installation approval, verified backend callback/installation ownership, protected persisted installation ID and status, and short-lived installation tokens minted only by Supabase Edge Functions. Provide Super Admin-only status, selected-repository scope, reconnect and GitHub-side uninstall/revocation controls in Settings; never request a personal access token.
   - **Your check:** Approve selected repositories once, return on another session/device without reconnecting, verify an unapproved user cannot link/unlink or use unauthorized repositories, and confirm Disconnect stops CMS access and actually revokes the GitHub installation (or explicitly reports incomplete revocation). No private key or installation token appears in the frontend.
 
 ### Milestone 2 acceptance
 
-- [ ] Login, logout, and returning sessions work.
-- [ ] Backend authorization is actually enforced.
-- [ ] GitHub credentials remain protected.
-- [ ] Connection errors can be understood and recovered from.
-- [ ] You have tested from a second browser/session where practical.
+- [x] Login, logout, and returning sessions work.
+- [x] Backend authorization is actually enforced.
+- [x] GitHub credentials remain protected.
+- [x] Connection errors can be understood and recovered from.
+- [x] You have tested from a second browser/session where practical.
 
 **Important:** Never paste production secrets into source code, the README, or chat prompts.
 
@@ -80,20 +80,20 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 
 **Purpose:** Navigate and inspect multiple GitHub repositories and branches without mixing their state.
 
-- [ ] **Task 7 — Repository selection.** Display accessible GitHub repositories and allow the Super Admin to choose the current repository.
+- [x] **Task 7 — Repository selection.** Display accessible GitHub repositories and allow the Super Admin to choose the current repository.
   - **Your check:** You can select between authorized repositories; changing the selection does not require entering a token again.
-- [ ] **Task 8 — Branch selection and saved preferences.** List allowed branches, switch the current branch, and remember the last selected repository/branch for the user.
+- [x] **Task 8 — Branch selection and saved preferences.** List allowed branches, switch the current branch, and remember the last selected repository/branch for the user.
   - **Your check:** Selected branches are correct and your workspace preferences restore after login.
-- [ ] **Task 9 — Secure file browsing.** Show a file tree and read HTML, CSS, and JavaScript files through authorized backend operations.
+- [x] **Task 9 — Secure file browsing.** Show a file tree and read HTML, CSS, and JavaScript files through authorized backend operations.
   - **Your check:** The displayed contents match the selected repository and selected branch.
 
 ### Milestone 3 acceptance
 
-- [ ] Two test repositories can be selected safely.
-- [ ] Switching branches changes the files being viewed.
-- [ ] Workspace preferences persist for the appropriate user.
-- [ ] No inaccessible repository/branch is revealed or read.
-- [ ] No accidental edits occur during file browsing.
+- [x] Two test repositories can be selected safely.
+- [x] Switching branches changes the files being viewed.
+- [x] Workspace preferences persist for the appropriate user.
+- [x] No inaccessible repository/branch is revealed or read.
+- [x] No accidental edits occur during file browsing.
 
 **Important:** Use safe test repositories/branches for development checks; do not assume the live Luxraj Blog repository's folder layout.
 
@@ -103,15 +103,15 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 
 **Purpose:** Reach a functional **core CMS**: inspect remote source, edit it, save an uncommitted draft, review changes, and explicitly commit to the intended branch.
 
-- [ ] **Task 10 — Monaco code editor.** Integrate Monaco to read and display HTML, CSS, and JavaScript files. Begin with read-only viewing.
+- [x] **Task 10 — Monaco code editor.** Integrate Monaco to read and display HTML, CSS, and JavaScript files. Begin with read-only viewing.
   - **Your check:** Syntax highlighting and displayed file contents are correct.
-- [ ] **Task 11 — Editing and drafts.** Enable editing, unsaved-change indicators, and Supabase-backed draft storage without modifying GitHub.
+- [x] **Task 11 — Editing and drafts.** Enable editing, unsaved-change indicators, and Supabase-backed draft storage without modifying GitHub.
   - **Your check:** Make a small change, save the draft, reopen it, and confirm the GitHub file is unchanged.
-- [ ] **Task 12 — Shared Change Set and diff viewer.** Track original versus proposed content and display exact changed files and lines in Source Control.
+- [x] **Task 12 — Shared Change Set and diff viewer.** Track original versus proposed content and display exact changed files and lines in Source Control.
   - **Your check:** You can identify every proposed modification before committing.
-- [ ] **Task 13 — Safe GitHub commits.** Commit only after explicit confirmation, with backend authorization and checks against unexpected newer changes.
+- [x] **Task 13 — Safe GitHub commits.** Commit only after explicit confirmation, with backend authorization and checks against unexpected newer changes.
   - **Your check:** A test change reaches the correct branch only; stale/conflicting changes do not silently overwrite others.
-- [ ] **Task 14 — History and committed diffs.** Browse commits and inspect file-level changes, including changes made outside the CMS.
+- [x] **Task 14 — History and committed diffs.** Browse commits and inspect file-level changes, including changes made outside the CMS.
   - **Your check:** You can locate your test commit and compare its code-level differences.
 
 ### Tasks 13–14 — agreed interface destination and verification plan
@@ -120,45 +120,47 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 
 **Task 13 — Changes/Commit:**
 
-- [ ] Keep saved changed-file review and open the selected draft diff in the current **center editor**, not in another page.
-- [ ] Add commit message and **Review & Commit** beneath changes. Show final confirmation with repository, branch, exact filenames, and message; Cancel never writes.
-- [ ] Backend-only GitHub App commit verifies Super Admin, authorized repository/branch, draft/file base versions, current remote files and branch head. Reject stale/conflicting or protected-branch writes safely; never silently overwrite or partially commit a change set.
-- [ ] Commit only the confirmed files to the confirmed **test branch**; show commit SHA/link. Preserve saved drafts in Draft Management (including committed drafts), and do not discard unsaved browser edits.
+- [x] Keep saved changed-file review and open the selected draft diff in the current **center editor**, not in another page.
+- [x] Add commit message and **Review & Commit** beneath changes. Show final confirmation with repository, branch, exact filenames, and message; Cancel never writes.
+- [x] Backend-only GitHub App commit verifies Super Admin, authorized repository/branch, draft/file base versions, current remote files and branch head. Reject stale/conflicting or protected-branch writes safely; never silently overwrite or partially commit a change set.
+- [x] Commit only the confirmed files to the confirmed **test branch**; show commit SHA/link. Preserve saved drafts in Draft Management (including committed drafts), and do not discard unsaved browser edits.
 - **Your check:** A commit reaches exactly its intended test branch, the other branch remains unchanged, cancel writes nothing, conflicts stop the commit, and drafts remain available for manual management.
 
-**Approved later enhancement to Task 13 (planning only):** Move the currently fixed 20-file commit selection limit into Super Admin **Settings → Maximum Files Per Commit** (range **1–100**, default **20**), enforced in frontend and backend. Preserve the existing safe review/commit process. This is not recorded as already implemented, and the detailed Code Injector/Author plans live in the portfolio planning document.
+**Completed setting:** Super Admin **Settings → Maximum Files Per Commit** supports **1–100**, default **20**, with frontend and backend enforcement. The live configured value may differ. It limits files per commit, not drafts prepared.
 
 **Task 14 — History/Git Commit Graph:**
 
-- [ ] The right-panel **History** tab displays a **Git Commit Graph**, similar to VS Code's graph: commit dots, colored graph lanes, actual parent/merge/split lines, accurate known branch labels, and compact messages/authors/dates/SHAs. Do not invent graph branches or local refs.
-- [ ] Scope the graph to the active repository/branch; provide refresh and load-more/pagination. Include GitHub commits made **both inside and outside the CMS**.
-- [ ] Selecting a commit reveals its changed files. Selecting a file opens that commit's **before/after Monaco code diff in the center editor** while preserving any unsaved draft buffers.
-- [ ] History and diff operations must enforce backend authorization; represent additions/deletions/renames/merges and unavailable/binary diffs honestly.
+- [x] The right-panel **History** tab displays a **Git Commit Graph**, similar to VS Code's graph: commit dots, colored graph lanes, actual parent/merge/split lines, accurate known branch labels, and compact messages/authors/dates/SHAs. Do not invent graph branches or local refs.
+- [x] Scope the graph to the active repository/branch; provide refresh and load-more/pagination. Include GitHub commits made **both inside and outside the CMS**.
+- [x] Selecting a commit reveals its changed files. Selecting a file opens that commit's **before/after Monaco code diff in the center editor** while preserving any unsaved draft buffers.
+- [x] History and diff operations must enforce backend authorization; represent additions/deletions/renames/merges and unavailable/binary diffs honestly.
 - **Your check:** Find the Task 13 test commit and an external GitHub/VS Code commit, select both, inspect the actual file/line diffs, and verify the graph accurately represents a real merge when present.
 
-**Combined verification:** Test commit confirmation/cancellation, race conditions, authorization, and branch isolation; then follow the resulting commit through History → changed files → committed diff without altering the editor's active workspace. **Tasks remain pending until the owner personally verifies the behavior.** Planning text does not authorize implementation or deployment.
+**Combined verification:** Test commit confirmation/cancellation, race conditions, authorization, and branch isolation; then follow the resulting commit through History → changed files → committed diff without altering the editor's active workspace. **Tasks 13–14 are recorded as completed in the owner-accepted baseline; the described scenarios remain regression checks rather than claims every possible edge case has been individually retested.** Planning text does not authorize implementation or deployment.
 
 
 ### Milestone 4 acceptance — **Core CMS ready**
 
-- [ ] Open a GitHub file in the CMS.
-- [ ] Edit it without immediately changing GitHub.
-- [ ] Save and reopen a draft.
-- [ ] Review the exact diff.
-- [ ] Approve a commit to a **test branch**.
-- [ ] Confirm another branch is unaffected.
-- [ ] Inspect the resulting commit in CMS history.
-- [ ] Confirm a conflicting newer version is detected safely.
+- [x] Open a GitHub file in the CMS.
+- [x] Edit it without immediately changing GitHub.
+- [x] Save and reopen a draft.
+- [x] Review the exact diff.
+- [x] Approve a commit to a **test branch**.
+- [x] Confirm another branch is unaffected.
+- [x] Inspect the resulting commit in CMS history.
+- [x] Confirm a conflicting newer version is detected safely.
 
-**Gate:** Tasks 15–20 must reuse the shared edit/draft/diff/commit workflow. Source-code implementation of Tasks 0–14 is present, but owner acceptance/runtime checks must be confirmed separately.
+**Gate:** Tasks 15–20 must reuse the shared edit/draft/diff/commit workflow. The accepted implementation baseline now covers Tasks 0–16; future binary-file work must preserve the trusted Source Control safeguards.
 
 ---
 
 ## Milestone 5 — Boilerplate Generator and Code Injector (Tasks 15–16)
 
-**Source of truth:** [Portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md) for agreed task wording; [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) in this repository for Task 15 website/page category configuration. The task definitions below are copied from that document and replace the superseded eligibility/page-type/placeholder sequence. These tasks build on the existing reviewed draft, Monaco diff, and explicit GitHub commit system. Planning is not implementation authorization.
+**Original approved planning source:** [Portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md) for agreed task wording; [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) in this repository for Task 15 website/page category configuration. The task definitions below are copied from that document and replace the superseded eligibility/page-type/placeholder sequence. These tasks build on the existing reviewed draft, Monaco diff, and explicit GitHub commit system. Planning is not implementation authorization.
 
-## Task 15 — Boilerplate Generator 
+## Task 15 — Boilerplate Generator
+
+**Status: [x] Completed and owner-accepted (November 23, 2026).**
 
 ### Location and navigation
 - Clicking **Metadata Injector** (Now will be Code Injector) in the primary CMS sidebar opens its viewport.
@@ -217,7 +219,9 @@ flowchart TD
 
 **Task 15 JSON implementation reference:** The configuration is now maintained in the Luxraj-CMS repository at [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json). Use its `website_categories`, `page_categories`, and `generator` data for the Task 15 website/page selection and boilerplate generation. The portfolio living plan remains the planning source; the former portfolio-root JSON path is superseded.
 
-## Task 16 — Code Injector (agreed, divided into three segments)
+## Task 16 — Code Injector (completed; three segments)
+
+**Status: [x] Completed, deployed and owner-tested live (November 23, 2026).**
 
 **Location:** **Code Injector** is the second option in the Metadata Injector viewport's dedicated sidebar, after **Boilerplate Generator** (Task 15). This feature has a main code preview/editor area and a right-side control window. Code Injector uses the identification boilerplate created in Task 15; it does not decide page categories from directory or file names.
 
@@ -251,10 +255,10 @@ flowchart TD
 
 **A. Select and detect target pages or source files**
 1. Open **Code Injector** and its main code preview/editor interface.
-2. Select **Website Type** from a dropdown.
-3. Select **Page Type** from a dropdown.
-4. Click **Detect** to scan the relevant **text-based source files** in the currently selected GitHub repository and branch, including `.html`/`.htm`, `.css`, `.js` and other text source types. Do not restrict Code Injector to HTML/HTM only.
-5. For **HTML pages**, support the existing Task 15 boilerplate-based matching by both `data-cms-website` and `data-cms-seo-type` (with the existing CMS eligibility identification). For non-HTML files, which generally do not contain that HTML marker, allow deliberate Super Admin selection without falsely requiring an HTML boilerplate. Do not infer a page type from filenames.
+2. Choose **Selection Mode** or **Universal Mode**.
+3. **Selection Mode:** choose JSON-defined **Website Type** and **Page Type**; Detect returns only HTML/HTM pages with Task 15 CMS eligibility and matching `data-cms-website` and `data-cms-seo-type` markers.
+4. **Universal Mode:** Detect finds repository source-file candidates without website/page selection or HTML markers; includes unmarked HTML and other supported text source files.
+5. Changing mode clears stale discovery results. Do not infer page types from filenames or apply Selection Mode's HTML-marker requirements to Universal Mode.
 6. Let the Super Admin select the intended target source file or files. The saved code block's HTML/Script/CSS type describes the template, **not an extension-based barrier** that prohibits injection into another supported text file. The Super Admin chooses the code and insertion target.
 
 **B. Select code and its exact insertion line**
@@ -272,7 +276,7 @@ flowchart TD
 13. If no match exists, allow the user to proceed with the code insertion at the selected line.
 14. On confirmation, **Save Draft**, then inspect the proposed result through **Source Control** and explicitly **Commit** to the selected GitHub branch after review. Injection does not commit immediately.
 
-**Concise primary workflow:** Open Code Injector/code preview → Select website/page type when filtering CMS-identified HTML pages, or choose target source files directly → Detect/select intended files → Choose individual code template or saved group → **Select exact code line in each target file preview** → Preview insertion / resolve duplicate-or-replace warnings → **Save Draft → Review → Commit**.
+**Implemented workflow:** Choose **Selection Mode** (JSON/marker-matched HTML) or **Universal Mode** (source candidates) → Detect/select intended files → choose individual/saved/instant group code, including the editable **Sample SEO Metadata** template → click exact source line for **inline insertion preview** → resolve warnings → **Save Draft → Source Control Review → explicit Commit**.
 
 ### Task 16.3 — Instant Grouping and Bulk Injection
 
@@ -294,7 +298,7 @@ flowchart TD
 - Source edits from single templates, saved groups, or instant groups use the existing **Save Draft → Source Control diff/review → explicit GitHub commit** workflow. The existing 20-file-per-commit limit becomes a **Super Admin Settings** value, adjustable from **1 to 100 files**, with **20 as the default**. This setting controls how many reviewed files can be included in one commit, not how many files Code Injector can detect or prepare as drafts. The trusted backend must enforce the selected limit; all current commit safety checks remain.
 - If the selected source file changes between preview and commit, revalidate it rather than using stale code-line positions or overwriting remote updates.
 - The exact counting definition for **number of items** on a code card, advanced CSS/script syntax matching, and edge cases for conflicts inside large multi-item groups will be defined in later technical planning. These details do not change the requirement for user-selected code-line insertion.
-- Task 16 is a **planning decision**, not permission to modify the application or GitHub repository.
+- Task 16 is implemented and owner-accepted; any further changes still require separate authorization.
 ```mermaid
 flowchart TD
     A[Open Code Injector in Metadata Injector sidebar] --> B{Prepare code selection}
@@ -317,7 +321,7 @@ flowchart TD
     end
     B --> J
     subgraph T162[Task 16.2 - Page detection and line-specific injection]
-        M[Select Website Type and Page Type] --> N[Detect HTML pages by CMS markers or select other text source files]
+        M[Choose Selection Mode or Universal Mode] --> N[Selection: marker-matched HTML or Universal: source candidates]
         N --> O[Check HTML markers when applicable; allow deliberate file selection]
         O --> Q[Select target source file or files]
         Q --> R[Inspect each actual page and code-card presence]
@@ -342,16 +346,31 @@ flowchart TD
 
 ### Milestone 5 acceptance
 
-- [ ] Task 15 generates website/page-specific identification boilerplate and prepares optional reviewed HTML attribute injections without overwriting unrelated attributes.
-- [ ] Task 16 supports Super Admin-selected text-source targets, exact code-line selection, preview, syntax-aware presence warnings, groups, bulk drafts, and reviewed commits.
-- [ ] The Super Admin's **Maximum Files Per Commit** setting supports **1–100** files, default **20**, with backend enforcement; preparing more drafts than this limit is permitted.
-- [ ] All proposed changes remain uncommitted until explicit Source Control confirmation.
+- [x] Task 15 generates website/page-specific identification boilerplate and prepares optional reviewed HTML attribute injections without overwriting unrelated attributes.
+- [x] Task 16 supports Super Admin-selected text-source targets, exact code-line selection, preview, syntax-aware presence warnings, groups, bulk drafts, and reviewed commits.
+- [x] The Super Admin's **Maximum Files Per Commit** setting supports **1–100** files, default **20**, with backend enforcement; preparing more drafts than this limit is permitted.
+- [x] All proposed changes remain uncommitted until explicit Source Control confirmation.
+
+---
+
+## Prerequisite P-1 — Universal File Manager (owner-approved planning; NOT implemented)
+
+**Owner decision: Luxraj Kayal (Subrata), November 23, 2026.** See the full, binding planning specification: [Universal File Manager Prerequisite](./docs/Luxraj_CMS_Universal_File_Manager_Prerequisite.md). P-1 is **unnumbered and must be implemented and owner-accepted before Task 17**; do not renumber Tasks 0–20.
+
+- Create a **separate Super Admin File Manager**, without requiring Code Editor/Monaco, for **any file type** (Word DOC/DOCX, PDF, PNG/JPG/WebP and other images, Office documents, archives, unknown binaries, text and source files), within actual storage, security and platform limits. Support new files, replacements and multiple uploads.
+- Stage raw file bytes as private **Supabase Storage drafts** with protected PostgreSQL metadata; display new/replacement status, sizes and hashes and save/reopen drafts without changing GitHub.
+- **Viewer integrations are already decided by the owner:** **PDF.js / pdfjs-dist** for PDF page previews and **Mammoth / mammoth + DOMPurify / dompurify** for sanitized DOCX previews. Use native safe image/media previews; legacy Word DOC, ODT and other unsupported/unsafe file types use **metadata/hash/download fallback**. All formats can be drafted and committed even if they have no rich preview.
+- Feed file drafts into the existing **Super Admin-only Source Control review and explicit GitHub commit** with branch/version checks and current **1–100 files-per-commit** setting. Do not invent a separate commit system or loosen code-editor safety.
+- **Settings → Author Profile Picture Location:** Super Admin selects **one authorized GitHub repository, branch, specific assets folder and public URL prefix** for **all approved Author/Owner profile pictures**. Approved WebP files are staged through P-1; the owner explicitly commits the website copy.
+- Super Admin can self-manage their own profile and access **Owner/Admin, Author and Developer** capabilities from a single account, without regular Author approval gates; explicit GitHub commit protections remain compulsory.
+
+**Next implementation stage:** Prepare a separate P-1 Codex implementation prompt and obtain a **new GREEN** before coding, dependency installation, Supabase configuration or deployment. P-1 must be verified before proceeding to Task 17.
 
 ---
 
 ## Milestone 6 — Users, Author Workspace and Editorial Publishing (Tasks 17–19)
 
-**Planning only:** Roles, profiles, Author-specific Supabase Markdown drafts, review, and website publication extend the existing CMS without granting Authors GitHub write access.
+**Future scope:** Roles, profiles, Author-specific Supabase Markdown drafts, review and website publication extend the existing CMS without granting ordinary Authors GitHub write access. Prerequisite P-1 supplies the required binary file foundation.
 
 ## Task 17 — Users & Permissions Control (agreed, 2026-11-22)
 
@@ -364,9 +383,10 @@ flowchart TD
 - The Super Admin can assign or change a user's role among **Author**, **Developer**, and **Advisor**.
 - Each role has **its own CMS working area**, distinct from the Super Admin dashboard and management controls.
 - On login, the CMS opens the role-specific workspace. Regular users **must not see the Super Admin dashboard, sidebar, privileged tools, or management controls**, nor be able to access them through direct URLs or unauthorized backend calls.
-- Role describes the **position** and governs the working environment and permitted capabilities. The exact screens and controls inside Author, Developer, and Advisor workspaces will be decided separately; do not invent a detailed permission matrix yet.
+- Role defines the user's position and allowed workspace. **Project owner Luxraj Kayal (Subrata) has already decided the Author pages in Task 18 (profile, dashboard, collaboration), Task 19 (Word-like Workstation, reviews and publication), and Task 20 (Website Preview).** Task 17 must establish compatible access and assignment foundations; do not treat approved Author interfaces as undefined. Only detailed **Developer and Advisor** screens remain to be defined separately; do not invent their permission matrix.
 - An Author may be authorized by the Super Admin to work on **multiple Blog websites**. The Super Admin establishes which websites and associated categories are available to that Author. The Author selects from those authorized website/category options; those choices connect the Supabase Markdown draft with the configured destination for eventual publication. **Keep the precise repository/branch assignment mechanism open** for later technical planning.
-- A user must not receive another role's working area merely because a task is assigned to them.
+- A regular user must not receive another role's workspace merely through a task assignment.
+- **Super Admin owner decision:** Luxraj Kayal (Subrata) may operate as **Owner/Admin, Author and Developer from the same account**; changing working area does not downgrade or remove Super Admin authority.
 
 ### Position-based task assignment
 - The Super Admin can **assign specific work to an individual user based on their assigned role/position**.
@@ -388,7 +408,7 @@ flowchart TD
 ### Scope and boundaries
 - These controls belong to the Super Admin's Users & Permissions section.
 - Account creation remains a **manual Supabase action** by the owner.
-- The agreed Author-specific task synchronization, submission cards, and review workflow are detailed here and in Tasks 18–19; Developer and Advisor workspace details remain to be defined separately.
+- The **already owner-approved Author interfaces** are defined in Tasks **18–20** (profile/dashboard/chat, Word-like editor and article review, Website Preview). Do not reclassify them as undecided. Detailed Developer and Advisor screens remain separately planned.
 - Planning only: do not change the GitHub repository, app code, README, roadmap, or Supabase configuration until separately authorized.
 
 ## Task 18 — Author Homepage and Workspace Entry (agreed, 2026-11-22)
@@ -401,13 +421,14 @@ flowchart TD
 - Accepted image file-size range: **15 KB to 150 KB** inclusive. Recommended square image, **1:1 aspect ratio**, approximately **512 × 512 pixels**; show as a circular avatar in the CMS.
 - Validate file type and size before upload and provide clear feedback for invalid files. Store the Author's submitted WebP image in **Supabase Storage**; retain it with the profile submission, pending Super Admin review.
 - **Profile approval checkpoint:** After the Author submits initial profile details or later edits, notify the Super Admin in the existing **Users & Permissions Control** panel. The Super Admin reviews the submitted name, qualifications, image, and other profile fields and may **approve/apply** them or **return them for correction with reasons**. Do not automatically make pending profile changes the approved article identity.
-- **Second image copy for the website:** The Super Admin defines the target **GitHub repository and author-image assets folder** in the existing **Settings** tab. After approving the profile, the CMS backend prepares a copy of the approved WebP for that folder; the Super Admin reviews the repository change and **explicitly commits** it through the existing change-control workflow. Authors do not receive GitHub write permissions.
+- **Second image copy for the website (owner decision):** In **Settings → Author Profile Picture Location**, Super Admin defines **one authorized GitHub repository, branch, specific assets folder and public URL prefix** for all approved profile pictures. Once approved, the WebP is staged through **P-1 File Manager binary drafts** for **explicit Source Control review and commit by Super Admin**. No folder is hardcoded; ordinary Authors never get GitHub write privileges.
 - Maintain the **Supabase image** and the **committed website-repository image** as distinct copies. Keep the website asset path/URL associated with the approved Author profile for article generation. If the repository commit fails or is still pending, do not claim the website copy is available; do not use an unapproved or uncommitted image in generated drafts.
 - **Subsequent profile updates** follow the same Super Admin review and repository-commit checkpoint. Keep previously approved profile details and image active until the replacement is approved and its required website asset is committed.
+- **Super Admin personal profile (owner decision):** The Owner may create/edit their own profile without ordinary Author first-login onboarding, self-approval or pending-profile restrictions; the same account can use Admin, Author and Developer workspaces. Website images still require explicit reviewed GitHub commits.
 - This is the entry/profile stage, not a separate user-registration feature; the Super Admin creates accounts manually in Supabase under Task 17.
 
 ### Task 18.2 — Author Dashboard
-- The Author may **log in and access their dedicated dashboard, available tools, and other permitted workspace areas even while their profile approval is pending**; do not grant access to the Super Admin dashboard. Profile creation/submission is still mandatory, and pending information is not treated as approved article identity.
+- A regular Author must **complete and submit the initial mandatory Profile Creation form** but can access their dashboard, allowed tools and private drafts while **Super Admin approval is pending**. Pending profile identity is not approved article identity; block only the specified article Preview and Submit actions until approval/image readiness. Never expose Super Admin controls.
 - While the Author's required profile approval is pending, **block article Preview (new-tab preview) and Submit for Review**. Workspace browsing and other permitted tools remain available; unfinished Supabase drafts can still be saved. Once the Super Admin approves the required profile and the website-hosted Author image is ready under the existing asset-commit rule, those article actions become eligible, subject to normal article validation.
 - Show the Author's **own created articles** and statuses, including **Draft**, **Submitted**, **Approved**, and **Rejected**.
 - Show **specific tasks assigned by the Super Admin** under Task 17, their current task statuses, and a **timeline** of progress/events (including assignment and deadlines where provided).
@@ -438,7 +459,7 @@ flowchart TD
 - Authors compose visually with permitted rich-text controls (headings, paragraphs, emphasis, lists, etc.). Authors **cannot enter or edit raw HTML/CSS**, alter code templates, or choose arbitrary typography. The Super Admin predefines supported elements, text sizes, article structure, and styling to match the target website.
 - The predefined Markdown draft stores the article content and populated or pending **metadata, canonical link, breadcrumbs, and template-controlled fields**. The CMS renders the structured draft into preview HTML and later prepares the website HTML from the approved content. Article boilerplate, page type, metadata structure, canonical URL configuration, image dimensions/positions and formatting come from the Super Admin's prepared article template, not Author-written raw HTML.
 - When the Author clicks **Create New Article** after selecting the category, the CMS automatically uses the **Blog** website type and the **Article - Blog** page type, with the Task 15 **`data-cms-website="blog"`** and **`data-cms-seo-type="BlogPosting"`** boilerplate. The Author selects the article category, **not** the website/page-type boilerplate.
-- Each new draft is **personalized per authenticated Author**: automatically populate the **approved Author name**, **website-hosted Author image URL** (from the committed repository assets copy), and **current date as the original creation date**. The generated article includes the Author image reference. Do not use a pending/unapproved profile or uncommitted website image.
+- Drafts are personalized using the **approved Author name**, **verified committed website-hosted Author image URL** from Task 18/P-1, and their fixed original creation date when that approved identity is available. Private drafts may be saved while profile approval is pending without falsely filling approved identity; Preview/Submit remain gated until required approval and website image commit.
 - Record the creation date once when the draft is first created; reopening or editing the draft must not reset it. Track subsequent modification dates separately. The profile data is sourced from the authenticated, approved CMS Author profile rather than manually re-entered by the Author.
 
 **Website category, canonical URL, and breadcrumb generation**
@@ -473,7 +494,7 @@ flowchart TD
 - Upon submission, update the **Super Admin Dashboard's top-right notification area** and the **submission card** in **Users & Permissions / task assignment** (Task ID, Author name, submission time, Author comment).
 
 **Super Admin Author interface and review controls**
-- The Super Admin has an **Author** button in their own main sidebar. It opens an article interface with the Author's writing/review functionality **plus additional Super Admin controls**, without requiring the Super Admin to log in as an Author.
+- Super Admin has an **Author** sidebar option with the Author writing/review interface **plus Super Admin controls**, without a second Author login, role downgrade or ordinary Author profile approval gate.
 - From a submitted-task summary card, the Super Admin opens the corresponding submitted article in this dedicated interface.
 - The Super Admin can **mark specific lines, sections, or fields requiring refinement**, enter correction or rejection reasons in comment windows, and choose **Approve**, **Reject**, or **Return for Correction**.
 - When returning a submission, synchronize the marked fields/lines and the reasons with the Author's Dashboard and Workstation. The Author edits the returned article and resubmits it for another review under the original Task ID.
@@ -504,7 +525,7 @@ flowchart TD
 - Ordinary Authors retain their Word-like Workstation and **do not gain Code Editor or publishing permissions** through article submission or approval.
 
 ### Scope of the decision
-- This records the owner's agreed high-level Author Workstation behavior; detailed later Task 19 parts remain open.
+- **Already decided by Luxraj Kayal (Subrata):** Task 19's specified Author Workstation pages and functionality are approved, not open questions. Only matters explicitly marked unresolved within Task 19 remain for future decisions.
 - Task 19 is a **new** plan and does not reinstate the original repository's superseded Task 19 (Missing-Placeholder Injection).
 - Nothing in Tasks 18–19 authorizes changes to GitHub, the repository README/roadmap, Supabase schema/configuration, or deployed CMS until separately requested.
 
@@ -574,4 +595,4 @@ Notes:
 
 ---
 
-**Current next action:** **Task 0 — Read-only repository inspection.** No project implementation is authorized by creating this roadmap.
+**Current next implementation prerequisite:** **P-1 Universal File Manager**, approved for planning but not yet implemented. Create a separate Codex implementation prompt, obtain a new GREEN and owner-verify it before Task 17. **Tasks 0–16 are completed and owner-accepted.** Documentation approval does not authorize app/Supabase/deployment changes.
