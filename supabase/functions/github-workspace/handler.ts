@@ -71,18 +71,23 @@ export function createWorkspaceHandler(deps: Dependencies) {
         const maximumFiles = action === 'commit_limit' ? await deps.commitLimit.get() : await deps.commitLimit.set(body.maximumFiles);
         return json({ maximumFiles });
       }
-      if (['injector_catalog', 'injector_template_add', 'injector_group_add'].includes(action)) {
+      if (['injector_catalog', 'injector_template_add', 'injector_template_update', 'injector_group_add'].includes(action)) {
         if (!deps.injector) throw new Error('Code catalog unavailable.');
         if (action === 'injector_catalog') return json(await deps.injector.load(userId));
         const name = typeof body.name === 'string' ? body.name.trim() : '';
         if (!name || name.length > 100 || name.includes('\0')) return json({ error: 'invalid_catalog_input' }, 400);
-        if (action === 'injector_template_add') {
+        if (action === 'injector_template_add' || action === 'injector_template_update') {
+          if (action === 'injector_template_update' && !isRevision(body.id)) {
+            return json({ error: 'invalid_catalog_input' }, 400);
+          }
           const { kind, source } = body;
           if (!['html', 'script', 'css'].includes(kind) || typeof source !== 'string' || !source.trim() ||
               source.includes('\0') || new TextEncoder().encode(source).length > 1048576) {
             return json({ error: 'invalid_catalog_input' }, 400);
           }
-          return json(await deps.injector.addTemplate(userId, { name, kind, source }));
+          return json(action === 'injector_template_add'
+            ? await deps.injector.addTemplate(userId, { name, kind, source })
+            : await deps.injector.updateTemplate(userId, body.id, { name, kind, source }));
         }
         if (!Array.isArray(body.templateIds) || !body.templateIds.length || !body.templateIds.every(isRevision)) {
           return json({ error: 'invalid_catalog_input' }, 400);

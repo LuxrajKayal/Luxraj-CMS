@@ -9,14 +9,16 @@ function Mark({ templates, existing }: { templates: ParsedTemplate[]; existing: 
     role="img" aria-label={match === 'complete' ? 'All items match' : 'Some items match'}>✓</span>;
 }
 
-export function TemplatePanel({ templates, groups, selected, existing, disabled, choose, addTemplate, addGroup }: {
+export function TemplatePanel({ templates, groups, selected, existing, disabled, choose, addTemplate, addGroup, updateTemplate }: {
   templates: ParsedTemplate[]; groups: CodeGroup[]; selected: string[]; existing: CodeItem[]; disabled: boolean;
   choose(ids: string[]): void; addTemplate(template: ParsedTemplate): void; addGroup(group: CodeGroup): void;
+  updateTemplate(template: ParsedTemplate): void;
 }) {
   const [form, setForm] = useState<'template' | 'group' | null>(null);
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
   const [kind, setKind] = useState<CodeKind>('html');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +30,17 @@ export function TemplatePanel({ templates, groups, selected, existing, disabled,
     setError('');
     setName('');
     setSource('');
+    setEditingId(null);
     setMembers(next === 'group' ? selected : []);
+  }
+
+  function edit(template: ParsedTemplate) {
+    setForm('template');
+    setEditingId(template.id);
+    setError('');
+    setName(template.name);
+    setKind(template.kind);
+    setSource(template.source);
   }
 
   async function save(event: FormEvent) {
@@ -44,8 +56,11 @@ export function TemplatePanel({ templates, groups, selected, existing, disabled,
         if (new Set(items.map(item => item.key)).size !== items.length) {
           setError('This template contains repeated match identities. Separate the code into distinct templates.'); return;
         }
-        const result = await workspaceRequest({ action: 'injector_template_add', name, kind, source });
-        addTemplate({ ...result, items });
+        const result = editingId
+          ? await workspaceRequest({ action: 'injector_template_update', id: editingId, name, kind, source })
+          : await workspaceRequest({ action: 'injector_template_add', name, kind, source });
+        if (editingId) updateTemplate({ ...result, items });
+        else addTemplate({ ...result, items });
       } else {
         addGroup(await workspaceRequest({ action: 'injector_group_add', name, templateIds: members }));
       }
@@ -60,7 +75,7 @@ export function TemplatePanel({ templates, groups, selected, existing, disabled,
       <button type="button" disabled={disabled || busy || !templates.length} onClick={() => start('group')}>Create New Group</button>
     </div>
     {form && <form className="injector-card" onSubmit={event => void save(event)}>
-      <strong>{form === 'template' ? 'New code template' : 'New saved group'}</strong>
+      <strong>{form === 'template' ? editingId ? 'Edit code template' : 'New code template' : 'New saved group'}</strong>
       <label>Name <input value={name} maxLength={100} required disabled={disabled || busy} onChange={event => setName(event.target.value)} /></label>
       {form === 'template' ? <>
         <label>Code type <select value={kind} disabled={disabled || busy} onChange={event => setKind(event.target.value as CodeKind)}>
@@ -79,12 +94,14 @@ export function TemplatePanel({ templates, groups, selected, existing, disabled,
     {error && <p role="alert">{error}</p>}
     <h3>Code templates</h3>
     {!templates.length && <p>No saved templates.</p>}
-    {templates.map(template => <label className="injector-card injector-card--choice" key={template.id}>
+    {templates.map(template => <div className="injector-card injector-card--choice" key={template.id}>
       <input type="checkbox" aria-label={'Select template ' + template.name} checked={selected.includes(template.id)}
         disabled={disabled || !template.items.length} onChange={() => choose(toggle(selected, template.id))} />
       <span><strong>{template.name}</strong><small>{labels[template.kind]} · {template.items.length} items</small></span>
       <Mark templates={[template]} existing={existing} />
-    </label>)}
+      <button type="button" disabled={disabled || busy} onClick={() => edit(template)}
+        aria-label={'Edit template ' + template.name}>Edit</button>
+    </div>)}
     {selected.length > 1 && <p>{selected.length} templates selected for this operation.</p>}
     {groups.length > 0 && <h3>Saved groups</h3>}
     {groups.map(group => {

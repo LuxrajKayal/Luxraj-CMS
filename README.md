@@ -177,6 +177,9 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 
 - The second dedicated sidebar option supports **HTML, Script, and CSS** code cards, reusable saved groups and temporary instant selections.
 - The Super Admin chooses the target **text-based source files**, not only HTML/HTM, and the exact insertion line in each file. HTML marker matching uses Task 15's CMS attributes when applicable; non-HTML files do not require HTML markers.
+- Detection has two explicit modes: **Selection Mode** shows only HTML pages matching both website and page type from the committed JSON configuration and the Task 15 eligibility marker; **Universal Mode** shows all repository source candidates, including unmarked HTML, without requiring website/page selection.
+- Clicking an actual source line highlights the insertion location and displays a read-only inline code preview before the remaining lines, with a local **Preview insertion here** action. This does not save or commit automatically.
+- A reusable **Sample SEO Metadata** HTML template is supplied for initial browser testing. Saved templates can be edited, including their name, kind and source, without changing their persistent identity or saved-group membership.
 - Display complete/partial/absent code-presence status and explicit Duplicate or Replace warnings where matching code is detected. Show the proposed insertion before saving, including in bulk operations.
 - Reuse existing Supabase drafts, Monaco diffs and the one explicit Source Control commit workflow. Do not constrain the number of discovered/prepared files to the commit-file limit.
 - **Settings → Maximum Files Per Commit:** Super Admin-selectable **1–100**, default **20**, enforced in both frontend and trusted backend; any bulk change exceeding the selected limit is reviewed and committed in batches.

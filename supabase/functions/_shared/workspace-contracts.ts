@@ -115,6 +115,7 @@ export type WorkspaceRequest =
   | { action: 'scan_injector_html'; repositoryId: number; branch: string; commit: string; files: string[]; category: string; page: string }
   | { action: 'injector_catalog' }
   | { action: 'injector_template_add'; name: string; kind: CodeKind; source: string }
+  | { action: 'injector_template_update'; id: string; name: string; kind: CodeKind; source: string }
   | { action: 'injector_group_add'; name: string; templateIds: string[] }
   | { action: 'commit_limit' }
   | { action: 'save_commit_limit'; maximumFiles: number }

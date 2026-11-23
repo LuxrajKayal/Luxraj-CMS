@@ -21,6 +21,7 @@ type SavedResult = { path: string; error?: string };
 const isHtml = (path: string) => /\.html?$/i.test(path);
 
 export default function SourceInjector({ scope, repository }: { scope: Scope | null; repository?: string }) {
+  const [mode, setMode] = useState<'selection' | 'universal'>('selection');
   const [category, setCategory] = useState(defaultSelection.category_key);
   const [page, setPage] = useState(defaultSelection.cms_page_type_key);
   const [catalog, setCatalog] = useState<{ templates: ParsedTemplate[]; groups: CodeGroup[] } | null>(null);
@@ -94,10 +95,14 @@ export default function SourceInjector({ scope, repository }: { scope: Scope | n
   }
 
   function detect() {
-    if (!scope || !page) return;
+    if (!scope || (mode === 'selection' && !page)) return;
     resetFiles();
     void run('Scanning selected branch…', async signal => {
       const scan = await workspaceRequest({ action: 'discover_sources', ...scope }, signal);
+      if (mode === 'universal') {
+        if (!signal.aborted) setDiscovery(scan);
+        return;
+      }
       const html = scan.files.filter(isHtml);
       const matches: string[] = [];
       const skipped: string[] = [];
@@ -108,7 +113,7 @@ export default function SourceInjector({ scope, repository }: { scope: Scope | n
         skipped.push(...match.unreadable);
       }
       if (signal.aborted) return;
-      setDiscovery({ commit: scan.commit, files: [...scan.files.filter(path => !isHtml(path)), ...matches].sort((a, b) => a.localeCompare(b)) });
+      setDiscovery({ commit: scan.commit, files: matches.sort((a, b) => a.localeCompare(b)) });
       setUnreadable(skipped);
     });
   }
@@ -216,23 +221,34 @@ export default function SourceInjector({ scope, repository }: { scope: Scope | n
       <h2>Code Injector</h2>
       {!scope && <p><Link to="/repositories">Select a repository and branch</Link> to detect files.</p>}
       {scope && <p>{repository} · {scope.branch}</p>}
+      <fieldset className="injector-detection-mode" disabled={!!busy}>
+        <legend>Detection Mode</legend>
+        <label><input type="radio" name="injector-detection-mode" checked={mode === 'selection'}
+          onChange={() => { setMode('selection'); resetFiles(); }} /> Selection Mode</label>
+        <label><input type="radio" name="injector-detection-mode" checked={mode === 'universal'}
+          onChange={() => { setMode('universal'); resetFiles(); }} /> Universal Mode</label>
+      </fieldset>
+      {mode === 'selection' ? <p>Show only HTML pages identified by the selected CMS boilerplate attributes.</p>
+        : <p>Show repository-wide source candidates, including HTML without CMS markers. Readable UTF-8 source is required to edit a file.</p>}
       <div className="workspace-actions">
-        <label>Website Type <select value={category} disabled={!!busy} onChange={event => {
-          const next = event.target.value;
-          setCategory(next);
-          if (!pagesFor(next).some(item => item.cms_page_type_key === page)) setPage('');
-          resetFiles();
-        }}>
-          {websites.map(item => <option key={item.category_key} value={item.category_key}>{item.website_type}</option>)}
-        </select></label>
-        <label>Page Type <select value={page} disabled={!!busy} onChange={event => { setPage(event.target.value); resetFiles(); }}>
-          <option value="">Choose a page type</option>
-          {pagesFor(category).map(item => <option key={item.cms_page_type_key} value={item.cms_page_type_key}>{item.page_type}</option>)}
-        </select></label>
-        <button type="button" disabled={!scope || !page || !!busy} onClick={detect}>Detect</button>
+        {mode === 'selection' && <>
+          <label>Website Type <select value={category} disabled={!!busy} onChange={event => {
+            const next = event.target.value;
+            setCategory(next);
+            if (!pagesFor(next).some(item => item.cms_page_type_key === page)) setPage('');
+            resetFiles();
+          }}>
+            {websites.map(item => <option key={item.category_key} value={item.category_key}>{item.website_type}</option>)}
+          </select></label>
+          <label>Page Type <select value={page} disabled={!!busy} onChange={event => { setPage(event.target.value); resetFiles(); }}>
+            <option value="">Choose a page type</option>
+            {pagesFor(category).map(item => <option key={item.cms_page_type_key} value={item.cms_page_type_key}>{item.page_type}</option>)}
+          </select></label>
+        </>}
+        <button type="button" disabled={!scope || (mode === 'selection' && !page) || !!busy} onClick={detect}>Detect</button>
       </div>
       {discovery && <section aria-label="Detected files">
-        <p>{discovery.files.length} matching HTML pages and other source candidates. Other files are checked for text when opened.</p>
+        <p>{mode === 'selection' ? discovery.files.length + ' matching CMS-identified HTML pages.' : discovery.files.length + ' repository-wide source candidates. Files are checked for readable text when opened.'}</p>
         {unreadable.length > 0 && <details><summary>{unreadable.length} HTML files could not be inspected</summary>
           <p>These files were unavailable, exceeded the 1 MiB limit, or could not be read as UTF-8 text.</p>
           <ul>{unreadable.map(path => <li key={path}>{path}</li>)}</ul></details>}
@@ -257,6 +273,9 @@ export default function SourceInjector({ scope, repository }: { scope: Scope | n
       {target && existing && <>
         {hasUnsaved(active) && <p role="alert">This file has unsaved editor changes. Save them in Code Editor and reopen the target.</p>}
         <InjectionLines key={active} source={target.base} offset={target.offset} disabled={!!busy}
+          previewCode={selectedTemplates.map(template => template.source.trimEnd()).join('\n')}
+          canPreview={!!selectedTemplates.length && !!targetEntries.length}
+          onPreview={plan}
           choose={offset => updateTarget({ offset })} />
         {existing.warnings.length > 0 && <div className="workspace-alert">
           <ul>{existing.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
@@ -296,7 +315,10 @@ export default function SourceInjector({ scope, repository }: { scope: Scope | n
     <ModulePanel title="Code templates and groups">
       {catalog ? <TemplatePanel {...catalog} selected={chosen} existing={existing?.items ?? []} disabled={!!busy}
         choose={chooseTemplates} addTemplate={template => setCatalog(previous => previous && { ...previous, templates: [...previous.templates, template] })}
-        addGroup={group => setCatalog(previous => previous && { ...previous, groups: [...previous.groups, group] })} />
+        addGroup={group => setCatalog(previous => previous && { ...previous, groups: [...previous.groups, group] })}
+        updateTemplate={template => setCatalog(previous => previous && {
+          ...previous, templates: previous.templates.map(item => item.id === template.id ? template : item),
+        })} />
         : catalogError ? <><p role="alert">{catalogError}</p><button type="button" onClick={() => setCatalogVersion(value => value + 1)}>Retry catalog</button></>
           : <p role="status">Loading code catalog…</p>}
     </ModulePanel>
