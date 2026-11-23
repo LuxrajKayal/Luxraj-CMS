@@ -165,12 +165,12 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 
 ## 7. Code Injector — Tasks 15–16 (current plan)
 
-**Authoritative full Task 15–20 definitions:** [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) (Milestones 5–7), copied from the [portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md). This section supersedes the former Tasks 15–19 sequence involving manual `data-seo` eligibility, `data-page-type` injection, and automatic missing-placeholder stages. Those earlier workflows are **not** the current roadmap.
+**Authoritative full Task 15–20 definitions:** [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) (Milestones 5–7), copied from the [portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md). **Task 15 implementation configuration:** [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) in this repository. This section supersedes the former Tasks 15–19 sequence involving manual `data-seo` eligibility, `data-page-type` injection, and automatic missing-placeholder stages. Those earlier workflows are **not** the current roadmap.
 
 ### 7.1 Task 15 — Boilerplate Generator
 
 - In the primary Code Injector/Metadata Injector area, the dedicated sidebar provides **Boilerplate Generator** first.
-- Use the portfolio JSON's website/page-category selections to generate the agreed HTML identification attributes: `data-cms-seo="true"`, `data-cms-website="..."`, and `data-cms-seo-type="..."` on the existing `<html>` element.
+- Use the CMS repository's [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) (`website_categories`, `page_categories`, `generator`) as the Task 15 website/page selection and boilerplate configuration source to generate the agreed HTML identification attributes: `data-cms-seo="true"`, `data-cms-website="..."`, and `data-cms-seo-type="..."` on the existing `<html>` element.
 - Allow Copy or intentional per-file injection into discovered `.html`/`.htm` pages. Preserve unrelated HTML attributes and prepare reviewable Source Control drafts before any commit.
 
 ### 7.2 Task 16 — Code Injector
