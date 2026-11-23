@@ -77,7 +77,7 @@ Planned left sidebar:
 2. **Repositories** — discover, add/manage, and select CMS working repositories.
 3. **Code Editor** — HTML/CSS/JS file browsing and editing.
 4. **Source Control** — uncommitted changes, code diffs, commit history and file comparisons.
-5. **Metadata Injector** — the staged HTML eligibility/placeholder workflow specified below.
+5. **Code Injector** — Boilerplate Generator and source-file injection as currently defined in Section 7 and Roadmap Tasks 15–16.
 6. **Users & Permissions** — future user invitations and repository/branch access assignments.
 7. **Pending Reviews** — future author-submitted changes awaiting Super Admin approval.
 8. **Settings** — GitHub connection and account/workspace settings.
@@ -126,7 +126,7 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 
 - **Before commit:** list modified files, show side-by-side or inline before/after code diffs, and allow the Super Admin to inspect proposed changes.
 - **After commit:** list GitHub commit history for the selected branch, including commit metadata, changed files, and code-level diffs.
-- Support file-level history/comparison so the Super Admin can check the exact lines changed by the Metadata Injector or another CMS tool.
+- Support file-level history/comparison so the Super Admin can check the exact lines changed by Code Injector or another CMS tool.
 - A commit created in the CMS is visible in GitHub history; commits made externally and pushed to GitHub also appear.
 - Approved changes are committed directly to the **selected remote GitHub branch only**, respecting GitHub branch protection and concurrency constraints.
 - Existing remote file versions/SHAs must be rechecked before committing stale drafts.
@@ -157,77 +157,33 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 
 #### Scope, integration and tests
 
-- Reuse the existing workspace selection, draft/change-set services, Monaco diff component, GitHub App installation connection, and Supabase authorization. Avoid duplicate commit implementations for later Metadata Injector features.
+- Reuse the existing workspace selection, draft/change-set services, Monaco diff component, GitHub App installation connection, and Supabase authorization. Avoid duplicate commit implementations for later Boilerplate/Code Injector features.
 - Preserve the current file Explorer, topbar workspace indicator, repository-switch confirmation, Source Control panel collapse/focus behavior, drafts and Settings storage policy. Use responsive layout so the graph and diffs remain usable on smaller screens.
 - Test: confirming/cancelling commits, authorized versus denied writes, precise repository/branch targeting, multi-file consistency, conflicts from externally updated files or moved branch heads, protected branches, draft retention and unsaved-buffer safety; then history graph ordering/topology (including merges), external commits, paging, clicked commit/file diffs, and successful return to an active editor.
 - **Documentation is not implementation approval.** Build/deploy/backend changes require the owner's separate explicit authorization. The owner must verify the complete edit → draft → diff → confirm → commit → graph → committed-diff workflow on a safe test branch before Tasks 13–14 are accepted.
 
 
-## 7. Metadata Injector — category templates, page types, and placeholder injection
+## 7. Code Injector — Tasks 15–16 (current plan)
 
-**Status: requirements/planning specification, not implemented.** Metadata Injector is a left-sidebar feature opened in the viewport for the **currently selected GitHub repository and branch**. The engine works across unrelated website repositories; it does not assume Luxraj Blog's file hierarchy or build process.
+**Authoritative full Task 15–20 definitions:** [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) (Milestones 5–7), copied from the [portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md). This section supersedes the former Tasks 15–19 sequence involving manual `data-seo` eligibility, `data-page-type` injection, and automatic missing-placeholder stages. Those earlier workflows are **not** the current roadmap.
 
-### 7.1 Template architecture — independent copies, NOT shared inheritance
+### 7.1 Task 15 — Boilerplate Generator
 
-- The **Blog & Publishing** category is the first approved reference template.
-- **At initial setup**, copy its complete placeholder structure into the other website category templates (e.g., E-commerce, Business, News, Portfolio, Education, Software, and other planned categories).
-- After copying, **each category owns its own independent snapshot of placeholders, schema configurations, and injection rules**. These are **not** live references to one eternal shared Blog template. Changing Blog later **does not update** E-commerce, and changing E-commerce **does not affect** Blog.
-- Reuse a **single generic injection engine** to apply those independent category configurations; do not duplicate or hardcode the entire engine for each repository.
-- Category selections and relevant preferences must be scoped to the selected repository/branch, rather than applied globally to unrelated projects.
-- The specifics of other categories can be customized **later**, independently. Do not infer that another category must use Blog-specific schema forever.
+- In the primary Code Injector/Metadata Injector area, the dedicated sidebar provides **Boilerplate Generator** first.
+- Use the portfolio JSON's website/page-category selections to generate the agreed HTML identification attributes: `data-cms-seo="true"`, `data-cms-website="..."`, and `data-cms-seo-type="..."` on the existing `<html>` element.
+- Allow Copy or intentional per-file injection into discovered `.html`/`.htm` pages. Preserve unrelated HTML attributes and prepare reviewable Source Control drafts before any commit.
 
-### 7.2 Agreed workflow in the same viewport
+### 7.2 Task 16 — Code Injector
 
-**Category choice → Step 1: SEO-eligible HTML selection → Step 2: Page Type assignment/injection → Step 3: Placeholder verification/injection → Source Control review → explicit GitHub commit.**
+- The second dedicated sidebar option supports **HTML, Script, and CSS** code cards, reusable saved groups and temporary instant selections.
+- The Super Admin chooses the target **text-based source files**, not only HTML/HTM, and the exact insertion line in each file. HTML marker matching uses Task 15's CMS attributes when applicable; non-HTML files do not require HTML markers.
+- Display complete/partial/absent code-presence status and explicit Duplicate or Replace warnings where matching code is detected. Show the proposed insertion before saving, including in bulk operations.
+- Reuse existing Supabase drafts, Monaco diffs and the one explicit Source Control commit workflow. Do not constrain the number of discovered/prepared files to the commit-file limit.
+- **Settings → Maximum Files Per Commit:** Super Admin-selectable **1–100**, default **20**, enforced in both frontend and trusted backend; any bulk change exceeding the selected limit is reviewed and committed in batches.
 
-**Step 1 — SEO eligibility**
+### 7.3–7.6 Approved SEO catalog reference (preserved)
 
-The Admin **manually** adds this custom attribute in the Code Editor to pages that may enter the metadata workflow:
-
-```html
-<html data-seo="true">
-```
-
-- `data-seo="true"` is **only an eligibility test**. It does **not** mean the page automatically qualifies for indexing or Google ranking, and **the Metadata Injector must never add or modify this attribute**.
-- Scan the chosen repository/branch's HTML pages, irrespective of folder layout; show only matching pages in the eligibility dropdown.
-- Support **Select All**, manual selections, deselection, **Cancel**, and **Save Selection**.
-- Save the selected eligible files as preferences in Supabase, scoped to repository and branch, and restore them later.
-- Only saved, still-eligible files progress to Step 2; a removed eligibility marker cannot be overridden by an old saved selection.
-- Unlock the next step only after Step 1 preferences have been saved.
-
-**Step 2 — Page Type assignment and injection (a separate stage before metadata placeholders)**
-
-- The Admin assigns page types using a **page-type dropdown for individual HTML files or whole folders**. Assigning a folder applies to eligible HTML files inside that folder, avoiding repetitive file-by-file work.
-- Example choices: `site/index.html` → `WebSite`; files in `site/articles/` → `BlogPosting`. These paths are illustrative; **no folder names are hardcoded**.
-- The accepted page-type values should use **official Schema.org type names**, rather than assuming that earlier informal examples like lowercase `article` were final.
-- The CMS injects a custom attribute into the existing opening `<html>` tag, without disturbing other attributes:
-
-```html
-<html data-seo="true" data-page-type="BlogPosting">
-```
-
-- The CMS **does** inject `data-page-type` as the Admin directs, but **does not** inject `data-seo`.
-- If a page or folder does not have an approved type assignment, do not invent its type. The exact full dropdown taxonomy, assignment conflicts/overrides, and treatment of already-present values can be finalized during implementation planning.
-- The resulting code changes remain subject to review before a GitHub commit.
-
-**Step 3 — Page-type-aware placeholder verification and injection**
-
-- Read `data-page-type` on each selected eligible HTML page, then load the approved placeholders from the selected website category's **independent** template that apply to that type.
-- Check whether each expected placeholder **already exists**. Display these statuses:
-
-| State | Appearance | Selection behavior |
-| --- | --- | --- |
-| All applicable placeholders exist | **Gray, disabled** | No injection needed |
-| All applicable placeholders missing | **Normal, initially checked** | May be injected |
-| Some exist, some missing | **Blue, selectable** | Inject **only missing** placeholders |
-
-- Hovering over a filename reveals the exact existing/missing placeholders; provide a tappable details equivalent on touch devices.
-- Admin controls the eligible selections; the default checked status for partially complete blue files was **not decided**.
-- Preserve existing values and structure; do not duplicate existing placeholders or overwrite completed metadata.
-- **The placeholder injector inserts structure/template variables, not actual SEO content.** A later, separately planned metadata population feature handles actual descriptions, images, dates, author information, URLs, and other values.
-- **Do not automatically disable, comment out, suppress, remove, or deactivate approved injected placeholders.**
-- Use the approved template rules for placement (`<html>` attributes, `<head>` `<title>`/`<meta>`/`<link>`, and JSON-LD `<script type="application/ld+json">`).
-- Prepare changes as a reviewable change set. Review before/after code in Source Control before any commit; never silently commit.
+The following previously approved Blog core, Open Graph, X and Schema.org **catalog entries** are retained as reference material. Their earlier examples of `data-page-type` and the old automated placeholder workflow do **not** supersede the new Task 15 identification attributes or Task 16 user-controlled code injection. Inclusion of catalog entries does not authorize injecting or overwriting their values automatically.
 
 ### 7.3 Locked Blog & Publishing catalog — core fields
 
@@ -335,18 +291,12 @@ The Admin selected **all six groups, all 40 entries, no exclusions or modificati
 - Retaining a Schema.org type does **not** guarantee Google rich-result support. Several older rich-result features are discontinued or restricted. This research distinction **does not authorize removing/disabling** any of the 40 approved template definitions.
 - The **exact per-type JSON-LD field layouts, nested links, and full template details** are to be implemented from the approved catalog, with technical validation; approval of S01–S40 is **not** authorization for the engine to invent substantive SEO values.
 
-### 7.7 Global decisions and validation boundaries
+### 7.7 Current validation and review boundaries
 
-1. **One source for type assignment:** Admin-defined page type drives primary schema `@type`, compatible `og:type` mapping, and page-type-specific placeholder selection. No second type-value input.
-2. **One permanent Page ID per HTML page:** reuse it rather than issuing redundant IDs. This is separate from canonical/public URLs.
-3. **One category's copy never silently changes another:** Blog, E-commerce, and other templates start from a snapshot copy, then evolve independently.
-4. **Full coverage, no silent suppression:** approved template placeholders remain available for injection. No automatic disabling, hiding, removing, or commenting out.
-5. **Do not fill actual SEO values during injection.** The later population stage is a different feature.
-6. **Do not overwrite existing metadata:** scan, preserve, compare, and only prepare missing structures. Detect conflicts/malformed structures rather than causing unintended damage.
-7. **Explicit code review before commit.** Changes prepared by the injector must be inspectable through the shared Source Control diff workflow.
-8. **SEO compliance is distinct from injection:** Google doesn't guarantee rankings from quantity of metadata. Validate populated JSON-LD and active search directives when that later stage exists. This is **not** approval to deactivate placeholders.
-
-**Decisions not yet locked:** final Page ID HTML meta-tag name; comprehensive folder/file assignment conflict handling; full per-page-type Schema.org field layouts and mapping details; the remaining Metadata Injector stages and future SEO value population controls. The Blog catalog itself and category-template copying rule are approved; do not reopen those choices without a new owner request.
+- The Super Admin selects code, files and insertion locations; avoid silent duplicate insertion or replacement.
+- Presence checks must be syntax-aware and must not treat an existing metadata value as missing merely because its value differs from a template placeholder.
+- Preserve unrelated source code, review changes against current remote versions, and require explicit GitHub commit approval.
+- For complete workflow definitions, including unresolved technical matching rules, use the current Roadmap Tasks 15–16 and the portfolio living plan, not obsolete eligibility/page-type/placeholder steps.
 
 ## 8. Moving source injection out of GitHub Actions
 
@@ -358,32 +308,29 @@ This must remain repository-independent. GitHub Actions may still **build, valid
 
 Do not disable or remove any repository's build/injection workflow until the corresponding CMS operations have been implemented, verified, and explicitly approved for migration.
 
-## 9. Future author workflow (planned for later phases)
+## 9. Users, Authors, and website inspection — Tasks 17–20
 
-The architecture must anticipate a restricted author process:
+**Current specification:** [Development Roadmap, Milestones 6–7](./DEVELOPMENT_ROADMAP.md), copied from the portfolio living plan. This replaces the old concept of Authors editing permitted GitHub HTML files directly.
 
-1. Author logs in and sees only assigned repository/branch workspaces.
-2. Author views/edits permitted HTML and reviews their own changes.
-3. Author **saves drafts to Supabase**, not directly to GitHub.
-4. Author **submits changes for Super Admin review**.
-5. Super Admin checks the changed files and code diff, then **approves** (creating an authorized GitHub commit) or **rejects/discards** the proposal without changing GitHub.
-
-A draft or pending change request is **not yet a Git commit**. Unapproved author work must never update a GitHub branch.
-
-The precise permission matrix and approval interface are intentionally postponed until later phases.
+- **Task 17 — Users & Permissions:** Super Admin manually creates Supabase users and assigns Author, Developer, or Advisor roles; applies position-based tasks, unique Task IDs, role-specific workspaces, Hold/Resume, review notifications and cancellation notes. An Author can be assigned multiple Blog websites and their configured article categories; the exact repository/branch assignment mechanism remains open.
+- **Task 18 — Author Homepage:** mandatory Author profile submission and Super Admin approval; WebP profile image in Supabase, approved website asset copied through the Super Admin's reviewed GitHub commit; dedicated dashboard, chat, realtime presence and notifications. Pending-profile Authors may log in and browse permitted tools or save drafts, but may not Preview or Submit articles until approval and the approved website image are ready.
+- **Task 19 — Author Workstation:** Author selects an authorized category, clicks **Create New Article**, and receives an Author-specific **Supabase Markdown draft** with predefined article template and proposed metadata/canonical configuration. Author writes in the Word-like editor, uses preview-only new-tab rendering, saves incomplete drafts or submits complete work to Super Admin for marked feedback, return, rejection, or approval. Approval resolves the category's website destination, prepares website HTML, and hands off to the **existing Code Editor → Source Control diff → explicit GitHub commit** workflow. Authors do not directly work in repository files and cannot publish. Reviewed new-file additions must be supported through that same commit workflow.
+- **Task 20 — Website Preview:** both Author and Super Admin may inspect the configured existing live website in an iframe, subject to embedding restrictions. This is distinct from Task 19's new-tab preview of an unpublished Supabase article draft.
+- **Task 21:** manual sitemap/status checking is a later discussion, **not part of the committed Tasks 15–20 specification**.
 
 ## 10. Proposed phased delivery (subject to approval)
 
 | Phase | Main scope | Minimum meaningful verification |
 | --- | --- | --- |
-| 1. Foundation and auth | Public frontend, secure backend, login-first UI, one Super Admin, token onboarding | Login protection, token handling, role checks verified |
-| 2. Repository workspace | Dashboard/sidebar, repository discovery/registry, branch selection, saved preferences | Switch repositories and remote branches; restore choice from another session |
-| 3. Editor and Source Control | HTML/CSS/JS editing, shared drafts, code diff review, remote commits and history | Inspect pre/post-commit diffs and commit to one branch without affecting another |
-| 4. Metadata Injector | Independent category templates; eligibility, page-type assignment, and page-type-aware placeholder injection | Verify marker eligibility, folder/file type assignment, preserved values, partial/missing classification, accurate diffs and safe commits |
-| 5. Users and permissions | Invitations, restricted accounts, repository/branch authorization | Prove unauthorized users cannot read/write other workspaces |
-| 6. Author reviews | Supabase drafts, submission queue, approve/reject flow | Prove pending drafts never touch GitHub until Admin approval |
+| 1. Foundation and authentication (Tasks 0–6) | Modular frontend, secure Supabase login, Super Admin, GitHub App installation | App boots; user/session and privileged GitHub access checks pass |
+| 2. Repository workspace (Tasks 7–9) | Repository/branch selection, saved preferences and authorized browsing | Switching repositories/branches restores the correct context |
+| 3. Code Editor and Source Control (Tasks 10–14) | Monaco editing, Supabase drafts, diffs, reviewed GitHub commits and history | Test edit → draft → diff → confirmed commit → history/file diff |
+| 4. Boilerplate and Code Injector (Tasks 15–16) | CMS HTML markers, code cards/groups, chosen source-file lines, bulk drafts and configurable commit limit | Correct matching, reviewable diffs, safety checks, and explicit authorized commits |
+| 5. Users and Author entry (Tasks 17–18) | Manual Supabase accounts, permissions, assigned work, approved profile, dashboard and chat | Role isolation, profile approval, notifications and task synchronization |
+| 6. Author editorial workflow (Task 19) | Supabase Markdown article creation, new-tab preview, editorial review and category-based HTML publication | Authors never write to GitHub; Super Admin approves and uses existing Source Control |
+| 7. Existing website preview (Task 20) | Live-site iframe inspection for permitted roles | Preview functions when embedding is allowed and grants no extra privileges |
 
-Each phase must have an agreed scope, actual end-to-end testing, and explicit owner approval before implementation. The phase order is a **proposal**, not a commitment to invent unfinished features.
+Tasks 0–14 have implementations present in the repository; runtime and owner acceptance remain separate from this documentation. Tasks 15–20 are **planning only**, not implementation authorization. The full wording appears in the roadmap.
 
 ## 11. Modular application architecture and Codex implementation path
 
@@ -415,7 +362,7 @@ Public GitHub Pages frontend (React + TypeScript + Vite)
   ├── App shell: routing, protected layouts, common providers
   ├── Independent feature modules
   │     Authentication / Dashboard / Repositories / Code Editor /
-  │     Source Control / Metadata Injector / Settings /
+  │     Source Control / Code Injector / Settings /
   │     Later: Users & Permissions / Pending Reviews
   ├── Shared UI primitives and reusable hooks/types
   └── Core services: session, permissions, workspace, API contracts,
@@ -503,7 +450,7 @@ This tree communicates **boundaries and intended responsibilities**, not a manda
 
 ### 11.4 Shared change-set and Source Control architecture
 
-All source-writing features (manual editor, page-type injector, metadata injector, and future tools) feed **one reviewable change-set contract**, rather than implementing their own commits:
+All source-writing features (manual editor, Boilerplate Generator, Code Injector, and approved Author article publication, and future tools) feed **one reviewable change-set contract**, rather than implementing their own commits:
 
 1. Load the selected repository, branch, file path and current original file/version.
 2. Prepare proposed file contents **without changing the GitHub branch**.
@@ -512,15 +459,16 @@ All source-writing features (manual editor, page-type injector, metadata injecto
 5. At explicit approval, the backend rechecks user permissions, selected repository and branch, and remote source versions; report conflicts rather than silently overwriting.
 6. Commit the approved set to the selected branch using an authorized backend GitHub operation; then show the resulting GitHub history.
 
-This rule prevents the Metadata Injector, Page Type Injector, and Code Editor from each inventing different save/commit behavior.
+This rule prevents Boilerplate Generator, Code Injector, the Author publication handoff, and Code Editor from inventing separate save/commit behavior.
 
-### 11.5 Independent metadata category templates within the modular system
+### 11.5 Boilerplate, Code Injector, and article-workflow module boundaries
 
-- The `metadata-injector/` feature contains separate eligibility, page-type, scanning, injection, and template responsibilities.
-- The **same generic injection logic** can execute different category configurations, but must not hardcode Blog-specific paths or values.
-- At initial setup, Blog's approved metadata structure is **copied into each other category's separate template**. These are independent snapshots, **not shared live inheritance**. Subsequent changes to one category never silently update another.
-- Metadata Injector operations must still use the shared workspace, change-set, diff and commit services.
-- The approved 11 core items, 25 OG properties, six X fields, and S01–S40 Schema.org catalog remain governed by Section 7; the frontend architecture decision does not modify their approvals or pending details.
+- **Task 15** creates the category/page-type-specific HTML identification boilerplate; it remains an HTML-focused operation.
+- **Task 16** handles Super Admin-directed source-code templates, presence checks, exact insertion lines and bulk draft changes for supported text-based files; it reuses the existing Source Control services.
+- **Tasks 17–18** add server-authorized roles, task assignments, Author profiles, dashboard and collaboration without granting Authors GitHub write privileges.
+- **Task 19** stores Author-specific Markdown article drafts in Supabase, renders unpublished new-tab previews, and hands approved website HTML to the existing Code Editor/Source Control publication workflow, with support for reviewed new-file additions.
+- **Task 20** embeds the existing live website in an iframe for authorized visual inspection.
+- Preserve the Blog core/OG/X/Schema.org catalogs in Section 7 as reference material without reinstating obsolete injection steps. See the roadmap for current complete task definitions.
 
 ### 11.6 Human-verifiable, Codex-assisted development requirements
 
@@ -537,22 +485,20 @@ Because the project owner is comfortable inspecting HTML, CSS and JavaScript but
 
 ### 11.7 Recommended phased Codex implementation
 
-1. **Foundation / app shell:** Vite + React + TypeScript bootstrap, routes, login-only layout, protected layout, shared UI boundaries and public environment configuration.
-2. **Authentication / secure backend:** Supabase Auth, backend-controlled Super Admin authorization, secure one-time GitHub App installation authorization and Super Admin-only Settings connection/disconnect management.
-3. **Repository workspace:** Selected repository/branch state, remote file read interfaces, saved user preferences and access enforcement.
-4. **Editor / draft / source control foundation:** Monaco integration, shared drafts and changesets, reviewable diffs, verified branch-safe GitHub commits and history.
-5. **Metadata Injector:** Eligibility, page-type assignment, independent category configurations and approved placeholder templates using the established shared change-set pipeline.
-6. **Later features:** User/branch permissions, restricted authors, approvals and other CMS modules as separately approved.
+1. **Tasks 0–14: Existing application and Source Control baseline.** Maintain the implemented modular app shell, authentication, repository workspace, Monaco editor, Supabase drafts, reviewed GitHub commits and history; verify their acceptance separately.
+2. **Tasks 15–16: Boilerplate Generator and Code Injector.** Reuse the baseline review/commit services and implement the configurable 1–100-file commit limit (20 default).
+3. **Tasks 17–18: Users, role-specific workspaces, Author profile, dashboard and communications.** Enforce authorization server-side.
+4. **Task 19: Supabase Markdown authoring, article review and HTML publication handoff.** Do not let ordinary Authors operate on GitHub repository files.
+5. **Task 20: Existing website iframe preview.** Preserve role restrictions and hosting embedding constraints.
 
-These are **implementation slices**, not an instruction to code all six at once. The existing project-phase table above remains the controlling high-level plan; no new phase has been approved for execution merely by recording this architecture.
+Each new implementation step needs separate owner approval; the roadmap carries the full current requirements.
 
 ## 12. Planning status and change boundaries
 
-**Confirmed implementation direction:** React + TypeScript + Vite frontend; modular routing, layouts, shared UI and environment configuration; isolated feature modules and secure backend boundaries; Codex in VS Code as the coding path. This is an architectural decision, **not implementation approval**.
+**Current code baseline:** Tasks 0–14 have implementations in the Luxraj-CMS repository, including Supabase/GitHub App authorization, repository selection, Monaco editor, drafts, Source Control reviewed commits, and Git history. Presence of code does not establish that all runtime or owner acceptance tests passed.
 
-**Discussed and established so far:** login-first UI, one Super Admin with future restricted users, GitHub App installation authorization with persisted backend status and Super Admin-only Settings management, Supabase-stored user preferences, repository and remote branch selection, future branch-level user assignments, a VS Code-style HTML/CSS/JS editor, code-level before/after reviews and commit history, and shared review-before-commit flow. **Metadata Injector:** manual SEO eligibility marker and saved file preferences; Admin-controlled file/folder Page Type assignment; page-type-aware placeholder injection; approved Blog core, Open Graph, X, and S01–S40 Schema.org catalogs; and independent snapshot copies for other website categories.
+**Current agreed future scope:** Tasks 15–20, as copied verbatim from the portfolio living plan into [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md), cover Boilerplate Generator, Code Injector, Users & Permissions, Author Homepage, Author Workstation (Supabase Markdown drafts and Super Admin-only publication), and Website Preview. The committed roadmap replaces the old Tasks 15–19 eligibility/page-type/missing-placeholder task sequence. Details intentionally unresolved in the plan remain open; do not invent choices or reintroduce superseded requirements.
 
-**Still being discussed:** final Page ID meta element name, finer schema/template and folder-overlap implementation details, future metadata population and index-control features, exact author permissions and review controls, and finer UI details. Approved catalogs must not be silently reduced, disabled, or treated as permission to generate real SEO data.
+**Later discussion only:** Task 21 site/sitemap status checks are not included as a finalized Task 21 roadmap specification.
 
-**No application implementation is authorized by updating this README.** This commit documents the plan only. Existing Luxraj Blog and older CMS repositories are outside the scope of this documentation update.
-this is the commit test from the vs code.
+**Documentation does not authorize application changes or deployment.** Tasks 15–20 remain planned until separately implemented and verified.
