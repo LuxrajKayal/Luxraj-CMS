@@ -60,3 +60,17 @@
   }
   .dashboard-layout:not(.dashboard-layout--rail) .dashboard-layout__content { grid-column: 2; }
 }
+.dashboard-layout__sidebar nav a:has(.cms-draft-count) { position: relative; }
+.cms-draft-count {
+  margin-inline-start: auto;
+  border-radius: 1rem;
+  padding: .05rem .35rem;
+  background: var(--cms-accent, #5144b2);
+  color: white;
+  font-size: .65rem;
+  font-weight: 700;
+}
+.dashboard-layout--rail .cms-draft-count {
+  position: absolute;
+  inset: 0 0 auto auto;
+}

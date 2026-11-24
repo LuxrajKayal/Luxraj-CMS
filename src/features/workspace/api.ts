@@ -5,6 +5,7 @@ import type {
   CommitDetail, CommittedDiff, CommitReceipt, CommitReview, Directory, Draft, DraftDeletion, DraftSummary, HistoryPage, HtmlDiscovery,
   ManagedDraft, OpenDraft, SavedDraft, SourceFile, StorageUsage, Workspace, WorkspaceRequest,
   StoredFile, FileComparison, FileInspection, ProfilePictureLocation,
+  WebsiteControl, WebsiteLaunch, FilePayload, MaintenanceResult,
 } from '../../../supabase/functions/_shared/workspace-contracts';
 
 export type { Directory, Repository, Selection, TreeEntry, Workspace } from '../../../supabase/functions/_shared/workspace-contracts';
@@ -23,6 +24,10 @@ type Responses = {
   save_profile_picture_location: { location: ProfilePictureLocation };
   verify_profile_picture: { url: string; sha256: string; committedSha: string };
   draft_catalog: { files: ManagedDraft[] }; delete_drafts: { results: DraftDeletion[] };
+  pending_count: { count: number };
+  website_maintenance: MaintenanceResult;
+  website_list: { controls: WebsiteControl[] }; website_register: { control: WebsiteControl };
+  website_launch: WebsiteLaunch; website_input: { file: FilePayload };
   storage_status: StorageUsage; storage_save: StorageUsage;
   review_commit: CommitReview; confirm_commit: CommitReceipt; reconcile_commit: CommitReceipt; history: HistoryPage;
   commit_detail: CommitDetail; commit_diff: CommittedDiff;
@@ -31,6 +36,10 @@ type Responses = {
 export function formatMb(bytes: number) {
   return `${(bytes / 1_000_000).toFixed(2)} MB`;
 }
+
+export const pendingChangesEvent = 'luxraj:pending-changes';
+const draftActions = new Set(['select', 'save_draft', 'file_save', 'profile_picture_stage', 'delete_drafts',
+  'confirm_commit', 'reconcile_commit', 'website_maintenance']);
 
 export async function workspaceRequest<T extends WorkspaceRequest>(body: T, signal?: AbortSignal) {
   if (!supabase) throw new Error('unavailable');
@@ -55,10 +64,16 @@ export async function workspaceRequest<T extends WorkspaceRequest>(body: T, sign
     throw new Error(typeof payload?.error === 'string' ? payload.error : 'unavailable');
   }
   if (error || !data) throw new Error('unavailable');
+  if (draftActions.has(body.action)) window.dispatchEvent(new Event(pendingChangesEvent));
   return data;
 }
 
 const errors = {
+  invalid_website_control: 'Enter a name, a repository HTML application and valid, distinct repository paths.',
+  website_control_missing: 'This control was cleared or belongs to another workspace. Reopen Website Controls.',
+  website_file_too_large: 'This application or input exceeds the existing 8 MiB file limit.',
+  website_application_encoding: 'Save the application as UTF-8 HTML to run it.',
+  invalid_maintenance: 'Choose a valid maintenance operation.',
   invalid_file_upload: 'Choose a file of at most 8 MiB and a valid destination.',
   file_path_collision: 'This name conflicts with a folder, link, executable file, or a differently spelled path.',
   file_integrity: 'The file bytes could not be verified. Reload the file or stage it again.',

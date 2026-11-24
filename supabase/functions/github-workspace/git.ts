@@ -178,12 +178,18 @@ export function createWorkspaceGit(get: Get) {
   }
 
   return {
-    async fileManagerTree(repo: Repository, branch: string, path: string[]): Promise<Directory> {
+    async websiteFile(repo: Repository, branch: string, path: string[], expected: string, read: boolean) {
+      const { base, entries } = await readDirectory(repo, branch, path.slice(0, -1), expected);
+      const entry = entries.find(item => item.path === path.at(-1) && regularFile(item));
+      if (!entry) throw new WorkspaceError('remote_missing', 404);
+      return read ? await rawBlob(base, entry) : null;
+    },
+    async fileManagerTree(repo: Repository, branch: string, path: string[], includeExecutables = false): Promise<Directory> {
       const { commit, entries } = await readDirectory(repo, branch, path);
       const visible = entries.flatMap<TreeEntry>(entry => {
         if (!filePath([...path, entry.path])) return [];
         if (directory(entry)) return [{ name: entry.path, kind: 'folder' }];
-        if (regularFile(entry) && entry.mode === '100644') return [{ name: entry.path, kind: 'file' }];
+        if (regularFile(entry) && (includeExecutables || entry.mode === '100644')) return [{ name: entry.path, kind: 'file' }];
         return [];
       });
       return { commit, entries: visible.sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'folder' ? -1 : 1) };

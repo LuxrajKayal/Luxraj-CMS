@@ -19,3 +19,4 @@
 .file-docx { padding: .7rem; max-height: 36rem; overflow: auto; background: white; border: 1px solid var(--border); }
 .file-docx td, .file-docx th { border: 1px solid var(--border); padding: .2rem; }
 @media (max-width: 48rem) { .file-compare-grid { grid-template-columns: 1fr; } }
+.website-text-comparison .monaco-view { height: max(25rem, 55vh); }

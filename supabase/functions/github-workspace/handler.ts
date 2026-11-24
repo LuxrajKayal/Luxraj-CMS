@@ -7,6 +7,7 @@ import { createHistory } from './history.ts';
 import { fileManager } from './file-manager.ts';
 import type { FileDrafts } from './file-drafts.ts';
 import { scanInjectorHtml, type createInjectorStore } from './injector.ts';
+import { websiteControls, runMaintenance, type createWebsiteStore, type createMaintenanceStore } from './website-controls.ts';
 
 interface Dependencies {
   origin: string;
@@ -24,6 +25,8 @@ interface Dependencies {
   fileDrafts?: FileDrafts;
   commits?: CommitReviews;
   injector?: ReturnType<typeof createInjectorStore>;
+  website?: ReturnType<typeof createWebsiteStore>;
+  maintenance?: ReturnType<typeof createMaintenanceStore>;
   commitLimit?: { get(): Promise<number>; set(value: number): Promise<number> };
   storage?: { usage(): Promise<StorageUsage>; set(databaseLimitMb: number, fileLimitMb: number): Promise<StorageUsage> };
 }
@@ -68,6 +71,21 @@ export function createWorkspaceHandler(deps: Dependencies) {
       const action = body?.action;
       const managedFile = await fileManager(body, userId, deps);
       if (managedFile) return json(managedFile);
+      const website = await websiteControls(body, userId, deps);
+      if (website) return json(website);
+      if (action === 'pending_count' || action === 'website_maintenance') {
+        const store = deps.maintenance;
+        if (!store) throw new Error('Maintenance unavailable.');
+        if (action === 'pending_count') {
+          const selected = await deps.getPreference(userId);
+          return json({ count: selected?.branch ? await store.count(userId, selected) : 0 });
+        }
+        const changes = deps.changes;
+        const fileDrafts = deps.fileDrafts;
+        if (!changes?.remove || !fileDrafts) throw new Error('Draft maintenance unavailable.');
+        return json(await runMaintenance(body, userId, store, async (item, stored) =>
+          stored ? await fileDrafts.remove(userId, item) : await changes.remove!(userId, item), () => deps.isAdmin(userId)));
+      }
       if (action === 'commit_limit' || action === 'save_commit_limit') {
         if (!deps.commitLimit) throw new Error('Commit limit unavailable.');
         if (action === 'save_commit_limit' && !validLimit(body.maximumFiles, 100)) {

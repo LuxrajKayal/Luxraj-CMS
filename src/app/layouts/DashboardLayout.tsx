@@ -1,18 +1,20 @@
 import { NavLink, Outlet } from 'react-router';
 import { dashboardNavigation } from './dashboardNavigation';
 import './dashboard-layout.css';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../core/auth/AuthProvider';
 import { useEditBuffers } from '../../features/workspace/EditBuffers';
-import { Braces, FileSearch, Folder, FolderUp, GitBranch, House, ListChecks, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users } from 'lucide-react';
+import { AppWindow, Braces, FileSearch, Folder, FolderUp, GitBranch, House, ListChecks, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users } from 'lucide-react';
 import { Brand } from '../../shared/ui/Brand';
+import { pendingChangesEvent, workspaceRequest } from '../../features/workspace/api';
 
-const icons = [House, Folder, Braces, FolderUp, GitBranch, FileSearch, Users, ListChecks, Settings];
+const icons = [House, Folder, Braces, FolderUp, AppWindow, GitBranch, FileSearch, Users, ListChecks, Settings];
 
 export function DashboardLayout() {
   const { signOut, message, session } = useAuth();
   const { buffers } = useEditBuffers();
   const [pending, setPending] = useState(false);
+  const [draftCount, setDraftCount] = useState(0);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       const saved = sessionStorage.getItem('luxraj-sidebar');
@@ -21,6 +23,37 @@ export function DashboardLayout() {
       return false;
     }
   });
+
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (!userId || !(import.meta.env.DEV || import.meta.env.VITE_GITHUB_CONNECTION_ENABLED === 'true')) return;
+    let controller: AbortController | undefined;
+    let timeout: number;
+    function refresh() {
+      controller?.abort();
+      window.clearTimeout(timeout);
+      const request = new AbortController();
+      controller = request;
+      timeout = window.setTimeout(() => {
+        workspaceRequest({ action: 'pending_count' }, request.signal).then(result => {
+          if (!request.signal.aborted) setDraftCount(result.count);
+        }).catch(() => { if (!request.signal.aborted) setDraftCount(0); });
+      }, 150);
+    }
+    refresh();
+    window.addEventListener(pendingChangesEvent, refresh);
+    return () => {
+      window.clearTimeout(timeout);
+      controller?.abort();
+      window.removeEventListener(pendingChangesEvent, refresh);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    const reset = () => setCollapsed(window.matchMedia?.('(max-width: 48rem)').matches ?? false);
+    window.addEventListener('luxraj:presentation-reset', reset);
+    return () => window.removeEventListener('luxraj:presentation-reset', reset);
+  }, []);
 
   function toggle() {
     const next = !collapsed;
@@ -49,10 +82,14 @@ export function DashboardLayout() {
           <ul>
             {dashboardNavigation.map(({ label, path }, index) => {
               const Icon = icons[index];
-              return <li key={path}><NavLink to={path} title={label} aria-label={label} onClick={() => {
+              const count = path === '/source-control' ? draftCount : 0;
+              const description = count ? label + ' (' + count + ' pending)' : label;
+              return <li key={path}><NavLink to={path} title={description} aria-label={label}
+                aria-description={count ? count + ' pending changes' : undefined} onClick={() => {
                 if (!collapsed && window.matchMedia?.('(max-width: 48rem)').matches) toggle();
               }}>
                 <Icon size={18} aria-hidden="true" /><span>{label}</span>
+                {!!count && <small className="cms-draft-count" aria-hidden="true">{count > 99 ? '99+' : count}</small>}
               </NavLink></li>;
             })}
           </ul>

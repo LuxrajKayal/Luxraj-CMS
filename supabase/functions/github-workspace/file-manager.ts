@@ -31,7 +31,8 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
         (!path.length && action !== 'file_manager_tree'))) ||
       (['file_inspect', 'file_save', 'profile_picture_stage'].includes(action) && !isCommit(commit)) ||
       (['file_comparison', 'verify_profile_picture'].includes(action) && (typeof revision !== 'string' || !uuid.test(revision))) ||
-      (['file_save', 'profile_picture_stage'].includes(action) && originalBlob !== null && !isCommit(originalBlob))) {
+      (['file_save', 'profile_picture_stage'].includes(action) && originalBlob !== null && !isCommit(originalBlob)) ||
+      (body.origin !== undefined && (action !== 'file_save' || body.origin !== 'website_control'))) {
     throw new WorkspaceError('invalid_request', 400);
   }
   const segments = filePath(path) ? path : [];
@@ -69,7 +70,7 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
   }
   switch (action) {
     case 'file_manager_tree': {
-      const result = await git.fileManagerTree(repository, branch, segments);
+      const result = await git.fileManagerTree(repository, branch, segments, body.includeExecutables === true);
       await check();
       return result;
     }
@@ -97,7 +98,7 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
           if (JSON.stringify(current) !== JSON.stringify(location)) throw new WorkspaceError('invalid_profile_destination', 409);
         }
         await check();
-      });
+      }, body.origin === 'website_control' ? body.origin : undefined);
       return { draft };
     }
     case 'file_comparison': {

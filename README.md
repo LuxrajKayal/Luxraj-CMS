@@ -6,6 +6,8 @@ Cloud-based CMS powered by Supabase and GitHub.
 
 > **Project status, November 23, 2026:** **Tasks 0–16 completed and owner-accepted**. **P-1 Universal File Manager** is implemented on `codex-development` and awaits deployed integration testing and owner acceptance before Task 17. Tasks 17–20 remain approved future work.
 
+**Website Controls** runs registered repository HTML applications and stages their generated files through the shared Source Control workflow. See the [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) and the [application file bridge and setup](docs/website-controls.md).
+
 ## 1. Product purpose and non-negotiable principles
 
 Luxraj CMS is a **browser-first, multi-repository, branch-aware CMS** hosted as a public frontend (GitHub Pages is the initial testing target) with a secure Supabase backend. It should work from different devices without a local repository, local Git helper, or VS Code installation.

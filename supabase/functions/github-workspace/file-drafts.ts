@@ -8,13 +8,13 @@ type Scope = ChangeScope & { path: string };
 type Row = {
   path: string; revision: string; original_blob: string | null; original_commit: string; committed_sha: string | null;
   storage_key: string; file_size: number; file_digest: string; mime_hint: string;
-  file_state: 'uploading' | 'saved' | 'deleting'; updated_at: string;
+  file_state: 'uploading' | 'saved' | 'deleting'; updated_at: string; draft_origin?: StoredFile['origin'] | null;
 };
-const columns = 'path,revision,original_blob,original_commit,committed_sha,storage_key,file_size,file_digest,mime_hint,file_state,updated_at';
+const columns = 'path,revision,original_blob,original_commit,committed_sha,storage_key,file_size,file_digest,mime_hint,file_state,updated_at,draft_origin';
 
 export function toStored(row: Row): StoredFile {
   return { path: row.path, revision: row.revision, originalBlob: row.original_blob, committedSha: row.committed_sha,
-    size: row.file_size, sha256: row.file_digest, mime: row.mime_hint };
+    size: row.file_size, sha256: row.file_digest, mime: row.mime_hint, ...(row.draft_origin ? { origin: row.draft_origin } : {}) };
 }
 
 export async function validateFile(body: { size: unknown; contents: unknown; sha256: unknown; mime: unknown }, profile = false) {
@@ -99,12 +99,13 @@ export function createFileDrafts(client: SupabaseClient) {
       }
     },
     async save(scope: Scope, commit: string, originalBlob: string | null, file: Awaited<ReturnType<typeof validateFile>>,
-      check: () => Promise<void>) {
+      check: () => Promise<void>, origin?: StoredFile['origin']) {
       const revision = crypto.randomUUID();
       const object = scope.userId + '/' + revision;
       const row = {
         ...keys(scope), revision, original_commit: commit, original_blob: originalBlob, original_source: '', proposed_source: '',
         file_state: 'uploading', storage_key: object, file_size: file.size, file_digest: file.sha256, mime_hint: file.mime,
+        draft_origin: origin ?? null,
       };
       const { error } = await client.from(table).insert(row);
       if (error?.code === '23505') throw new WorkspaceError('draft_conflict', 409, { path: scope.path });
