@@ -229,6 +229,7 @@ test('Source Control enforces the saved commit limit independently of the draft 
     throw new Error('Unexpected request');
   });
   open('/code-editor');
+  fireEvent.click(await screen.findByRole('button', { name: 'Source Control activity' }));
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Include index.html in commit' }));
   const second = screen.getByRole('checkbox', { name: 'Include site.css in commit' });
   fireEvent.click(second);
