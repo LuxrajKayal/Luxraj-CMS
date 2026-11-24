@@ -6,6 +6,7 @@ import { createChangeSets } from './change-sets.ts';
 import { createCommitReviews } from './commits.ts';
 import { createFileDrafts } from './file-drafts.ts';
 import { createInjectorStore } from './injector.ts';
+import { createMaintenanceStore, createWebsiteStore } from './website-controls.ts';
 import type { StorageUsage } from '../_shared/workspace-contracts.ts';
 
 function env(name: string) {
@@ -51,6 +52,8 @@ function configure() {
     fileDrafts: createFileDrafts(client),
     commits: createCommitReviews(client, getCommitLimit),
     injector: createInjectorStore(client),
+    website: createWebsiteStore(client),
+    maintenance: createMaintenanceStore(client),
     commitLimit: {
       get: getCommitLimit,
       async set(maximumFiles) {

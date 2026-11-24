@@ -7,7 +7,19 @@ import './file-manager.css';
 
 const PdfPreview = lazy(() => import('./PdfPreview'));
 const DocxPreview = lazy(() => import('./DocxPreview'));
+const MonacoDiff = lazy(() => import('../workspace/MonacoViews').then(module => ({ default: module.MonacoDiff })));
 const unavailable = 'Preview unavailable for this format.';
+
+function diffText(file: FilePayload | null) {
+  if (!file) return '';
+  if (file.contents === null || file.size > 1024 * 1024) return null;
+  try {
+    const value = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(decodeBytes(file.contents));
+    return /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(value) ? null : value;
+  } catch {
+    return null;
+  }
+}
 
 function NativePreview({ bytes, type, mime, name }: {
   bytes: Uint8Array<ArrayBuffer>; type: 'image' | 'audio' | 'video'; mime: string; name: string;
@@ -93,6 +105,23 @@ export function FileDraftComparison({ repositoryId, branch, path, revision }: {
       .catch(error => { if (!abort.signal.aborted) setError(workspaceError(error)); });
     return () => abort.abort();
   }, [repositoryId, branch, path, revision]);
-  return data ? <CompareFiles path={path} original={data.original} proposed={data.proposed} />
-    : error ? <p role="alert">{error}</p> : <p role="status">Loading file comparison…</p>;
+  if (!data) return error ? <p role="alert">{error}</p> : <p role="status">Loading file comparison…</p>;
+  if (data.draft?.origin === 'website_control') {
+    const original = diffText(data.original);
+    const proposed = diffText(data.proposed);
+    if (original !== null && proposed !== null) {
+      const normalized = (source: string) => source.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
+      return <section className="file-compare website-text-comparison" aria-label="Generated text diff">
+        <h2>{data.original ? 'Replacement' : 'New file'} · {path}</h2>
+        {data.original && normalized(original) === normalized(proposed) && <p>This change affects the line endings or UTF-8 byte order mark.</p>}
+        <Suspense fallback={<p role="status">Loading diff viewer…</p>}>
+          <MonacoDiff path={path} original={original} proposed={proposed} />
+        </Suspense>
+        <details><summary>File properties and downloads</summary>
+          <CompareFiles path={path} original={data.original} proposed={data.proposed} />
+        </details>
+      </section>;
+    }
+  }
+  return <CompareFiles path={path} original={data.original} proposed={data.proposed} />;
 }

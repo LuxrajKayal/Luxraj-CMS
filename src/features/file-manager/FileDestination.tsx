@@ -21,7 +21,7 @@ export function FileWorkspacePicker({ disabled = false }: { disabled?: boolean }
   </fieldset>;
 }
 
-export function useFileDirectory(scope: FileScope, folder: string[], version = 0) {
+export function useFileDirectory(scope: FileScope, folder: string[], version = 0, includeExecutables = false) {
   const [directory, setDirectory] = useState<Directory | null>(null);
   const [error, setError] = useState('');
   const { repositoryId, branch } = scope;
@@ -29,11 +29,12 @@ export function useFileDirectory(scope: FileScope, folder: string[], version = 0
     const controller = new AbortController();
     setDirectory(null);
     setError('');
-    workspaceRequest({ action: 'file_manager_tree', repositoryId, branch, path: folder }, controller.signal)
+    workspaceRequest({ action: 'file_manager_tree', repositoryId, branch, path: folder,
+      ...(includeExecutables ? { includeExecutables } : {}) }, controller.signal)
       .then(data => { if (!controller.signal.aborted) setDirectory(data); })
       .catch(error => { if (!controller.signal.aborted) setError(workspaceError(error)); });
     return () => controller.abort();
-  }, [repositoryId, branch, folder, version]);
+  }, [repositoryId, branch, folder, version, includeExecutables]);
   return { directory, error };
 }
 

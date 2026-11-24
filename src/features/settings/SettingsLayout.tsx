@@ -19,6 +19,7 @@ export function SettingsLayout() {
             <NavLink to="/settings/storage">Storage Management</NavLink>
             <NavLink to="/settings/commit-limit">Maximum Files Per Commit</NavLink>
             <NavLink to="/settings/profile-picture-location">Author Profile Picture Location</NavLink>
+            <NavLink to="/settings/maintenance">Maintenance</NavLink>
           </nav>
         </ModulePanel>}
         <div className="module-body module-scroll"><Outlet /></div>

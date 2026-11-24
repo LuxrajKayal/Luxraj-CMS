@@ -4,6 +4,8 @@
 >
 > **Status, November 23, 2026:** **Tasks 0–16 are completed and owner-accepted**. **P-1 Universal File Manager** is implemented on `codex-development` and awaits deployed integration testing and owner acceptance. Tasks **17–20** remain approved future phases.
 
+**Website Controls** extends the File Manager and Source Control workflow with repository- and branch-scoped HTML applications. The [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) defines this work independently of Tasks 17–20. Deployment and live acceptance are separate.
+
 ## What we are building
 
 Luxraj CMS is a browser-based system for managing multiple GitHub repositories and branches. It will use a **modular React + TypeScript + Vite frontend**, a **Monaco-based code editor**, and **Supabase** for authentication, secure backend operations, preferences, and drafts.

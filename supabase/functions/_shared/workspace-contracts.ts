@@ -88,7 +88,7 @@ export interface ManagedDraft extends DraftIdentity {
 export const maxFileBytes = 8 * 1024 * 1024;
 export type FileMetadata = { size: number; sha256: string; mime: string; blob?: string };
 export type FilePayload = Omit<FileMetadata, 'sha256'> & { sha256: string | null; contents: string | null };
-export type StoredFile = FileMetadata & { path: string; revision: string; originalBlob: string | null; committedSha: string | null };
+export type StoredFile = FileMetadata & { path: string; revision: string; originalBlob: string | null; committedSha: string | null; origin?: 'website_control' };
 export type FileInspection = { commit: string; original: FilePayload | null };
 export type FileComparison = { draft: StoredFile; original: FilePayload | null; proposed: FilePayload };
 export type ProfilePictureLocation = { repositoryId: number; branch: string; folder: string; publicPrefix: string };
@@ -100,6 +100,13 @@ export type HistoryPage = { head: string; commits: HistoryCommit[]; refs: { name
 export type CommittedFile = { path: string; status: string; previousPath?: string };
 export type CommitDetail = HistoryCommit & { files: CommittedFile[]; complete: boolean };
 export type CommittedDiff = { original: string; proposed: string };
+
+export type WebsiteRegistration = { name: string; application: string; inputs: string[]; destinations: string[] };
+export type WebsiteControl = WebsiteRegistration & { id: string };
+export type WebsiteLaunch = { commit: string; source: string; control: WebsiteControl };
+export type MaintenanceMode = 'controls' | 'drafts' | 'all';
+export type MaintenanceResult = { deleted: number; next: string | null; remaining: number | null; reset: boolean };
+type WorkspaceScope = { repositoryId: number; branch: string };
 
 export interface DraftDeletion extends DraftIdentity {
   result: 'deleted' | 'conflict' | 'unavailable';
@@ -120,10 +127,10 @@ export type WorkspaceRequest =
   | { action: 'load' }
   | { action: 'select'; repositoryId: number; branch?: string }
   | { action: 'tree'; repositoryId: number; branch: string; path: string[]; commit?: string }
-  | { action: 'file_manager_tree'; repositoryId: number; branch: string; path: string[] }
+  | { action: 'file_manager_tree'; repositoryId: number; branch: string; path: string[]; includeExecutables?: boolean }
   | { action: 'file_inspect'; repositoryId: number; branch: string; path: string[]; commit: string }
   | { action: 'file_save' | 'profile_picture_stage'; repositoryId: number; branch: string; path: string[]; commit: string;
-      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string }
+      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string; origin?: 'website_control' }
   | { action: 'file_drafts'; repositoryId: number; branch: string }
   | { action: 'file_comparison'; repositoryId: number; branch: string; path: string[]; revision: string }
   | { action: 'profile_picture_location' }
@@ -143,6 +150,12 @@ export type WorkspaceRequest =
   | { action: 'changes'; repositoryId: number; branch: string }
   | { action: 'diff'; repositoryId: number; branch: string; path: string[] }
   | { action: 'draft_catalog' }
+  | { action: 'pending_count' }
+  | { action: 'website_maintenance'; mode: MaintenanceMode; after?: string }
+  | ({ action: 'website_list' } & WorkspaceScope)
+  | ({ action: 'website_register'; registration: WebsiteRegistration } & WorkspaceScope)
+  | ({ action: 'website_launch'; id: string } & WorkspaceScope)
+  | ({ action: 'website_input'; id: string; commit: string; path: string } & WorkspaceScope)
   | { action: 'delete_drafts'; drafts: DraftIdentity[] }
   | { action: 'storage_status' }
   | { action: 'storage_save'; databaseLimitMb: number; fileLimitMb: number }

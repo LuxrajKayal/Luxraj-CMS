@@ -3,6 +3,7 @@ export const dashboardNavigation = [
   { label: 'Repositories', path: '/repositories' },
   { label: 'Code Editor', path: '/code-editor' },
   { label: 'File Manager', path: '/file-manager' },
+  { label: 'Website Controls', path: '/website-controls' },
   { label: 'Source Control', path: '/source-control' },
   { label: 'Code Injector', path: '/code-injector' },
   { label: 'Users & Permissions', path: '/users-permissions' },
