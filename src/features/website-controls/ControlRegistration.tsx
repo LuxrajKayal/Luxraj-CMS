@@ -10,7 +10,7 @@ export function ControlRegistration({ scope, saving, save, cancel }: {
   const [application, setApplication] = useState('');
   const [inputs, setInputs] = useState<string[]>([]);
   const [destinations, setDestinations] = useState('');
-  const [picker, setPicker] = useState<'application' | 'inputs' | null>(null);
+  const [picker, setPicker] = useState<'application' | 'inputs' | 'destination' | null>(null);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void save({ name, application, inputs, destinations: destinations.split(/\r?\n/).filter(path => path.trim()) });
@@ -23,10 +23,13 @@ export function ControlRegistration({ scope, saving, save, cancel }: {
       <button type="button" onClick={() => setPicker(picker === 'application' ? null : 'application')}>Browse HTML applications</button>
       <button type="button" onClick={() => setPicker(picker === 'inputs' ? null : 'inputs')}>Add associated files</button>
     </div>
-    {picker && <RepositoryFilePicker key={picker} scope={scope} label={picker === 'application' ? 'HTML applications' : 'Associated files'}
-      htmlOnly={picker === 'application'} disabled={saving} onPick={path => {
-        if (picker === 'application') { setApplication(path); setPicker(null); }
-        else setInputs(current => current.includes(path) ? current : [...current, path]);
+    {picker && <RepositoryFilePicker key={picker} scope={scope} label={picker === 'application' ? 'HTML applications' : picker === 'inputs' ? 'Associated files' : 'Output destination'}
+      htmlOnly={picker === 'application'} multiple={picker === 'inputs'} destination={picker === 'destination' ? '' : undefined}
+      disabled={saving} onCancel={() => setPicker(null)} onPick={paths => {
+        if (picker === 'application') setApplication(paths[0]);
+        else if (picker === 'inputs') setInputs(current => [...new Set([...current, ...paths])]);
+        else setDestinations(current => [current, paths[0]].filter(Boolean).join('\n'));
+        setPicker(null);
       }} />}
     {!!inputs.length && <ul className="website-paths">{inputs.map(path => <li key={path}>
       <code>{path}</code> <button type="button" aria-label={'Remove ' + path}
@@ -35,8 +38,9 @@ export function ControlRegistration({ scope, saving, save, cancel }: {
     <label>Output destination paths (optional, one per line)
       <textarea rows={3} value={destinations} onChange={event => setDestinations(event.target.value)} />
     </label>
+    <button type="button" onClick={() => setPicker('destination')}>Browse output destination</button>
     <div className="workspace-actions">
-      <button type="submit" disabled={saving}>Save Control</button>
+      <button className="website-primary" type="submit" disabled={saving}>Save Control</button>
       <button type="button" onClick={cancel} disabled={saving}>Cancel</button>
     </div>
   </form>;

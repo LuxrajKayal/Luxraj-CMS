@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { AppWindow, FolderOpen, FilePlus, Maximize2, Minimize2, PanelRight, X, File, GitCommit } from 'lucide-react';
 import { decodeBytes, encodeBytes, filePath, sha256 } from '../../../supabase/functions/_shared/file-bytes';
 import type { WebsiteLaunch } from '../../../supabase/functions/_shared/workspace-contracts';
 import type { FileScope } from '../file-manager/FileDestination';
@@ -20,7 +21,10 @@ export function ControlRunner({ run, scope, inputs, close }: {
   const modeRef = useRef<ExecutionMode>('internal');
   const [switching, setSwitching] = useState(false);
   const [nativeRequest, setNativeRequest] = useState<NativeFileRequest | null>(null);
-  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [maximized, setMaximized] = useState(false);
+  const [destinationId, setDestinationId] = useState<string | null>(null);
+  const localInput = useRef<HTMLInputElement>(null);
   const nativeRequestRef = useRef<NativeFileRequest | null>(null);
   const repositoryInputs = useRef([...run.control.inputs]);
   const [reading, setReading] = useState(false);
@@ -50,13 +54,13 @@ export function ControlRunner({ run, scope, inputs, close }: {
       channel.port1.onmessage = ({ data }) => {
         if (data?.type === 'mode-ready' && data.mode === modeRef.current) { setSwitching(false); return; }
         if (modeRef.current !== 'internal') return;
-        if (data?.type === 'pick') setPick(true);
+        if (data?.type === 'pick') { if (!nativeRequestRef.current) { setDestinationId(null); setPick(true); } }
         if (data?.type === 'native-pick' && Number.isSafeInteger(data.id) && typeof data.multiple === 'boolean') {
           const next = { id: data.id, multiple: data.multiple, accept: typeof data.accept === 'string' ? data.accept : '' };
           nativeRequestRef.current = next;
           setNativeRequest(next);
-          setSelectedPaths([]);
           setPick(false);
+          setDestinationId(null);
           setError('');
           return;
         }
@@ -69,6 +73,7 @@ export function ControlRunner({ run, scope, inputs, close }: {
               }))
             : outputBatch(data.outputs, control.destinations);
           setOutputs(current => [...current, ...batch.map(item => ({ id: crypto.randomUUID(), ...item }))]);
+          setPanelOpen(true);
           setError('');
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : 'The application sent invalid output.');
@@ -94,13 +99,13 @@ export function ControlRunner({ run, scope, inputs, close }: {
     if (nativeRequestRef.current) port.current?.postMessage({ type: 'native-cancel', id: nativeRequestRef.current.id });
     nativeRequestRef.current = null;
     setNativeRequest(null);
-    setSelectedPaths([]);
   }
 
   function changeMode(next: ExecutionMode) {
     if (next === modeRef.current || reading || saving || !connected || switching) return;
     cancelNative();
     setPick(false);
+    setDestinationId(null);
     setError('');
     modeRef.current = next;
     setSwitching(true);
@@ -125,8 +130,7 @@ export function ControlRunner({ run, scope, inputs, close }: {
       port.current?.postMessage({ type: 'native-files', id: active.id, files: selected });
       nativeRequestRef.current = null;
       setNativeRequest(null);
-      setSelectedPaths([]);
-    } catch (failure) {
+      } catch (failure) {
       if (!signal?.aborted) setError(workspaceError(failure));
     } finally {
       if (!signal?.aborted) setReading(false);
@@ -155,19 +159,21 @@ export function ControlRunner({ run, scope, inputs, close }: {
     };
   }, [unsaved, saving]);
 
-  async function addRepositoryFile(path: string) {
+  async function addRepositoryFiles(paths: string[]) {
     if (reading) return;
     const signal = request.current?.signal;
     setReading(true);
     setError('');
     try {
-      const file = await controlInput(run, scope, path, signal);
+      const selected: File[] = [];
+      for (const path of paths) selected.push(await controlInput(run, scope, path, signal));
       if (!signal?.aborted) {
-        repositoryInputs.current = [...new Set([...repositoryInputs.current, path])];
-        setFiles(current => [...current, file]);
+        repositoryInputs.current = [...new Set([...repositoryInputs.current, ...paths])];
+        setFiles(current => [...current, ...selected]);
+        setPick(false);
       }
     } catch (failure) {
-      if (!signal?.aborted) setError(path + '. ' + workspaceError(failure));
+      if (!signal?.aborted) setError(workspaceError(failure));
     } finally {
       if (!signal?.aborted) setReading(false);
     }
@@ -207,68 +213,75 @@ export function ControlRunner({ run, scope, inputs, close }: {
     if (!signal?.aborted) setSaving(false);
   }
 
-  return <section className="website-runner" aria-label={'Running ' + control.name}>
-    <header className="workspace-actions">
-      <h2>{control.name}</h2>
-      <button type="button" disabled={saving} onClick={() => {
+  const destinationOutput = outputs.find(item => item.id === destinationId);
+  return <section className={'website-runner' + (maximized ? ' is-maximized' : '')} aria-label={'Running ' + control.name}>
+    <header className="website-window-header">
+      <AppWindow size={22} /><h2>{control.name}</h2><span className="website-window-spacer" />
+      <button type="button" aria-label={maximized ? 'Restore application' : 'Maximize application'} onClick={() => setMaximized(value => !value)}>{maximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
+      <button type="button" aria-label="Close Application" disabled={saving} onClick={() => {
         if (!unsaved || window.confirm('Close this control and discard its unsaved outputs?')) close();
-      }}>Close Application</button>
+      }}><X size={18} /></button>
     </header>
-    <fieldset className="workspace-actions website-mode" disabled={!connected || switching || reading || saving}>
-      <legend>Execution mode</legend>
-      <label><input type="radio" name="website-mode" checked={mode === 'internal'} onChange={() => changeMode('internal')} /> Internal Mode</label>
-      <label><input type="radio" name="website-mode" checked={mode === 'local'} onChange={() => changeMode('local')} /> Local Mode</label>
-    </fieldset>
-    <p>{mode === 'internal' ? 'Application file selection opens the repository picker; supported downloads become CMS outputs.' : 'Application file selection and downloads use your browser. Existing CMS outputs remain available when you return to Internal Mode.'}</p>
-    {mode === 'internal' && <div className="workspace-actions">
-      <label>Add local files <input type="file" multiple onChange={event => {
-        const selected = Array.from(event.target.files ?? []);
-        if (selected.length) setFiles(current => [...current, ...selected]);
-        event.target.value = '';
-      }} /></label>
-      <button type="button" aria-expanded={pick} onClick={() => setPick(!pick)}>Add repository files</button>
-    </div>}
-    {mode === 'internal' && pick && !nativeRequest && <RepositoryFilePicker scope={scope} label="Additional repository inputs" onPick={path => void addRepositoryFile(path)} disabled={reading} />}
-    {mode === 'internal' && nativeRequest && <section aria-label="Application repository file selection">
-      {nativeRequest.accept && <p>Application requests: {nativeRequest.accept} (file type hint)</p>}
-      <RepositoryFilePicker key={nativeRequest.id} scope={scope} label="Choose repository file for application" disabled={reading}
-        onPick={path => {
-          if (nativeRequest.multiple) setSelectedPaths(current => current.includes(path) ? current : [...current, path]);
-          else void deliverNative([path]);
+    <div className="website-window-toolbar">
+      <fieldset className="website-mode" aria-label="Execution mode" disabled={!connected || switching || reading || saving}>
+        <label className={mode === 'internal' ? 'is-active' : ''}><input type="radio" name="website-mode" checked={mode === 'internal'} onChange={() => changeMode('internal')} /> Internal</label>
+        <label className={mode === 'local' ? 'is-active' : ''}><input type="radio" name="website-mode" checked={mode === 'local'} onChange={() => changeMode('local')} /> Local</label>
+      </fieldset>
+      {mode === 'internal' && <>
+        <button type="button" disabled={reading || switching} onClick={() => setPick(true)}><FolderOpen size={17} /> Repository files</button>
+        <input ref={localInput} type="file" hidden multiple onChange={event => {
+          const selected = Array.from(event.target.files ?? []);
+          if (selected.length) setFiles(current => [...current, ...selected]);
+          event.target.value = '';
         }} />
-      {nativeRequest.multiple && <>
-        <ul>{selectedPaths.map(path => <li key={path}>{path} <button type="button" disabled={reading} onClick={() => setSelectedPaths(current => current.filter(value => value !== path))}>Remove</button></li>)}</ul>
-        <button type="button" disabled={reading || !selectedPaths.length} onClick={() => void deliverNative(selectedPaths)}>Use selected files</button>
+        <button type="button" disabled={switching} onClick={() => localInput.current?.click()}><FilePlus size={17} /> Local files</button>
+        <span className="website-window-spacer" />
+        <button type="button" aria-expanded={panelOpen} onClick={() => setPanelOpen(value => !value)}><PanelRight size={17} /> Outputs ({outputs.length})</button>
       </>}
-      <button type="button" onClick={cancelNative} disabled={reading}>Cancel file selection</button>
-    </section>}
-    {reading && <p role="status">Reading repository file…</p>}
-    {mode === 'internal' && <p>{files.length} {files.length === 1 ? 'file' : 'files'} supplied through the explicit file bridge.</p>}
-    {error && <p role="alert">{error}</p>}
-    {!connected && <p role="status">Starting the application file bridge…</p>}
-    {switching && <p role="status">Switching execution mode…</p>}
-    <iframe ref={frame} title={control.name} referrerPolicy="no-referrer"
-      sandbox="allow-scripts allow-forms allow-downloads" />
-    {mode === 'internal' && !!outputs.length && <section className="website-outputs">
-      <h3>Generated outputs</h3>
-      <p>Assign a repository-relative path to each output. A new path adds a file. An existing path stages its replacement for review.</p>
-      {outputs.map(item => <div className="website-output" key={item.id}>
-        <label>Destination for {item.name}
-          <input value={item.destination} disabled={saving || item.status === 'saved'} onChange={event => {
-            const destination = event.target.value;
-            setOutputs(current => current.map(value => value.id === item.id ? { ...value, destination, status: undefined } : value));
-          }} />
-        </label>
-        <small>{item.blob.size.toLocaleString()} bytes</small>
-        {item.status === 'saved' ? <span role="status">Draft saved</span> : <button type="button" disabled={saving}
-          aria-label={'Discard output ' + item.name} onClick={() => setOutputs(current => current.filter(value => value.id !== item.id))}>Discard</button>}
-        {item.status && item.status !== 'saved' && <p role="alert">{item.status}</p>}
-      </div>)}
-      <div className="workspace-actions">
-        <button type="button" disabled={saving || !unsaved} onClick={() => void saveDrafts()}>{saving ? 'Saving drafts…' : 'Save Drafts'}</button>
-        {outputs.some(item => item.status === 'saved') && <Link to="/source-control">Review in Source Control</Link>}
-      </div>
-    </section>}
+    </div>
+    {error && <p className="website-window-error" role="alert">{error}</p>}
+    <div className="website-window-body">
+      <iframe ref={frame} title={control.name} referrerPolicy="no-referrer" sandbox="allow-scripts allow-forms allow-downloads" />
+      {mode === 'internal' && panelOpen && <aside className="website-outputs" aria-label="Generated outputs">
+        <header><h3>Generated outputs</h3><button type="button" aria-label="Hide outputs" onClick={() => setPanelOpen(false)}><X size={16} /></button></header>
+        {!outputs.length && <p className="website-hint">Generated files will appear here. Choose their destination before saving drafts.</p>}
+        <div className="website-output-list">
+          {outputs.map(item => <div className="website-output" key={item.id}>
+            <div className="website-output-name"><File size={19} /><strong>{item.name}</strong></div>
+            <small>{item.blob.size.toLocaleString()} bytes · {item.status === 'saved' ? 'Draft saved' : 'Not staged'}</small>
+            <label>Destination for {item.name}
+              <input value={item.destination} disabled={saving || item.status === 'saved'} onChange={event => {
+                const destination = event.target.value;
+                setOutputs(current => current.map(value => value.id === item.id ? { ...value, destination, status: undefined } : value));
+              }} />
+            </label>
+            <div className="website-output-actions">
+              <button type="button" disabled={saving || item.status === 'saved'} onClick={() => setDestinationId(item.id)}><FolderOpen size={15} /> Browse</button>
+              {item.status === 'saved' ? <span role="status">Draft saved</span> : <button type="button" disabled={saving}
+                aria-label={'Discard output ' + item.name} onClick={() => setOutputs(current => current.filter(value => value.id !== item.id))}>Discard</button>}
+            </div>
+            {item.status && item.status !== 'saved' && <p role="alert">{item.status}</p>}
+          </div>)}
+        </div>
+        <div className="website-output-footer">
+          <button type="button" className="website-primary" disabled={saving || !unsaved} onClick={() => void saveDrafts()}>{saving ? 'Saving drafts…' : 'Save Drafts'}</button>
+          {outputs.some(item => item.status === 'saved') && <Link to="/source-control"><GitCommit size={16} /> Review in Source Control</Link>}
+        </div>
+      </aside>}
+    </div>
+    <footer className="website-window-status" role="status">
+      <span><i className={connected ? 'is-ready' : ''} />{switching ? 'Switching execution mode…' : reading ? 'Reading repository files…' : saving ? 'Saving drafts…' : connected ? 'Application running' : 'Starting application…'}</span>
+      <span>{mode === 'internal' ? 'Internal · ' + files.length + ' supplied files · ' + outputs.length + ' outputs' : 'Local · browser file operations'}</span>
+    </footer>
+    {mode === 'internal' && pick && !nativeRequest && <RepositoryFilePicker scope={scope} label="Additional repository inputs" multiple disabled={reading} errorMessage={error} onPick={addRepositoryFiles} onCancel={() => setPick(false)} />}
+    {mode === 'internal' && nativeRequest && <RepositoryFilePicker key={nativeRequest.id} scope={scope} label="Choose repository file for application"
+      multiple={nativeRequest.multiple} hint={nativeRequest.accept ? 'Application requests: ' + nativeRequest.accept : undefined}
+      disabled={reading} errorMessage={error} onPick={deliverNative} onCancel={cancelNative} />}
+    {mode === 'internal' && destinationOutput && <RepositoryFilePicker scope={scope} label="Choose output destination"
+      destination={destinationOutput.destination} onCancel={() => setDestinationId(null)} onPick={paths => {
+        setOutputs(current => current.map(item => item.id === destinationId ? { ...item, destination: paths[0], status: undefined } : item));
+        setDestinationId(null);
+      }} />}
   </section>;
 }
 

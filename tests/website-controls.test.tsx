@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { WebsiteControl, Workspace, WorkspaceRequest } from '../supabase/functions/_shared/workspace-contracts';
 import { MaintenancePage } from '../src/features/settings/MaintenancePage';
 import WebsiteControlsPage from '../src/features/website-controls/WebsiteControlsPage';
+import { RepositoryFilePicker } from '../src/features/website-controls/RepositoryFilePicker';
 import { controlDocument, downloadDestination, outputBatch } from '../src/features/website-controls/bridge';
 
 const request = vi.hoisted(() => vi.fn());
@@ -42,13 +43,13 @@ test('registers controls with optional inputs and restores the proper repository
   fireEvent.click(screen.getByRole('button', { name: 'Add Control' }));
   fireEvent.change(screen.getByLabelText('Control name'), { target: { value: 'Multiple files' } });
   fireEvent.click(screen.getByRole('button', { name: 'Browse HTML applications' }));
-  await screen.findByRole('option', { name: 'tool.html' });
-  expect(screen.queryByRole('option', { name: 'one.txt' })).toBeNull();
-  fireEvent.change(screen.getByLabelText('File'), { target: { value: 'tool.html' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Select file tool.html' }));
+  expect(screen.queryByRole('button', { name: 'Select file one.txt' })).toBeNull();
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open', exact: true }));
   fireEvent.click(screen.getByRole('button', { name: 'Add associated files' }));
-  await screen.findByRole('option', { name: 'one.txt' });
-  fireEvent.change(screen.getByLabelText('File'), { target: { value: 'one.txt' } });
-  fireEvent.change(screen.getByLabelText('File'), { target: { value: 'two.raw' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Select file one.txt' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Select file two.raw' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open', exact: true }));
   fireEvent.change(screen.getByLabelText(/Output destination paths/), { target: { value: 'new\nfolder/replace.raw' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Control' }));
   await screen.findByRole('heading', { name: 'Multiple files' });
@@ -127,4 +128,51 @@ test('captured downloads prefer configured destinations or a unique matching rep
   expect(internal.indexOf('native-pick')).toBeLessThan(internal.indexOf('start()'));
   expect(internal).toContain('native-files');
   expect(internal).toContain('DataTransfer');
+});
+
+test('repository explorer navigates folders, searches, switches views and confirms multi-file selections', async () => {
+  const choose = vi.fn(), cancel = vi.fn();
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action !== 'file_manager_tree') throw new Error('Unexpected request');
+    return { entries: input.path.length ? [{ name: 'settings.json', kind: 'file' }, { name: 'other.bin', kind: 'file' }] :
+      [{ name: 'site', kind: 'folder' }, { name: 'root.md', kind: 'file' }] };
+  });
+  render(<RepositoryFilePicker scope={{ repositoryId: 12, branch: 'main' }} label="Select files" multiple onPick={choose} onCancel={cancel} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Select file root.md' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open folder site' }));
+  await screen.findByRole('button', { name: 'Select file settings.json' });
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'settings' } });
+  expect(screen.queryByRole('button', { name: 'Select file other.bin' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Icon view' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Select file settings.json' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+  expect(choose).toHaveBeenCalledWith(['root.md', 'site/settings.json']);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  expect(cancel).toHaveBeenCalledOnce();
+});
+
+test('repository destination explorer allows a new filename in a selected folder', async () => {
+  const choose = vi.fn();
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action !== 'file_manager_tree') throw new Error('Unexpected request');
+    return { entries: input.path.length ? [{ name: 'old.json', kind: 'file' }] : [{ name: 'site', kind: 'folder' }] };
+  });
+  render(<RepositoryFilePicker scope={{ repositoryId: 12, branch: 'main' }} label="Destination" destination="new.json" onPick={choose} onCancel={() => {}} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Open folder site' }));
+  await screen.findByRole('button', { name: 'Select file old.json' });
+  fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new.json' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Use destination' }));
+  expect(choose).toHaveBeenCalledWith(['site/new.json']);
+});
+
+test('destination explorer starts in the existing target folder', async () => {
+  const choose = vi.fn();
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action !== 'file_manager_tree') throw new Error('Unexpected request');
+    return { entries: input.path.length ? [{ name: 'settings.json', kind: 'file' }] : [{ name: 'site', kind: 'folder' }] };
+  });
+  render(<RepositoryFilePicker scope={{ repositoryId: 12, branch: 'main' }} label="Destination" destination="site/settings.json" onPick={choose} onCancel={() => {}} />);
+  await screen.findByRole('button', { name: 'Select file settings.json' });
+  fireEvent.click(screen.getByRole('button', { name: 'Use destination' }));
+  expect(choose).toHaveBeenCalledWith(['site/settings.json']);
 });

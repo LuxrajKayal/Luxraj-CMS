@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { AppWindow, GitBranch, Play, Plus } from 'lucide-react';
 import type { WebsiteControl, WebsiteLaunch, WebsiteRegistration } from '../../../supabase/functions/_shared/workspace-contracts';
 import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import type { FileScope } from '../file-manager/FileDestination';
@@ -88,7 +89,7 @@ function ScopedControls({ repository, repositoryId, branch }: FileScope & { repo
       {!active && !adding && <button type="button" disabled={!!working || !controls} onClick={() => setAdding(true)}>Add Control</button>}
     </ModuleTopbar>
     <div className="module-body">
-      <p className="website-scope"><strong>{repository}</strong> <code>{branch}</code></p>
+      <p className="website-scope"><strong>{repository}</strong> <GitBranch size={15} /><code>{branch}</code></p>
       {error && <p role="alert">{error}</p>}
       {working && <p role="status">{working}</p>}
       {!controls && (error
@@ -97,12 +98,19 @@ function ScopedControls({ repository, repositoryId, branch }: FileScope & { repo
       {active ? <ControlRunner scope={scope} run={active.launched} inputs={active.files} close={() => setActive(null)} /> :
         adding ? <ControlRegistration scope={scope} saving={!!working} save={register}
           cancel={() => { setAdding(false); setError(''); }} /> :
-          controls && (controls.length ? <div className="website-cards">{controls.map(control => <article key={control.id}>
-            <h2>{control.name}</h2>
-            <code>{control.application}</code>
-            <p>{control.inputs.length} associated files · {control.destinations.length} preset destinations</p>
-            <button type="button" disabled={!!working} onClick={() => void launch(control)}>Run</button>
-          </article>)}</div> : <p>No controls are registered for this branch.</p>)}
+          controls && <section className="website-launcher" aria-label="Registered applications">
+            <div className="website-launcher-heading"><h2>Your applications</h2><small>{controls.length} registered</small></div>
+            {!controls.length && <p>No controls are registered for this branch.</p>}
+            <div className="website-cards">{controls.map(control => <article key={control.id}>
+              <div className="website-app-icon"><AppWindow size={27} /></div>
+              <h2>{control.name}</h2>
+              <code title={control.application}>{control.application}</code>
+              <p>{control.inputs.length} associated files · {control.destinations.length} preset destinations</p>
+              <button type="button" className="website-launch-button" disabled={!!working} onClick={() => void launch(control)}><Play size={16} /> Run</button>
+            </article>)}
+            <button className="website-add-card" type="button" disabled={!!working} onClick={() => setAdding(true)}><Plus size={30} /><strong>Add new control</strong><small>Register an HTML application</small></button>
+            </div>
+          </section>}
     </div>
   </div>;
 }

@@ -4,6 +4,10 @@ Select a repository and branch in **Repositories**. In **Website Controls**, add
 
 **Run** loads the application and associated inputs at the selected branch head. The runner can supply additional local and repository files. Each run stays bound to its original repository, branch and head. If the branch changes, open a fresh run to review the latest version. Leaving a run closes the application and its in-memory inputs and unstaged outputs. Saved drafts remain available in Source Control.
 
+## Application workspace
+
+Registered controls appear in an application launcher. The runner has a unified toolbar, an expandable application window, a collapsible generated-output panel and a status bar. The repository explorer is shared by application registration, associated and runtime inputs, and output destinations. Browse folders using the tree or breadcrumbs, search the current folder, switch list/icon views, select files and confirm with Open. Output destinations may use an existing filename or a new name within an existing folder. File sizes are not displayed in the explorer because the existing directory API does not return them; generated outputs show their actual byte size.
+
 ## Execution modes
 
 The runner starts in **Internal Mode**. Switch to **Local Mode** for normal desktop file selection and browser downloads, then switch back without reloading the application. Existing in-memory application state and pending CMS outputs are retained; Local Mode does not save drafts or supply new repository files. Previously loaded data may remain in the application until it is closed.
