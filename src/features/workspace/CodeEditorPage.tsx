@@ -111,7 +111,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const [focus, setFocus] = useState(() => targetReview ? false : savedView?.focus ?? false);
   const { refresh: refreshWorkspace, saving } = useWorkspace();
   const commit = tree?.commit;
-  const [changesSide, setChangesSide] = useState<'left' | 'right'>(() => savedView?.changesSide ?? (targetReview ? 'right' : 'left'));
+  const [changesSide, setChangesSide] = useState<'left' | 'right'>(() => targetReview ? 'right' : savedView?.changesSide ?? (savedView?.showChanges ? 'right' : 'left'));
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [loaded, setLoaded] = useState<Record<string, { commit: string; entries: TreeEntry[] }>>({});
