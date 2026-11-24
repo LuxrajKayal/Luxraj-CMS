@@ -45,11 +45,11 @@ test('registers controls with optional inputs and restores the proper repository
   fireEvent.click(screen.getByRole('button', { name: 'Browse HTML applications' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Select file tool.html' }));
   expect(screen.queryByRole('button', { name: 'Select file one.txt' })).toBeNull();
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open', exact: true }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open' }));
   fireEvent.click(screen.getByRole('button', { name: 'Add associated files' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Select file one.txt' }));
   fireEvent.click(screen.getByRole('button', { name: 'Select file two.raw' }));
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open', exact: true }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Open' }));
   fireEvent.change(screen.getByLabelText(/Output destination paths/), { target: { value: 'new\nfolder/replace.raw' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Control' }));
   await screen.findByRole('heading', { name: 'Multiple files' });
@@ -145,9 +145,9 @@ test('repository explorer navigates folders, searches, switches views and confir
   expect(screen.queryByRole('button', { name: 'Select file other.bin' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Icon view' }));
   fireEvent.click(screen.getByRole('button', { name: 'Select file settings.json' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
   expect(choose).toHaveBeenCalledWith(['root.md', 'site/settings.json']);
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(cancel).toHaveBeenCalledOnce();
 });
 

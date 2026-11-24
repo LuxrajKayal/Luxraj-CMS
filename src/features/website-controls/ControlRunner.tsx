@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { AppWindow, FolderOpen, FilePlus, Maximize2, Minimize2, PanelRight, X, File, GitCommit } from 'lucide-react';
+import { AppWindow, FolderOpen, FilePlus, Maximize2, Minimize2, PanelRight, X, File as FileIcon, GitCommit } from 'lucide-react';
 import { decodeBytes, encodeBytes, filePath, sha256 } from '../../../supabase/functions/_shared/file-bytes';
 import type { WebsiteLaunch } from '../../../supabase/functions/_shared/workspace-contracts';
 import type { FileScope } from '../file-manager/FileDestination';
@@ -247,7 +247,7 @@ export function ControlRunner({ run, scope, inputs, close }: {
         {!outputs.length && <p className="website-hint">Generated files will appear here. Choose their destination before saving drafts.</p>}
         <div className="website-output-list">
           {outputs.map(item => <div className="website-output" key={item.id}>
-            <div className="website-output-name"><File size={19} /><strong>{item.name}</strong></div>
+            <div className="website-output-name"><FileIcon size={19} /><strong>{item.name}</strong></div>
             <small>{item.blob.size.toLocaleString()} bytes · {item.status === 'saved' ? 'Draft saved' : 'Not staged'}</small>
             <label>Destination for {item.name}
               <input value={item.destination} disabled={saving || item.status === 'saved'} onChange={event => {
