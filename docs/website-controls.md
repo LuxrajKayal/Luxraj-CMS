@@ -4,6 +4,14 @@ Select a repository and branch in **Repositories**. In **Website Controls**, add
 
 **Run** loads the application and associated inputs at the selected branch head. The runner can supply additional local and repository files. Each run stays bound to its original repository, branch and head. If the branch changes, open a fresh run to review the latest version. Leaving a run closes the application and its in-memory inputs and unstaged outputs. Saved drafts remain available in Source Control.
 
+## Execution modes
+
+The runner starts in **Internal Mode**. Switch to **Local Mode** for normal desktop file selection and browser downloads, then switch back without reloading the application. Existing in-memory application state and pending CMS outputs are retained; Local Mode does not save drafts or supply new repository files. Previously loaded data may remain in the application until it is closed.
+
+In Internal Mode, ordinary HTML file inputs (including programmatic clicks and supported `showPicker()` calls) open the existing repository picker. Choose a file, or multiple files for a multiple-selection input. The CMS supplies the actual bytes as a native FileList and dispatches input/change events. The input's accept attribute is shown as a hint, not an additional CMS extension restriction. Ordinary Blob and data URL anchor downloads are captured as generated outputs, including common detached-anchor exporters and immediate object URL revocation. A matching configured destination or unique matching repository input is suggested; confirm or change the destination and use Save Drafts and Source Control as usual.
+
+No application-specific code is necessary for these common patterns. Directory selection, File System Access APIs, remote server downloads and other custom download mechanisms are not transparently redirected; use Local Mode or the explicit bridge when needed. Normal browser restrictions still apply. The explicit bridge remains available in Internal Mode for advanced applications.
+
 ## File bridge for HTML applications
 
 The application can use embedded HTML, CSS and JavaScript and standard browser file APIs. The CMS adds `window.LuxrajCMS` before application scripts run. The bridge provides these methods.

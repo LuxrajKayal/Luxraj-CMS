@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { WebsiteControl, Workspace, WorkspaceRequest } from '../supabase/functions/_shared/workspace-contracts';
 import { MaintenancePage } from '../src/features/settings/MaintenancePage';
 import WebsiteControlsPage from '../src/features/website-controls/WebsiteControlsPage';
-import { controlDocument, outputBatch } from '../src/features/website-controls/bridge';
+import { controlDocument, downloadDestination, outputBatch } from '../src/features/website-controls/bridge';
 
 const request = vi.hoisted(() => vi.fn());
 const state = vi.hoisted(() => ({ workspace: {
@@ -112,4 +112,19 @@ test('maintenance confirms each operation, follows cleanup batches and reports r
   choose('Clear All Settings and Drafts');
   choose('Confirm cleanup');
   await screen.findByText('2 drafts cleared. CMS settings reset.');
+});
+
+test('captured downloads prefer configured destinations or a unique matching repository input', () => {
+  expect(downloadDestination('settings.json', [], ['site/settings/settings.json'])).toBe('site/settings/settings.json');
+  expect(downloadDestination('settings.json', ['other/settings.json'], ['site/settings/settings.json'])).toBe('other/settings.json');
+  expect(downloadDestination('settings.json', [], ['one/settings.json', 'two/settings.json'])).toBe('settings.json');
+  expect(downloadDestination('out.bin', [], ['site/settings/settings.json'])).toBe('out.bin');
+  expect(downloadDestination('out.bin', ['renamed.dat'], [])).toBe('renamed.dat');
+  const internal = controlDocument('<!doctype html><script>start()</script>', 'nonce');
+  const local = controlDocument('<!doctype html><script>start()</script>', 'nonce', 'local');
+  expect(internal).toContain('"nonce","internal"');
+  expect(local).toContain('"nonce","local"');
+  expect(internal.indexOf('native-pick')).toBeLessThan(internal.indexOf('start()'));
+  expect(internal).toContain('native-files');
+  expect(internal).toContain('DataTransfer');
 });
