@@ -345,6 +345,7 @@ test('requires explicit confirmation for exact saved revisions and preserves uns
   const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
   fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
   fireEvent.change(editor, { target: { value: '<h1>Still unsaved</h1>' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Source Control activity' }));
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Include index.html in commit' }));
   fireEvent.click(screen.getByRole('checkbox', { name: 'Include styles.css in commit' }));
   fireEvent.change(screen.getByLabelText('Commit message'), { target: { value: 'Update site' } });
@@ -380,7 +381,7 @@ test('shows remote merge history, follows its page cursor, and opens a committed
     throw new Error('Unexpected request');
   });
   open('/code-editor');
-  fireEvent.click(await screen.findByRole('tab', { name: 'History' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'History activity' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Load more commits' }));
   await screen.findByRole('button', { name: /Earlier external commit.*topic/ });
   expect(request).toHaveBeenCalledWith({ action: 'history', repositoryId: 1, branch: 'main', page: 2, head: merge.sha }, expect.any(AbortSignal));
@@ -640,6 +641,9 @@ test('inline Source Control opens a diff and returns to unsaved edits in the sam
   fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
   fireEvent.change(editor, { target: { value: 'Unsaved HTML' } });
   const panel = screen.getByRole('button', { name: 'Source Control panel' });
+  expect(screen.queryByRole('complementary', { name: 'Source Control' })).toBeNull();
+  fireEvent.click(panel);
+  expect(screen.getByRole('complementary', { name: 'Source Control' })).toBeTruthy();
   fireEvent.click(panel);
   expect(screen.queryByRole('complementary', { name: 'Source Control' })).toBeNull();
   fireEvent.click(panel);
@@ -711,11 +715,43 @@ test('every old history entry has a direct GitHub diff even if the CMS cannot lo
     throw new Error('Unexpected request');
   });
   open('/code-editor');
-  fireEvent.click(await screen.findByRole('tab', { name: 'History' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'History activity' }));
   const link = await screen.findByRole<HTMLAnchorElement>('link', { name: 'GitHub diff ↗' });
   expect(link.href).toBe(`https://github.com/owner/alpha/commit/${oldSha}`);
   expect(link.target).toBe('_blank');
   fireEvent.click(screen.getByRole('button', { name: /Older commit/ }));
   const fallback = await screen.findByRole<HTMLAnchorElement>('link', { name: 'View this commit on GitHub' });
   expect(fallback.href).toBe(link.href);
+});
+
+test('IDE activity switches sidebars, searches loaded folders and keeps unsaved edits intact', async () => {
+  request.mockImplementation(async (input: WorkspaceRequest) => {
+    if (input.action === 'load') return alpha;
+    if (input.action === 'tree') return { commit: tree.commit, entries: input.path.length ?
+      [{ name: 'main.css', kind: 'file' }] : [...tree.entries, { name: 'assets', kind: 'folder' }] };
+    if (input.action === 'changes') return { files: [] };
+    if (input.action === 'open_draft') return { current, draft: null };
+    throw new Error('Unexpected request');
+  });
+  open('/code-editor');
+  fireEvent.click(await screen.findByRole('button', { name: 'assets' }));
+  await screen.findByRole('button', { name: 'main.css' });
+  fireEvent.click(screen.getByRole('button', { name: 'Search files' }));
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Find loaded files' }), { target: { value: 'main.css' } });
+  fireEvent.click(screen.getByRole('button', { name: 'main.css' }));
+  const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' });
+  fireEvent.click(screen.getByRole('button', { name: 'Enable editing' }));
+  fireEvent.change(editor, { target: { value: 'body { color: red; }' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Source Control activity' }));
+  expect(screen.queryByRole('complementary', { name: 'Files' })).toBeNull();
+  expect(screen.getByRole('complementary', { name: 'Source Control' })).toBeTruthy();
+  expect(editor.value).toBe('body { color: red; }');
+  fireEvent.click(screen.getByRole('button', { name: 'Focus' }));
+  expect(screen.queryByRole('complementary', { name: 'Source Control' })).toBeNull();
+  expect(editor.value).toBe('body { color: red; }');
+  fireEvent.click(screen.getByRole('button', { name: 'Exit focus' }));
+  fireEvent.click(screen.getByRole('button', { name: 'File explorer' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Close current file' }));
+  fireEvent.click(screen.getByRole('button', { name: 'main.css' }));
+  expect((await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Monaco source' })).value).toBe('body { color: red; }');
 });

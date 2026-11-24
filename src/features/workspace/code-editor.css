@@ -1,0 +1,95 @@
+/* Code Editor only: flat IDE chrome around the existing Monaco and Git workflows. */
+.ide-workbench { --ide-bg: #1e1e1e; --ide-sidebar: #181818; --ide-bar: #252526; --ide-line: #373737; --ide-ink: #d4d4d4; --ide-muted: #a0a0a0; --ide-accent: #a99bf5; --surface: var(--ide-sidebar); --panel: var(--ide-sidebar); --ink: var(--ide-ink); --border: var(--ide-line); background: var(--ide-bg); color: var(--ide-ink); color-scheme: dark; font-size: 13px; }
+.ide-workbench .module-topbar { background: var(--ide-sidebar); min-height: 36px; gap: .35rem .65rem; padding: .25rem .7rem; border-bottom: 1px solid var(--ide-line); }
+.ide-workbench .module-topbar h1 { font-size: .86rem; font-weight: 600; }
+.ide-workbench a { color: #b9c9f0; }
+.ide-workbench .ide-repository { display: inline-flex; gap: .4rem; align-items: center; text-decoration: none; color: var(--ide-ink); min-width: 0; overflow-wrap: anywhere; }
+.ide-repository svg { color: var(--ide-accent); flex: none; }
+.ide-spacer { flex: 1; min-width: 0; }
+.workspace .ide-workbench .module-topbar button, .workspace .ide-workbench .module-topbar select,
+.workspace .ide-workbench .module-panel button, .workspace .ide-workbench .ide-document-header button,
+.workspace .ide-workbench .editor-file-toolbar button, .workspace .ide-workbench .ide-empty button {
+  min-height: 28px; padding: .25rem .45rem; font-size: 12px; color: var(--ide-ink); border-color: #414141; border-radius: 3px; background: var(--ide-bar);
+}
+.workspace .ide-workbench .module-topbar button:hover:not(:disabled), .workspace .ide-workbench .module-panel button:hover:not(:disabled),
+.workspace .ide-workbench .ide-document-header button:hover:not(:disabled) { background: #363636; }
+.workspace .ide-workbench .module-topbar button[aria-pressed=true], .workspace .ide-workbench .module-topbar button[aria-expanded=true],
+.workspace .ide-workbench .module-panel button[aria-selected=true] { background: #363442; border-color: #6d63a8; color: #e7e2ff; }
+.ide-panes { overflow: hidden; }
+.ide-activity { order: 0; display: flex; flex-direction: column; align-items: stretch; flex: 0 0 46px; background: var(--ide-sidebar); border-right: 1px solid var(--ide-line); padding-block: .25rem; }
+.workspace .ide-workbench .ide-activity button, .ide-workbench .ide-activity a { height: 47px; width: 100%; padding: 0; border: 0; border-left: 2px solid transparent; border-radius: 0; background: transparent; color: #929292; display: flex; align-items: center; justify-content: center; position: relative; text-decoration: none; }
+.workspace .ide-workbench .ide-activity button svg { margin: 0; }
+.workspace .ide-workbench .ide-activity button[aria-pressed=true] { border-left-color: var(--ide-accent); color: #f1f1f1; background: #252525; }
+.workspace .ide-workbench .ide-activity button:hover, .ide-workbench .ide-activity a:hover { color: #fff; background: #292929; }
+.ide-activity-count { position: absolute; bottom: 5px; right: 4px; border-radius: 9px; background: #6756bd; color: white; font-size: 10px; min-width: 15px; padding: 1px 3px; text-align: center; }
+.ide-file-panel, .ide-changes-panel { flex: 0 0 clamp(12rem, 22%, 19rem); min-width: 0; min-height: 0; display: flex; background: var(--ide-sidebar); }
+.ide-file-panel { order: 1; border-right: 1px solid var(--ide-line); }
+.ide-changes-left .ide-changes-panel { order: 1; border-right: 1px solid var(--ide-line); }
+.ide-changes-right .ide-changes-panel { order: 3; border-left: 1px solid var(--ide-line); }
+.ide-file-panel[hidden], .ide-changes-panel[hidden], .ide-workbench [hidden] { display: none !important; }
+.ide-panes > .editor-center { order: 2; background: var(--ide-bg); }
+.ide-file-panel > .module-panel, .ide-changes-panel > .module-panel { flex: 1; width: 100%; overflow: hidden; }
+.ide-workbench .module-panel h2 { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 500; padding: .8rem .8rem .5rem; border-bottom: 0; color: #c8c8c8; }
+.ide-workbench .module-panel__body { flex: 1; padding: .3rem .4rem .8rem; overflow: auto; }
+.ide-sidebar-tools { display: flex; align-items: center; justify-content: space-between; gap: .3rem; padding: .2rem .3rem; border-bottom: 1px solid var(--ide-line); }
+.ide-sidebar-tools strong { font-size: 11px; overflow-wrap: anywhere; }
+.workspace .ide-workbench .ide-sidebar-tools button { background: transparent; border: 0; }
+.ide-tree { margin: .15rem 0; padding-left: .65rem; }
+.ide-tree > li { min-width: 0; }
+.workspace .ide-workbench .ide-tree button { width: 100%; display: flex; align-items: center; gap: .3rem; padding: .2rem .25rem; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 0; min-height: 25px; overflow-wrap: anywhere; }
+.workspace .ide-workbench .ide-tree button svg { flex: none; margin: 0; }
+.workspace .ide-workbench .ide-tree button:hover:not(:disabled) { background: #2a2d2e; }
+.workspace .ide-workbench .ide-tree button[aria-current=true] { background: #373442; border-color: #4e4866; }
+.ide-folder-icon { color: #c6a36b; }
+.ide-file-icon { color: #a9b8c9; }
+.ide-language-html { color: #e68d57; }
+.ide-language-css { color: #7eafe0; }
+.ide-language-javascript { color: #e2ca6c; }
+.ide-file-name { flex: 1; min-width: 0; }
+.ide-file-name small { display: block; color: var(--ide-muted); font-size: 10px; overflow-wrap: anywhere; }
+.ide-dirty-mark { color: #e2c07e; font-size: 10px; }
+.ide-draft-mark { color: #d7bb87; font-size: 11px; }
+.ide-muted { color: var(--ide-muted); font-size: 11px; line-height: 1.5; padding: .2rem .35rem; }
+.ide-search { display: grid; gap: .35rem; }
+.workspace .ide-workbench .ide-search input, .ide-workbench .commit-controls textarea, .ide-workbench .commit-controls input {
+  box-sizing: border-box; min-width: 0; width: 100%; color: var(--ide-ink); background: #242424; border: 1px solid #494949; border-radius: 2px; padding: .4rem; font: inherit; }
+.ide-workbench .editor-document { overflow: hidden; }
+.ide-workbench .ide-document-header { display: flex; align-items: stretch; justify-content: space-between; flex-wrap: wrap; background: var(--ide-sidebar); border-bottom: 1px solid var(--ide-line); min-height: 36px; }
+.ide-document-tab { display: flex; align-items: center; gap: .4rem; min-width: 0; padding: .4rem .6rem; background: var(--ide-bg); border-top: 2px solid var(--ide-accent); border-right: 1px solid var(--ide-line); }
+.ide-document-tab strong { font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.ide-document-tab > svg { color: #e68d57; flex: none; }
+.ide-document-actions { display: flex; flex-wrap: wrap; gap: .2rem; align-items: center; padding: .15rem .35rem; }
+.workspace .ide-workbench .ide-document-header button { background: transparent; border-color: transparent; }
+.workspace .ide-workbench .ide-document-header button svg { vertical-align: middle; }
+.ide-document-path { display: flex; justify-content: space-between; gap: .5rem; flex-wrap: wrap; padding: .35rem .75rem; font-size: 11px; color: #b7b7b7; border-bottom: 1px solid #2e2e2e; }
+.ide-document-path nav, .ide-document-path nav span { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; overflow-wrap: anywhere; }
+.ide-document-state { color: #c6ad81; }
+.ide-workbench .editor-file-toolbar { background: var(--ide-sidebar); color: var(--ide-ink); border-color: var(--ide-line); }
+.ide-workbench .editor-file-toolbar [role=status] { color: #b7c9ef; }
+.ide-workbench .editor-document > p { font-size: 12px; }
+.ide-empty { margin: auto; text-align: center; color: var(--ide-muted); max-width: 24rem; padding: 1rem; }
+.ide-empty > svg { color: #595959; }
+.ide-empty h2 { font-size: 1.1rem; color: #bdbdbd; font-weight: 500; }
+.ide-empty p { font-size: 12px; }
+.ide-workbench .module-panel [role=tablist] { display: flex; border-bottom: 1px solid var(--ide-line); margin-bottom: .65rem; gap: .2rem; }
+.workspace .ide-workbench .module-panel [role=tab] { flex: 1; background: transparent; border: 0; border-radius: 0; border-bottom: 1px solid transparent; }
+.workspace .ide-workbench .module-panel [role=tab][aria-selected=true] { color: #eee; border-bottom-color: var(--ide-accent); background: transparent; }
+.ide-workbench .commit-controls { border-color: var(--ide-line); }
+.workspace .ide-workbench .commit-controls > button { background: #5144b2; color: #fff; border-color: #5144b2; }
+.ide-workbench .commit-controls dialog { background: #242424; color: var(--ide-ink); }
+.ide-workbench .commit-graph .commit-github-link, .ide-workbench .graph-refs { color: #b9c9f0; }
+.ide-workbench .graph-refs > span { background: #39354f; }
+.ide-workbench .history-details { border-color: var(--ide-line); }
+.ide-workbench .module-panel .source-tree button:not(.ide-file-row):not(.ide-folder-row) { background: transparent; border-color: transparent; }
+.ide-workbench .module-panel .source-tree button[aria-pressed=true] { background: #373442; }
+.ide-workbench .module-panel [role=alert] { color: #f5b0ad; overflow-wrap: anywhere; }
+.ide-statusbar { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; min-height: 25px; padding: .25rem .65rem; background: var(--ide-sidebar); border-top: 1px solid var(--ide-line); font-size: 11px; color: #ccc; }
+.ide-statusbar > span { display: flex; align-items: center; gap: .25rem; }
+.ide-statusbar > span:first-child { color: #c5b9ff; }
+.ide-focus .ide-activity { display: none; }
+@media(max-width: 48rem) {
+  .ide-file-panel, .ide-changes-panel { position: absolute; z-index: 1; inset: 0 auto 0 42px; width: min(19rem, calc(100% - 42px)); box-shadow: 4px 0 15px #0007; }
+  .ide-changes-right .ide-changes-panel { inset: 0 0 0 auto; }
+  .ide-activity { flex-basis: 42px; }
+  .ide-document-actions button { font-size: 11px !important; }
+}

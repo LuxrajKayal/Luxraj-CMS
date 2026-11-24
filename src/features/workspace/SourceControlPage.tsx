@@ -11,9 +11,10 @@ const MonacoDiff = lazy(() => import('./MonacoViews').then(module => ({ default:
 const FileDraftComparison = lazy(() => import('../file-manager/FileComparison').then(module => ({ default: module.FileDraftComparison })));
 type Scope = { repositoryId: number; branch: string };
 
-export function ChangedFiles({ repositoryId, branch, version, active, onOpen, refresh, onCommitted }: Scope & {
+export function ChangedFiles({ repositoryId, branch, version, active, onOpen, refresh, onCommitted, onFiles }: Scope & {
   version: number; active: string | null; onOpen(path: string): void; refresh(): void;
   onCommitted?(receipt: CommitReceipt): void;
+  onFiles?(files: DraftSummary[]): void;
 }) {
   const [files, setFiles] = useState<DraftSummary[] | null>(null);
   const [maximumFiles, setMaximumFiles] = useState(20);
@@ -25,15 +26,17 @@ export function ChangedFiles({ repositoryId, branch, version, active, onOpen, re
     setFiles(null);
     setError('');
     setSelected([]);
+    onFiles?.([]);
     workspaceRequest({ action: 'changes', repositoryId, branch }, controller.signal)
       .then(result => {
         if (controller.signal.aborted) return;
         setFiles(result.files);
+        onFiles?.(result.files);
         setMaximumFiles(result.maximumFiles ?? 20);
       })
       .catch(error => { if (!controller.signal.aborted) setError(workspaceError(error)); });
     return () => controller.abort();
-  }, [repositoryId, branch, version]);
+  }, [repositoryId, branch, version, onFiles]);
 
   return <>
     <div className="workspace-actions">

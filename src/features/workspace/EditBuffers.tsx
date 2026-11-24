@@ -12,6 +12,7 @@ export type WorkspaceView = {
   historyDiff: { sha: string; path: string } | null;
   tab: 'changes' | 'history';
   showFiles: boolean; showChanges: boolean; focus: boolean;
+  changesSide?: 'left' | 'right';
 };
 type Snapshot = {
   buffers: Record<string, EditBuffer>;

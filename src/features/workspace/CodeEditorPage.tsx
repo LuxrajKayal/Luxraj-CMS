@@ -1,75 +1,83 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { FileCode2, Folder as FolderIcon, GitBranch, Maximize, PanelLeft, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Code2, FileCode2, Files, Folder as FolderIcon, FolderOpen, GitBranch, History, Maximize, Minimize2, PanelRight, RefreshCw, Search, Settings } from 'lucide-react';
 import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { ChangedFiles, DraftDiff } from './SourceControlPage';
 import { HistoryDiff, HistoryPanel, type HistoryFile } from './HistoryPanel';
-import type { CommitReceipt } from '../../../supabase/functions/_shared/workspace-contracts';
+import type { CommitReceipt, DraftSummary } from '../../../supabase/functions/_shared/workspace-contracts';
 import { workspaceError, workspaceRequest, type Directory, type Selection, type TreeEntry } from './api';
 import { BranchPicker, useWorkspace } from './WorkspaceLayout';
 import { DraftEditor } from './DraftEditor';
 import { useEditBuffers } from './EditBuffers';
+import './code-editor.css';
 
 type Context = { repositoryId: number; branch: string };
 type OpenFile = (path: string[]) => void;
 
-function DirectoryList({ context, path, commit, entries, openFile }: {
-  context: Context; path: string[]; commit: string; entries: TreeEntry[]; openFile: OpenFile;
-}) {
-  if (!entries.length) return <p>No folders or supported source files here.</p>;
-  return (
-    <ul className="source-tree">
-      {entries.map(entry => (
-        <li key={entry.name}>
-          {entry.kind === 'folder'
-            ? <Folder context={context} path={[...path, entry.name]} commit={commit} openFile={openFile} />
-            : <button type="button" onClick={() => openFile([...path, entry.name])}><FileCode2 size={15} aria-hidden="true" />{entry.name}</button>}
-        </li>
-      ))}
-    </ul>
-  );
+type TreePresentation = {
+  active: string; dirty: Set<string>; drafts: Set<string>;
+  onDirectory(path: string[], commit: string, entries: TreeEntry[]): void;
+};
+function fileLanguage(path: string) {
+  return /\.html?$/i.test(path) ? 'HTML' : /\.css$/i.test(path) ? 'CSS' :
+    /\.(js|mjs|cjs)$/i.test(path) ? 'JavaScript' : 'Plain text';
 }
-
-function Folder({ context, path, commit, openFile }: {
+function FileRow({ path, openFile, active, dirty, drafts, detail }: {
+  path: string[]; openFile: OpenFile; detail?: boolean;
+} & Pick<TreePresentation, 'active' | 'dirty' | 'drafts'>) {
+  const full = path.join('/');
+  const state = dirty.has(full) ? 'Unsaved changes' : drafts.has(full) ? 'Saved draft' : '';
+  return <button type="button" className="ide-file-row" aria-label={path.at(-1)}
+    aria-current={active === full ? 'true' : undefined} title={full + (state ? ' · ' + state : '')} onClick={() => openFile(path)}>
+    <FileCode2 size={16} className={'ide-file-icon ide-language-' + fileLanguage(full).toLowerCase().replace(' ', '-')} aria-hidden="true" />
+    <span className="ide-file-name">{path.at(-1)}{detail && path.length > 1 && <small>{path.slice(0, -1).join('/')}</small>}</span>
+    {state && <span className={dirty.has(full) ? 'ide-dirty-mark' : 'ide-draft-mark'} aria-hidden="true">{dirty.has(full) ? '●' : 'M'}</span>}
+  </button>;
+}
+function DirectoryList({ context, path, commit, entries, openFile, ...presentation }: {
+  context: Context; path: string[]; commit: string; entries: TreeEntry[]; openFile: OpenFile;
+} & TreePresentation) {
+  if (!entries.length) return <p className="ide-muted">No folders or supported source files here.</p>;
+  return <ul className="source-tree ide-tree">
+    {entries.slice().sort((a,b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'folder' ? -1 : 1).map(entry => <li key={entry.name}>
+      {entry.kind === 'folder'
+        ? <Folder context={context} path={[...path, entry.name]} commit={commit} openFile={openFile} {...presentation} />
+        : <FileRow path={[...path, entry.name]} openFile={openFile} {...presentation} />}
+    </li>)}
+  </ul>;
+}
+function Folder({ context, path, commit, openFile, ...presentation }: {
   context: Context; path: string[]; commit: string; openFile: OpenFile;
-}) {
+} & TreePresentation) {
   const [expanded, setExpanded] = useState(false);
   const [entries, setEntries] = useState<TreeEntry[] | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
   async function toggle() {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
+    if (expanded) { setExpanded(false); return; }
     setExpanded(true);
     if (entries) return;
     setError('');
     setLoading(true);
     try {
-      setEntries((await workspaceRequest({ action: 'tree', ...context, path, commit })).entries);
-    } catch (error) {
-      setError(workspaceError(error));
-    } finally {
-      setLoading(false);
-    }
+      const result = await workspaceRequest({ action: 'tree', ...context, path, commit });
+      setEntries(result.entries);
+      presentation.onDirectory(path, commit, result.entries);
+    } catch (error) { setError(workspaceError(error)); }
+    finally { setLoading(false); }
   }
-
-  return (
-    <>
-      <button type="button" aria-expanded={expanded} onClick={() => void toggle()} disabled={loading}>
-        <FolderIcon size={15} aria-hidden="true" />{path.at(-1)}
-      </button>
-      {expanded && (
-        <>
-          {loading && <p role="status">Loading folder…</p>}
-          {error && <p role="alert">{error}</p>}
-          {entries && <DirectoryList {...{ context, path, commit, entries, openFile }} />}
-        </>
-      )}
-    </>
-  );
+  return <>
+    <button type="button" className="ide-folder-row" aria-expanded={expanded} onClick={() => void toggle()} disabled={loading}>
+      {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
+      {expanded ? <FolderOpen size={16} className="ide-folder-icon" aria-hidden="true" /> : <FolderIcon size={16} className="ide-folder-icon" aria-hidden="true" />}
+      <span>{path.at(-1)}</span>
+    </button>
+    {expanded && <>
+      {loading && <p role="status">Loading folder…</p>}
+      {error && <p role="alert">{error}</p>}
+      {entries && <DirectoryList {...{ context, path, commit, entries, openFile }} {...presentation} />}
+    </>}
+  </>;
 }
 
 function Explorer({ selection, repository }: { selection: Selection & { branch: string }; repository: string }) {
@@ -81,7 +89,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const targetPath = target?.repositoryId === repositoryId && target.branch === branch && typeof target.path === 'string' &&
     target.path.length > 0 && target.path.length <= 1024 ? target.path : null;
   const targetReview = targetPath && target.review === true ? targetPath : null;
-  const { views, putView } = useEditBuffers();
+  const { views, putView, buffers, positions, editing } = useEditBuffers();
   const workspaceKey = JSON.stringify([repositoryId, branch]);
   const savedView = views[workspaceKey];
   const [tree, setTree] = useState<Directory | null>(null);
@@ -99,10 +107,56 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const [showFiles, setShowFiles] = useState(() => savedView?.showFiles ?? true);
   const [showChanges, setShowChanges] = useState(() =>
     targetReview ? !(window.matchMedia?.('(max-width: 48rem)').matches ?? false)
-      : savedView?.showChanges ?? !(window.matchMedia?.('(max-width: 65rem)').matches ?? false));
+      : savedView?.showChanges ?? false);
   const [focus, setFocus] = useState(() => targetReview ? false : savedView?.focus ?? false);
   const { refresh: refreshWorkspace, saving } = useWorkspace();
   const commit = tree?.commit;
+  const [changesSide, setChangesSide] = useState<'left' | 'right'>(() => savedView?.changesSide ?? (targetReview ? 'right' : 'left'));
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [loaded, setLoaded] = useState<Record<string, { commit: string; entries: TreeEntry[] }>>({});
+  const [draftPaths, setDraftPaths] = useState<string[]>([]);
+  const onDirectory = useCallback((path: string[], head: string, entries: TreeEntry[]) => {
+    setLoaded(current => ({ ...current, [path.join('/')]: { commit: head, entries } }));
+  }, []);
+  const onDrafts = useCallback((files: DraftSummary[]) => setDraftPaths(files.map(item => item.path)), []);
+  const dirty = new Set(Object.keys(buffers).flatMap(key => {
+    try {
+      const [repo, ref, path] = JSON.parse(key);
+      return repo === repositoryId && ref === branch && typeof path === 'string' ? [path] : [];
+    } catch { return []; }
+  }));
+  const presentation: TreePresentation = { active: file?.join('/') ?? '', dirty, drafts: new Set(draftPaths), onDirectory };
+  const searchable = new Map<string, string[]>();
+  if (tree) {
+    const folders = { ...loaded, '': { commit: tree.commit, entries: tree.entries } };
+    for (const [folder, listing] of Object.entries(folders)) {
+      if (listing.commit !== tree.commit) continue;
+      for (const entry of listing.entries) if (entry.kind === 'file') {
+        const path = [...(folder ? folder.split('/') : []), entry.name];
+        searchable.set(path.join('/'), path);
+      }
+    }
+  }
+  const results = [...searchable.values()].filter(path => path.join('/').toLowerCase().includes(search.trim().toLowerCase()));
+  const fileKey = file ? JSON.stringify([repositoryId, branch, file.join('/')]) : '';
+  const cursor = positions[fileKey]?.selection;
+  const activeDocument = !!file && !diff && !historyDiff;
+  function openActivity(view: 'files' | 'search' | 'changes' | 'history') {
+    setFocus(false);
+    if (view === 'files' || view === 'search') {
+      const same = showFiles && !focus && searchOpen === (view === 'search');
+      setSearchOpen(view === 'search');
+      setShowFiles(!same);
+      if (changesSide === 'left') setShowChanges(false);
+    } else {
+      const same = showChanges && !focus && changesSide === 'left' && tab === view;
+      setTab(view);
+      setChangesSide('left');
+      setShowFiles(false);
+      setShowChanges(!same);
+    }
+  }
 
   useEffect(() => {
     if (target) void navigate(location.pathname, { replace: true, state: null });
@@ -110,8 +164,8 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
 
   // This state lives above the route, so leaving for Settings does not reset the editor.
   useEffect(() => {
-    putView(workspaceKey, { file, diff, historyDiff, tab, showFiles, showChanges, focus });
-  }, [workspaceKey, file, diff, historyDiff, tab, showFiles, showChanges, focus, putView]);
+    putView(workspaceKey, { file, diff, historyDiff, tab, showFiles, showChanges, focus, changesSide });
+  }, [workspaceKey, file, diff, historyDiff, tab, showFiles, showChanges, focus, changesSide, putView]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -129,6 +183,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   }
 
   function refreshTree() {
+    setLoaded({});
     setFile(null);
     setTree(null);
     setTreeError('');
@@ -142,6 +197,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
     setHistoryDiff(null);
     setChangesVersion(value => value + 1);
     setHistoryVersion(value => value + 1);
+    setLoaded({});
     setTree(null);
     setTreeError('');
     setRefresh(value => value + 1);
@@ -165,40 +221,61 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   }
 
   return (
-    <div className="module-stack">
+    <div className="module-stack ide-workbench">
       <ModuleTopbar title="Code Editor">
-        <button type="button" aria-label="File explorer" title="File explorer" aria-expanded={showFiles && !focus}
-          onClick={() => { setFocus(false); setShowFiles(focus || !showFiles); }}><PanelLeft size={17} aria-hidden="true" /></button>
-        <button type="button" aria-label="Source Control panel" title="Source Control panel" aria-expanded={showChanges && !focus}
-          onClick={() => { setFocus(false); setShowChanges(focus || !showChanges); }}><GitBranch size={17} aria-hidden="true" /></button>
-        <Link to="/repositories" title="Switch repository">{repository}</Link>
+        <Link className="ide-repository" to="/repositories" title="Switch repository"><Code2 size={17} aria-hidden="true" />{repository}</Link>
         <BranchPicker />
+        <span className="ide-spacer" />
+        <button type="button" aria-label="Source Control panel" title="Toggle secondary Source Control panel" aria-expanded={showChanges && !focus && changesSide === 'right'}
+          onClick={() => { setFocus(false); setChangesSide('right'); setShowChanges(focus || changesSide !== 'right' || !showChanges); }}><PanelRight size={18} aria-hidden="true" /></button>
         <button type="button" aria-pressed={focus} onClick={() => setFocus(value => !value)} title="Editor focus">
-          <Maximize size={16} aria-hidden="true" /><span>{focus ? 'Exit focus' : 'Focus'}</span>
+          {focus ? <Minimize2 size={17} aria-hidden="true" /> : <Maximize size={17} aria-hidden="true" />}<span>{focus ? 'Exit focus' : 'Focus'}</span>
         </button>
-        <button type="button" onClick={refreshWorkspace} disabled={saving} aria-label="Refresh workspace" title="Refresh workspace">
-          <RefreshCw size={16} aria-hidden="true" />
-        </button>
+        <button type="button" onClick={refreshWorkspace} disabled={saving} aria-label="Refresh workspace" title="Refresh workspace"><RefreshCw size={17} aria-hidden="true" /></button>
       </ModuleTopbar>
-      <div className="editor-panes">
-        <ModulePanel title="Files" hidden={!showFiles || focus}>
-          <button type="button" onClick={refreshTree} disabled={!tree && !treeError}>Refresh file tree</button>
-          {treeError && <p role="alert">{treeError}</p>}
-          {!tree && !treeError && <p role="status">Loading file tree…</p>}
-          {tree && <DirectoryList context={{ repositoryId, branch }} path={[]} commit={tree.commit}
-            entries={tree.entries} openFile={openFile} />}
-        </ModulePanel>
+      <div className={'editor-panes ide-panes' + (focus ? ' ide-focus' : '') + (changesSide === 'left' ? ' ide-changes-left' : ' ide-changes-right')}>
+        <nav className="ide-activity" aria-label="Editor activity">
+          <button type="button" aria-label="File explorer" title="Explorer" aria-pressed={showFiles && !focus && !searchOpen} onClick={() => openActivity('files')}><Files size={23} aria-hidden="true" /></button>
+          <button type="button" aria-label="Search files" title="Search loaded files" aria-pressed={showFiles && !focus && searchOpen} onClick={() => openActivity('search')}><Search size={23} aria-hidden="true" /></button>
+          <button type="button" aria-label="Source Control activity" title="Source Control" aria-pressed={showChanges && !focus && changesSide === 'left' && tab === 'changes'} onClick={() => openActivity('changes')}>
+            <GitBranch size={23} aria-hidden="true" />{draftPaths.length > 0 && <span className="ide-activity-count" aria-hidden="true">{draftPaths.length}</span>}
+          </button>
+          <button type="button" aria-label="History activity" title="Commit history" aria-pressed={showChanges && !focus && changesSide === 'left' && tab === 'history'} onClick={() => openActivity('history')}><History size={23} aria-hidden="true" /></button>
+          <span className="ide-spacer" />
+          <Link to="/settings" title="CMS settings" aria-label="CMS settings"><Settings size={22} aria-hidden="true" /></Link>
+        </nav>
+        <div className="ide-file-panel" hidden={!showFiles || focus}>
+          <ModulePanel title="Files">
+            <div className="ide-sidebar-tools">
+              <strong>{searchOpen ? 'SEARCH' : repository.split('/').at(-1)?.toUpperCase()}</strong>
+              <button type="button" aria-label="Refresh file tree" title="Refresh file tree" onClick={refreshTree} disabled={!tree && !treeError}><RefreshCw size={15} aria-hidden="true" /></button>
+            </div>
+            {treeError && <p role="alert">{treeError}</p>}
+            {!tree && !treeError && <p role="status">Loading file tree…</p>}
+            <div hidden={searchOpen}>
+              {tree && <DirectoryList key={tree.commit} context={{ repositoryId, branch }} path={[]} commit={tree.commit}
+                entries={tree.entries} openFile={openFile} {...presentation} />}
+            </div>
+            {searchOpen && <div className="ide-search">
+              <input type="search" aria-label="Find loaded files" placeholder="Find file by name or path" value={search} onChange={event => setSearch(event.target.value)} autoFocus />
+              <p className="ide-muted">Searches the root and folders already opened in this session.</p>
+              <ul className="source-tree ide-tree">{results.map(path => <li key={path.join('/')}><FileRow path={path} openFile={openFile} detail {...presentation} /></li>)}</ul>
+              {results.length === 0 && <p className="ide-muted">No matching loaded files.</p>}
+            </div>}
+          </ModulePanel>
+        </div>
         <section className="editor-center" aria-label="Editor workspace">
           <div className="editor-document" hidden={!!diff || !!historyDiff}>
-            {!file && <p className="workspace-placeholder">Choose an HTML, CSS, or JavaScript file to view its source.</p>}
+            {!file && <div className="ide-empty"><Code2 size={64} strokeWidth={1} aria-hidden="true" /><h2>Start editing</h2><p>Choose an HTML, CSS, or JavaScript file to view its source.</p><button type="button" onClick={() => { setFocus(false); setShowFiles(true); setSearchOpen(false); if (changesSide === 'left') setShowChanges(false); }}>Open file explorer</button></div>}
             {file && commit && <DraftEditor key={JSON.stringify([file, commit])}
-              {...{ repositoryId, branch, path: file, commit }} onSaved={() => setChangesVersion(value => value + 1)} />}
+              {...{ repositoryId, branch, path: file, commit }} onClose={() => setFile(null)} onSaved={() => setChangesVersion(value => value + 1)} />}
           </div>
           {diff && <DraftDiff key={diff} file={diff} {...{ repositoryId, branch }} onBack={() => setDiff(null)} />}
           {historyDiff && <HistoryDiff key={JSON.stringify(historyDiff)} file={historyDiff}
             {...{ repositoryId, branch, repository }} onBack={() => setHistoryDiff(null)} />}
         </section>
-        <ModulePanel title="Source Control" hidden={!showChanges || focus}>
+        <div className="ide-changes-panel" hidden={!showChanges || focus}>
+        <ModulePanel title="Source Control">
           <div className="workspace-actions" role="tablist" aria-label="Source Control view" onKeyDown={event => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
@@ -226,7 +303,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
           </div>}
           <div role="tabpanel" id={`${tabGroupId}-panel`} aria-labelledby={`${tabGroupId}-${tab}`}>
             {tab === 'changes'
-            ? <ChangedFiles {...{ repositoryId, branch }} version={changesVersion} active={diff} onCommitted={committed}
+            ? <ChangedFiles {...{ repositoryId, branch }} version={changesVersion} active={diff} onCommitted={committed} onFiles={onDrafts}
                 onOpen={path => {
                   setHistoryDiff(null);
                   setDiff(path);
@@ -240,7 +317,15 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
                 }} />}
           </div>
         </ModulePanel>
+        </div>
       </div>
+      <footer className="ide-statusbar" aria-label="Editor status">
+        <span><GitBranch size={14} aria-hidden="true" />{branch}</span>
+        <span>{dirty.size ? dirty.size + ' unsaved' : 'Workspace ready'}</span>
+        <span className="ide-spacer" />
+        {activeDocument && <><span>Ln {cursor?.endLineNumber ?? 1}, Col {cursor?.endColumn ?? 1}</span><span>UTF-8</span><span>{fileLanguage(file!.join('/'))}</span><span>{editing[fileKey] ? 'Editing enabled' : 'Read-only'}</span></>}
+        {(diff || historyDiff) && <span>{diff ? 'Draft comparison' : 'Historical comparison'}</span>}
+      </footer>
     </div>
   );
 }
