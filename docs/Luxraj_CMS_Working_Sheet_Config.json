@@ -170,6 +170,11 @@
       "cms_page_type_key": "BlogPosting"
     },
     {
+      "page_type": "Article - News",
+      "category_key": "blog",
+      "cms_page_type_key": "NewsArticle"
+    },
+    {
       "page_type": "Editorial - Blog",
       "category_key": "blog",
       "cms_page_type_key": "opinionEditorial"

@@ -5,7 +5,15 @@ import config from '../docs/Luxraj_CMS_Working_Sheet_Config.json';
 test('filters page options by category and reproduces the JSON generator output', () => {
   expect(pagesFor('blog').map(page => page.cms_page_type_key)).toContain('BlogPosting');
   expect(pagesFor('blog').map(page => page.cms_page_type_key)).toContain('QAPage');
-  expect(identification('blog', 'NewsArticle')).toBeNull();
+  expect(pagesFor('blog').filter(page => page.cms_page_type_key === 'NewsArticle')).toHaveLength(1);
+  expect(pagesFor('news').filter(page => page.cms_page_type_key === 'NewsArticle')).toHaveLength(1);
+  expect(identification('blog', 'NewsArticle')).toEqual({
+    lang: 'en', 'data-cms-seo': 'true', 'data-cms-website': 'blog', 'data-cms-seo-type': 'NewsArticle',
+  });
+  expect(identification('news', 'NewsArticle')).toEqual({
+    lang: 'en', 'data-cms-seo': 'true', 'data-cms-website': 'news', 'data-cms-seo-type': 'NewsArticle',
+  });
+  expect(identification('portfolio', 'NewsArticle')).toBeNull();
   expect(identification('universal', 'QAPage')).toBeNull();
   expect(openingTag(identification(defaultSelection.category_key, defaultSelection.cms_page_type_key)!))
     .toBe(config.generator.current_boilerplate);
