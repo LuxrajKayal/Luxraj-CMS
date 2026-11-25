@@ -266,7 +266,7 @@ test('copies boilerplate, reviews replacement, saves the exact draft revision, a
     });
     open('/code-injector');
     fireEvent.change(await screen.findByLabelText('Website Type'), { target: { value: 'blog' } });
-    expect(screen.queryByRole('option', { name: 'Article - News' })).toBeNull();
+    expect(screen.getByRole('option', { name: 'Article - News' }).getAttribute('value')).toBe('NewsArticle');
     fireEvent.change(screen.getByLabelText('Page Type'), { target: { value: 'BlogPosting' } });
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     await screen.findByText('Boilerplate copied.');
