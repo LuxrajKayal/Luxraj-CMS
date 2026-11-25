@@ -2,9 +2,9 @@
 
 > **For the project owner.** This is a human-readable progress and verification guide, **not a Codex prompt or an implementation specification**. The approved requirements, architecture decisions, and metadata catalogs remain in [README.md](./README.md).
 >
-> **Status, November 23, 2026:** **Tasks 0–16 are completed and owner-accepted**. **P-1 Universal File Manager** is implemented on `codex-development` and awaits deployed integration testing and owner acceptance. Tasks **17–20** remain approved future phases.
+> **Status, November 25, 2026:** **Tasks 0–16, P-1 Universal File Manager, Website Controls and the Code Editor redesign are completed and owner-accepted.** Revised Tasks 17–18 are agreed planning, implementation pending. Tasks 19–20 await separate roadmap decisions; Task 21 remains discussion only.
 
-**Website Controls** extends the File Manager and Source Control workflow with repository- and branch-scoped HTML applications. The [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) defines this work independently of Tasks 17–20. Deployment and live acceptance are separate.
+**Website Controls / HTML Sandbox** is implemented, deployed and owner-accepted. See the [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) and [application bridge guide](docs/website-controls.md).
 
 ## What we are building
 
@@ -12,7 +12,7 @@ Luxraj CMS is a browser-based system for managing multiple GitHub repositories a
 
 **Our order of work:** First create a working, secure CMS foundation. Then add agreed feature modules, beginning with Boilerplate Generator and Code Injector. We will use **Codex in VS Code to implement approved tasks**, while the owner reviews the results and decides when to advance.
 
-The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones**. Tasks 0–16 are the accepted completed baseline; P-1 is the next unnumbered prerequisite before the remaining Tasks 17–20. Task 21 remains outside this approved roadmap.
+Tasks 0–16 and the additional unnumbered completed work form the accepted baseline. Revised Tasks 17–18 are next; Tasks 19–20 are awaiting separate decisions, and Task 21 remains outside the approved roadmap.
 
 ## Progress at a glance
 
@@ -23,8 +23,10 @@ The roadmap now covers **21 numbered tasks (0–20)** across **seven milestones*
 | **3. Repository & Branch Workspace** | 7–9 | Select repositories/branches and browse files | Completed; owner-accepted |
 | **4. Code Editor & Source Control** | 10–14 | Edit, save drafts, review diffs, and commit safely | Completed; owner-accepted |
 | **5. Boilerplate Generator & Code Injector** | 15–16 | Template identification, source injection and safe review | Completed; owner live-tested |
-| **6. Users & Author Publishing** | 17–19 | Permissions, Author Workspace and editorial publishing | Approved; implementation pending |
-| **7. Website Preview** | 20 | View the existing live website in permitted workspaces | Approved; implementation pending |
+| **Additional completed work** | P-1, Website Controls, Code Editor redesign | File drafts, reusable HTML sandbox and editor interface | Completed; owner-accepted |
+| **6. Users & Communications** | 17–18 | Application assignments, task workflow, chat and Zoho Mail | Revised planning agreed; implementation pending |
+| **Future** | 19 | Former dedicated Author Workstation | Awaiting replacement/retirement decision; not implementation-ready |
+| **7. Website Preview** | 20 | View the existing live website in permitted workspaces | Awaiting separate roadmap decision |
 
 **Progress rule:** Mark a task complete only after the implementation is working, its checks have passed, and you have personally reviewed the result. Finishing a task does **not** automatically authorize the next one.
 
@@ -355,7 +357,7 @@ flowchart TD
 
 ---
 
-## Prerequisite P-1 — Universal File Manager (implemented; owner verification pending)
+## Prerequisite P-1 — Universal File Manager (completed; owner-accepted)
 
 **Owner decision: Luxraj Kayal (Subrata), November 23, 2026.** See the full, binding planning specification: [Universal File Manager Prerequisite](./docs/Luxraj_CMS_Universal_File_Manager_Prerequisite.md). P-1 is **unnumbered and must be implemented and owner-accepted before Task 17**; do not renumber Tasks 0–20.
 
@@ -366,91 +368,99 @@ flowchart TD
 - **Settings → Author Profile Picture Location:** Super Admin selects **one authorized GitHub repository, branch, specific assets folder and public URL prefix** for **all approved Author/Owner profile pictures**. Approved WebP files are staged through P-1; the owner explicitly commits the website copy.
 - Super Admin can self-manage their own profile and access **Owner/Admin, Author and Developer** capabilities from a single account, without regular Author approval gates; explicit GitHub commit protections remain compulsory.
 
-**Next step:** Verify P-1 with the matching frontend, Edge Function and migration in an approved environment before proceeding to Task 17.
+**Acceptance:** Implemented, deployed and owner-tested; prerequisite satisfied.
 
 ---
 
-## Milestone 6 — Users, Author Workspace and Editorial Publishing (Tasks 17–19)
+## Additional completed work — Website Controls / HTML Sandbox and Code Editor redesign
 
-**Future scope:** Roles, profiles, Author-specific Supabase Markdown drafts, review and website publication extend the existing CMS without granting ordinary Authors GitHub write access. Prerequisite P-1 supplies the required binary file foundation.
+- [x] **Website Controls / HTML Sandbox:** registered repository/branch-scoped monolithic HTML applications, isolated execution, Internal mode repository file picker and draft outputs, Local mode native file selection/download, explicit output destinations and shared Source Control review. Owner verified the live workflow. See [specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) and [bridge guide](docs/website-controls.md).
+- [x] **Code Editor redesign:** VS Code-inspired activity bar, collapsible Explorer/Search/Source Control/History/Settings, tabs and breadcrumbs, status bar, optional right-side review, preserving Monaco, drafts and the existing reviewed commit workflow. Owner accepted; baseline commit `7a68e67`.
 
-## Task 17 — Users & Permissions Control (agreed, 2026-11-22)
+## Milestone 6 — Users & Permissions and Communication (Tasks 17–18)
 
-### Existing CMS location and account creation
-- Use the **Users & Permissions** button/section already present in Luxraj CMS; do not create a redundant navigation module.
-- The Super Admin will **manually create user accounts in Supabase**. A user-registration/creation form in the CMS is not part of this task.
-- After account creation, the user should appear in the CMS Users & Permissions list for Super Admin management. List access and role changes must be authorized through the backend.
+## Task 17 — Users & Permissions Control (revised and owner-agreed, November 25, 2026)
 
-### Role-based, separate working areas
-- The Super Admin can assign or change a user's role among **Author**, **Developer**, and **Advisor**.
-- Each role has **its own CMS working area**, distinct from the Super Admin dashboard and management controls.
-- On login, the CMS opens the role-specific workspace. Regular users **must not see the Super Admin dashboard, sidebar, privileged tools, or management controls**, nor be able to access them through direct URLs or unauthorized backend calls.
-- Role defines the user's position and allowed workspace. **Project owner Luxraj Kayal (Subrata) has already decided the Author pages in Task 18 (profile, dashboard, collaboration), Task 19 (Word-like Workstation, reviews and publication), and Task 20 (Website Preview).** Task 17 must establish compatible access and assignment foundations; do not treat approved Author interfaces as undefined. Only detailed **Developer and Advisor** screens remain to be defined separately; do not invent their permission matrix.
-- An Author may be authorized by the Super Admin to work on **multiple Blog websites**. The Super Admin establishes which websites and associated categories are available to that Author. The Author selects from those authorized website/category options; those choices connect the Supabase Markdown draft with the configured destination for eventual publication. **Keep the precise repository/branch assignment mechanism open** for later technical planning.
-- A regular user must not receive another role's workspace merely through a task assignment.
-- **Super Admin owner decision:** Luxraj Kayal (Subrata) may operate as **Owner/Admin, Author and Developer from the same account**; changing working area does not downgrade or remove Super Admin authority.
+**Status:** Planning complete; implementation pending. This replaces the entire former Task 17 and incorporates the retained profile requirements of the former Task 18.
 
-### Position-based task assignment
-- The Super Admin can **assign specific work to an individual user based on their assigned role/position**.
-- Illustrative examples only: an **Author** writes or revises an article; a **Developer** fixes or develops a code feature; an **Advisor** reviews work or provides recommendations.
-- Assigned tasks should be visible to the corresponding user **inside that user's role-specific workspace**.
-- **Role** determines what workspace and controls the user may access; an assigned **task** determines the specific work expected from that person. Task assignment does not grant Super Admin privileges or change the user's role.
-- When the Super Admin creates an assignment, the CMS **automatically generates a unique Task ID**; that Task ID remains associated with the task, its article submissions, and any correction/resubmission cycle.
-- Creating or changing an assignment updates the corresponding Author's **Pending Tasks** and task details/status in the Author Dashboard, synchronized with the Super Admin's task controls.
-- When cancelling a task, the Super Admin enters a **cancellation note**. The Author's task status becomes **Cancelled**, and the Super Admin's note is visible with that task. Both the cancellation and its note remain synchronized between the workspaces.
-- When an Author completes and submits assigned work, the **Super Admin Dashboard's top-right notification area** updates. A **submission summary card** appears in the same **Users & Permissions / task-assignment section** used to assign the task. The card shows the **Task ID, Author name, submission date/time, and Author's submission comment**.
-- The submission card summarizes the work; the Super Admin opens the actual article for review through the dedicated Author interface described in Task 19.
+### 17.1 — User account management
 
-### Hold and Resume
-- The Super Admin may place a user **On Hold** to stop that user from working in the CMS, and may **Resume** the user later.
-- Hold is a temporary working-access restriction, not deletion of the Supabase account, role, or assigned tasks.
-- Resume restores access **only within the user's existing assigned role and permissions**, subject to current authorization.
-- Hold/Resume must be enforced by trusted backend authorization, not only by hiding or disabling buttons.
+- Use the existing **Users & Permissions** section. Super Admin may still create accounts manually in Supabase, but must also be able to create and manage them from the CMS via **Add New User** and **Modify Existing User** forms. Manually created accounts must be available for Super Admin management.
+- Add New User fields: full name, date of birth, gender, educational qualifications, user role (dropdown: Author, Developer, Advisor), user description, login email and assigned password.
+- Super Admin assigns the credentials and manually sends them and relevant information to the user by email. No automatic credential delivery, public registration or user-initiated password reset. The CMS never retains readable passwords or exposes them in logs or settings; Supabase Auth stores only the password hash needed for authentication. Passwords are supplied at account creation, not displayed later.
+- Modify Existing User allows the Super Admin to update assigned fields and role or explicitly delete the user completely. Account/profile records are independent of ordinary Settings, preference and draft cleanup; only the authorized Users & Permissions deletion action removes a user/profile. Backend authorization applies to account creation, modification and deletion.
+- Users log in with the assigned email and password. The first-login profile form displays the admin-assigned fields already populated, greyed out and read-only. Only the profile picture is user-editable.
+- Retain WebP-only profile picture uploads, 15–150 KB inclusive, no CMS conversion/compression; recommended square image and circular avatar. Store pending image privately in Supabase. Super Admin reviews, approves or returns it with comments; approval stages the website copy through P-1 using Settings → Author Profile Picture Location (authorized repository, branch, assets folder and public URL prefix). Explicit Source Control commit is required before claiming the website copy is available. Keep the previously approved profile image active until the replacement is approved and its required website copy committed. Subsequent changes follow the same process.
 
-### Scope and boundaries
-- These controls belong to the Super Admin's Users & Permissions section.
-- Account creation remains a **manual Supabase action** by the owner.
-- The **already owner-approved Author interfaces** are defined in Tasks **18–20** (profile/dashboard/chat, Word-like editor and article review, Website Preview). Do not reclassify them as undecided. Detailed Developer and Advisor screens remain separately planned.
-- Planning only: do not change the GitHub repository, app code, README, roadmap, or Supabase configuration until separately authorized.
+### 17.2 — Role-based workspaces and HTML application assignments
 
-## Task 18 — Author Homepage and Workspace Entry (agreed, 2026-11-22)
+- Author, Developer and Advisor have their own restricted working areas, separate from the Super Admin dashboard, sidebar, privileged tools and management controls. Enforce permissions on backend operations and direct URLs, not merely visible navigation. Super Admin retains full administrative control.
+- In Users & Permissions, the Super Admin assigns one or multiple existing monolithic HTML applications to an individual user; can remove or change assignments. The assigned applications determine the tools available, regardless of their internal purpose. The CMS does not interpret application-specific logic or output.
+- The user's Workstation is enabled only if at least one application is assigned; removing all assignments disables it and revokes access. Existing accounts, drafts and task records are not deleted by removing an application. No Hold/Resume user workflow.
+- Reuse the existing Website Controls sandbox as a restricted workstation, without Super Admin application-management, unrestricted repository, credential or publishing privileges. All file access and draft operations are scoped and backend-authorized. Assigned applications must not acquire broader permissions through their code or bridge.
+- The owner may maintain separate HTML applications for Authors, Super Admin, or other roles. The CMS is unaware of their internal roles or functionality. A regular user's application produces an output; the Super Admin can open that output as input in a different Admin application in the existing sandbox, verify or manipulate it and prepare final output. File formats and compatibility are defined by the applications, not the CMS. The sandbox and shared draft system handle the files generically.
 
-### Task 18.1 — First-login Author Profile Creation
-- After authenticating with their existing Supabase account credentials, an Author who has not completed their profile must first encounter a **mandatory Profile Creation page** before entering their Author Workspace.
-- Profile fields: **name**, **gender**, **educational qualifications**, **profile picture**, and the **assigned Author role**. The role is visible but **read-only/non-removable** by the Author; it is assigned by the Super Admin under Task 17.
-- Gender should offer an optional/prefer-not-to-say choice. Profile details are associated with the authenticated account.
-- Profile-picture upload is **WebP only**; the Author must prepare the `.webp` image themselves. **No CMS conversion, compression, or image transformation** is required.
-- Accepted image file-size range: **15 KB to 150 KB** inclusive. Recommended square image, **1:1 aspect ratio**, approximately **512 × 512 pixels**; show as a circular avatar in the CMS.
-- Validate file type and size before upload and provide clear feedback for invalid files. Store the Author's submitted WebP image in **Supabase Storage**; retain it with the profile submission, pending Super Admin review.
-- **Profile approval checkpoint:** After the Author submits initial profile details or later edits, notify the Super Admin in the existing **Users & Permissions Control** panel. The Super Admin reviews the submitted name, qualifications, image, and other profile fields and may **approve/apply** them or **return them for correction with reasons**. Do not automatically make pending profile changes the approved article identity.
-- **Second image copy for the website (owner decision):** In **Settings → Author Profile Picture Location**, Super Admin defines **one authorized GitHub repository, branch, specific assets folder and public URL prefix** for all approved profile pictures. Once approved, the WebP is staged through **P-1 File Manager binary drafts** for **explicit Source Control review and commit by Super Admin**. No folder is hardcoded; ordinary Authors never get GitHub write privileges.
-- Maintain the **Supabase image** and the **committed website-repository image** as distinct copies. Keep the website asset path/URL associated with the approved Author profile for article generation. If the repository commit fails or is still pending, do not claim the website copy is available; do not use an unapproved or uncommitted image in generated drafts.
-- **Subsequent profile updates** follow the same Super Admin review and repository-commit checkpoint. Keep previously approved profile details and image active until the replacement is approved and its required website asset is committed.
-- **Super Admin personal profile (owner decision):** The Owner may create/edit their own profile without ordinary Author first-login onboarding, self-approval or pending-profile restrictions; the same account can use Admin, Author and Developer workspaces. Website images still require explicit reviewed GitHub commits.
-- This is the entry/profile stage, not a separate user-registration feature; the Super Admin creates accounts manually in Supabase under Task 17.
+### 17.3 — Task assignment and submission
 
-### Task 18.2 — Author Dashboard
-- A regular Author must **complete and submit the initial mandatory Profile Creation form** but can access their dashboard, allowed tools and private drafts while **Super Admin approval is pending**. Pending profile identity is not approved article identity; block only the specified article Preview and Submit actions until approval/image readiness. Never expose Super Admin controls.
-- While the Author's required profile approval is pending, **block article Preview (new-tab preview) and Submit for Review**. Workspace browsing and other permitted tools remain available; unfinished Supabase drafts can still be saved. Once the Super Admin approves the required profile and the website-hosted Author image is ready under the existing asset-commit rule, those article actions become eligible, subject to normal article validation.
-- Show the Author's **own created articles** and statuses, including **Draft**, **Submitted**, **Approved**, and **Rejected**.
-- Show **specific tasks assigned by the Super Admin** under Task 17, their current task statuses, and a **timeline** of progress/events (including assignment and deadlines where provided).
-- A newly assigned or modified task updates the Author's **Pending Tasks** and associated details automatically. A cancelled task remains visible with **Cancelled** status and the synchronized cancellation note entered by the Super Admin.
-- When work is **Returned for Correction**, show the reviewer's reasons and the specific marked fields/lines needing edits. The Author opens the returned item in the **Author Workstation**, corrects it, and resubmits it under the **same Task ID**.
-- Article status and assigned-task status are distinct; an assigned task can involve an article without becoming the article's publication/review status.
-- Authors can open their existing drafts for continued writing or editing. They cannot access other users' private work or Super Admin controls.
+- Super Admin creates a task in Users & Permissions: select an existing user from the dropdown, enter task type and description, and automatically generate a Task ID in the exact format `TSK-DD-MM-YYYY-HH-MM` (24-hour time), e.g. `TSK-25-11-2026-16-33`. No seconds or extra visible identifier at present; reject duplicate IDs rather than overwrite a task.
+- Assigned tasks appear in the corresponding user's workspace as **Pending**. Tasks do not grant access to unassigned applications. A user generates work in an assigned application and saves its output as a private draft in Supabase. On submission, choose the associated assigned Task ID from a dropdown. Preserve the same ID on corrections and resubmissions; do not interpret the file content.
+- The task becomes **Submitted for Review** and the Super Admin receives a notification identifying the user, role, Task ID and submitted draft. Super Admin opens the submitted output as input in their own sandbox application, reviews/processes it and prepares the final file(s) through the existing shared draft and Source Control workflow.
+- Super Admin may **Reject** or **Return for Correction** with a simple comment. Returned work may be corrected and resubmitted under the same Task ID. Super Admin can terminate any task; termination is a distinct **Terminated** status, not deletion of records, drafts or committed files. No legacy Hold/Resume or separate cancellation workflow.
 
-### Task 18.3 — Chat, Collaboration, Presence, and Notifications
-- Provide a **Chat** option in the Author workspace and a **Chat** button in the Super Admin's sidebar.
-- An Author may chat with the **Super Admin** and **only those additional CMS users whom the Super Admin explicitly assigns as collaborators**. No unrestricted user-to-user messaging.
-- The Super Admin can view whether an Author is **Online**, **Working**, or **Offline**, inferred automatically from real CMS connection/activity, **not a user-controlled status preference**. Authors can also view the Super Admin's online/offline presence.
-- **Online** means the CMS session is connected; **Working** reflects observed activity inside the CMS; **Offline** indicates no active connection. Activity outside the CMS cannot be reliably observed.
-- Preserve chats persistently: users can leave messages for offline recipients and the Super Admin/collaborator can read them when they next come online.
-- **Only the Super Admin** may delete chat history; regular Authors and collaborators must not have chat-deletion permission.
-- Support **in-app unread/message notifications** and optional **browser/Web Push notifications** for authorized recipients. Browser push is subject to each recipient's browser/device permission and subscription; the CMS cannot force opt-in. Even without push permission, messages remain stored and visible in chat.
-- Intended architecture: authenticated Supabase-backed message storage, realtime delivery/presence, backend-enforced conversation membership/deletion permissions, and web-push infrastructure where enabled. Avoid exposing private chat content to unauthorized roles.
-- Do not add unrelated SEO research integration to the Author workspace; the owner explicitly chose to defer SEO research tools.
+### 17.4 — Commit-based completion and permanent Git history
 
-## Task 19 — Author Workstation (agreed planning; further parts may follow)
+- **A successful associated GitHub commit is the only way to mark a task Completed.** There is no manual Complete or separate Approve action. Authors, Developers and Advisors all follow this rule; recommendations and advisory work are committed as documentation to the chosen authorized repository/branch.
+- Maintain the Task ID association through submission, Admin application processing, final draft(s) and Source Control. Automatically include the associated ID in the existing commit message (e.g. `[TSK-25-11-2026-16-33] Added advisor recommendations`); Super Admin supplies the normal descriptive message. The existing GitHub commit history/CMS History panel is the permanent commit record; no separate record-keeping module. Maintain the task's status and successful commit association in Supabase.
+- Task statuses: **Pending → Submitted for Review → Completed** (only on successful associated commit), **Rejected**, **Returned for Correction** (resubmit under the same ID), or **Terminated**. Failed, cancelled or unrelated commits and saved drafts do not complete tasks. Ordinary users cannot commit directly.
+
+### Task 17 acceptance
+
+- [ ] Super Admin can add, modify and delete users; ordinary settings cleanup does not delete accounts/profiles; login works without exposing passwords.
+- [ ] First-login profile is read-only except WebP upload; approved website asset uses P-1 and explicit commit.
+- [ ] Assigned sandbox applications are accessible only to authorized users; unassignment disables access; roles cannot bypass backend restrictions.
+- [ ] Create task, save output, select Task ID, submit, notify Admin, open output in Admin application, reject/return/resubmit/terminate as appropriate.
+- [ ] Successful associated GitHub commit includes Task ID and alone triggers Completed; failure/cancellation does not.
+
+## Task 18 — Communication & Email Management (revised and owner-agreed, November 25, 2026)
+
+**Status:** Planning agreed; implementation pending. The former dedicated Author Homepage, profile form, dashboard and article-specific tracking plan is retired. Profile fields and task/draft workflow are covered by Task 17. Retain the agreed chat system and add Zoho Mail integration.
+
+### 18.1 — Internal chat, collaboration, presence and notifications
+
+- Provide Chat in Super Admin and regular-user workspaces. Users can chat with Super Admin and only other CMS users explicitly assigned as collaborators by Super Admin.
+- Show Online, Working and Offline presence derived from real CMS connection/activity, not user-set status. Super Admin sees user presence; users see Super Admin online/offline presence. Do not infer activity outside the CMS.
+- Persist chat history in Supabase, permit messages to offline recipients, and enforce conversation membership server-side. Only Super Admin may delete chat history.
+- In-app unread/message notifications and optional browser/Web Push notifications subject to user/browser permission and subscription. Messages remain stored and accessible without push permission.
+
+### 18.2 — Zoho Mail integration
+
+- Add **Email** to the Super Admin main sidebar. Regular users see Email only when assigned at least one Zoho alias; removing all aliases revokes access. Email access is independent of workstation/application assignment.
+- Retrieve confirmed available Zoho aliases dynamically using the existing account's REST API. In Users & Permissions, Super Admin assigns one or multiple aliases and independently controls each user's ability to compose/send (including replies) and delete emails. Super Admin can revoke/reassign access and read, send or reply from any authorized sending address, including the primary account. Users see only emails belonging to assigned aliases and can send only from those aliases when permitted. No Zoho login or credentials exposed to users.
+- Simplified Gmail-style interface: compose, inbox, sent, drafts, search, read/reply, relevant folders and attachment visibility/download, with safe previews where supported. Super Admin has full control; regular-user actions follow assigned permissions.
+- Use Supabase Edge Functions for secure Zoho OAuth, refresh and API calls; credentials/tokens remain backend-only. Enforce alias/message-level authorization for listing, search, reading, attachments, drafts, sending, replies and deletion. Never trust client filtering or user-supplied From addresses/message IDs. Ambiguous alias ownership (including BCC/forwarding where not reliably attributable) is Admin-only. Zoho remains the primary mail storage/delivery service; avoid permanently duplicating the mailbox in Supabase. Audit actual CMS actor for sending.
+- Owner-tested API evidence: 14 successful checks (OAuth, token renewal, account access, alias verification, folders, mailbox reading, alias search, draft creation, send from/to alias, receipt, full content, headers, reply). Attachment information was skipped (no suitable attachment). Verify upload/download, deletion, read/unread, complete export and Zoho's delegated multi-user access terms before implementing/releasing affected features; successful API tests alone do not establish contractual permission.
+
+### 18.3 — Super Admin-only email backup to GitHub
+
+- Super Admin selects individual emails, alias mail or entire mailbox, then chooses any authorized **private** repository, branch, folder/file destination and supported archive format. Suggested formats: EML, JSON, Markdown, HTML, ZIP (not a fixed exclusive list). Preserve subject, sender, recipients, timestamps, headers, body and attachments as supported by the chosen format; do not claim full-fidelity backup where data are omitted.
+- Generate archive through P-1 File Manager/shared draft workflow, review exact destination/file via Source Control and explicitly commit. No separate commit system. Verify successful and complete backup before offering explicit Admin-confirmed deletion of original Zoho emails to free storage. Never automatically delete originals or delete on failed/incomplete backup. Restrict access to backups and avoid public repositories.
+- **Remaining implementation decisions:** whether permitted regular-user deletion moves mail to Trash only or permanently deletes; whether backup is one-way archive or supports restore into Zoho. No default behavior is assumed until decided.
+
+### Task 18 acceptance
+
+- [ ] Chat membership, presence, stored offline messages, Admin-only deletion and notifications work.
+- [ ] Super Admin can assign/revoke aliases and compose/delete permissions; regular users cannot access unassigned mail or send from another address, even via direct API calls.
+- [ ] Verified Zoho email operations, attachment visibility/download, and scoped sending/reply work without exposing credentials.
+- [ ] Admin-only backup to authorized private repository uses existing reviewed commit; deletion requires complete verified backup and explicit confirmation when used for mailbox cleanup.
+- [ ] Remaining deletion/restore decisions and API/terms verification are resolved before affected functionality is released.
+
+---
+
+## Remaining roadmap decisions — Tasks 19–20
+
+**The following existing Task 19 and Task 20 text is retained temporarily for the owner's next planning discussion only. It is not approved for implementation under the revised roadmap. References to former Tasks 17–18 and legacy Author-specific workflows below are superseded by the revised Tasks 17–18 above.**
+
+## Task 19 — Author Workstation (former plan; awaiting owner decision)
 
 ### Task 19.1 — Word-like Article Editor, Template Rules, Validation, and Review
 
@@ -531,19 +541,11 @@ flowchart TD
 - Task 19 is a **new** plan and does not reinstate the original repository's superseded Task 19 (Missing-Placeholder Injection).
 - Nothing in Tasks 18–19 authorizes changes to GitHub, the repository README/roadmap, Supabase schema/configuration, or deployed CMS until separately requested.
 
-### Milestone 6 acceptance
-
-- [ ] Role-specific permissions and Super Admin task assignment/hold/resume are enforced by the backend.
-- [ ] Author profile review, dashboard, chat, presence and permitted pending-profile access follow Task 18.
-- [ ] Author selects an authorized category, creates a Supabase Markdown draft, edits visually, previews in a new tab when allowed, and submits for review.
-- [ ] Super Admin can return/reject/approve, then prepare the category-destination HTML file via the existing Code Editor → Source Control → explicit GitHub commit workflow.
-- [ ] Approved and Published remain distinct; live article revisions do not change before final publication.
-
 ---
 
 ## Milestone 7 — Website Preview and Inspection (Task 20)
 
-## Task 20 — Website Preview and Inspection (agreed planning)
+## Task 20 — Website Preview and Inspection (former plan; awaiting owner decision)
 
 - Provide a **Website Preview** interface accessible to **both Authors and the Super Admin** from their respective CMS working areas.
 - Load the **existing live website** within the CMS using an **iframe**, based on the website URL configured by the Super Admin.
@@ -597,4 +599,4 @@ Notes:
 
 ---
 
-**Current prerequisite:** Owner-verify **P-1 Universal File Manager** before Task 17. **Tasks 0–16 are completed and owner-accepted.** Deployment requires separate approval.
+**Current status:** Tasks 0–16, P-1, Website Controls and the Code Editor redesign are owner-accepted. Revised Tasks 17–18 require separate implementation approval; Tasks 19–20 await owner decisions. Deployment requires separate approval.
