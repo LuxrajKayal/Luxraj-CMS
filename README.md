@@ -4,7 +4,7 @@ Cloud-based CMS powered by Supabase and GitHub.
 
 **Selected frontend architecture:** React + TypeScript + Vite, with modular feature boundaries, client-side routing, independent layouts, shared UI and controlled environment configuration. **Codex in VS Code** is the planned implementation path; all coding requires explicit phase approval.
 
-> **Project status, November 25, 2026:** Tasks **0–16**, **P-1 Universal File Manager**, **Website Controls / HTML Sandbox** and the **Code Editor redesign** are completed and owner-accepted. Revised Tasks 17–18 are agreed planning, implementation pending; Tasks 19–20 await separate decisions.
+> **Project status, November 25, 2026:** Tasks **0–16**, **P-1 Universal File Manager**, **Website Controls / HTML Sandbox** and the **Code Editor redesign** are completed and owner-accepted. Revised Tasks 17–18 are agreed planning, implementation pending. The current roadmap ends at Task 18.
 
 **Website Controls (completed)** runs registered repository HTML applications and stages their generated files through the shared Source Control workflow. See the [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) and the [application file bridge and setup](docs/website-controls.md).
 
@@ -167,7 +167,7 @@ The CMS should have a VS Code-style code inspection experience, **not necessaril
 
 ## 7. Code Injector — Tasks 15–16 (current plan)
 
-**Authoritative full Task 15–20 definitions:** [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) (Milestones 5–7), copied from the [portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md). **Task 15 implementation configuration:** [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) in this repository. This section supersedes the former Tasks 15–19 sequence involving manual `data-seo` eligibility, `data-page-type` injection, and automatic missing-placeholder stages. Those earlier workflows are **not** the current roadmap.
+**Authoritative Task 15–16 definitions:** [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) (Milestone 5), originally copied from the [portfolio living plan](https://github.com/LuxrajKayal/luxraj-portfolio/blob/main/Luxraj_CMS_Revised_Metadata_Injector_Living_Plan.md). **Task 15 implementation configuration:** [`docs/Luxraj_CMS_Working_Sheet_Config.json`](./docs/Luxraj_CMS_Working_Sheet_Config.json) in this repository. This section supersedes the former injection sequence involving manual `data-seo` eligibility, `data-page-type` injection, and automatic missing-placeholder stages. Those earlier workflows are **not** the current roadmap.
 
 ### 7.1 Task 15 — Boilerplate Generator
 
@@ -343,7 +343,6 @@ Do not disable or remove any repository's build/injection workflow until the cor
 - **Task 18 — Chat:** Retain Super Admin/authorized collaborator chat, online/working/offline presence, persistent offline messages, Super Admin-only deletion and in-app/optional browser push notifications; backend membership checks.
 - **Task 18 — Email:** Gmail-style simplified Zoho Mail interface in Admin sidebar and regular-user sidebar only with assigned alias(es). Super Admin sees all mail and can send from any authorized address, controls users' aliases and compose/send/delete permissions. Users see only assigned-alias mail, can send only from assigned aliases if authorized, and can view/download permitted attachments. OAuth and refresh are server-side; enforce message ownership for every operation, deny ambiguous messages to regular users. Zoho remains primary storage. 14 API checks passed; attachment operations, deletion, read/unread, export and delegated-use terms remain to verify.
 - **Email backup:** Admin-only selection/export to supported file format, authorized private repository/branch/destination; P-1 draft, existing Source Control review/commit, verify complete backup, then optional explicit Admin-confirmed deletion of originals. Never delete automatically or after failed backup. Regular-user Trash versus permanent deletion and archive restore remain undecided.
-- **Tasks 19–20:** Existing plans await separate owner decisions; not implementation-ready and not dependencies of revised Tasks 17–18. Task 21 sitemap/status remains discussion only.
 
 ## 10. Proposed phased delivery (subject to approval)
 
@@ -356,7 +355,6 @@ Do not disable or remove any repository's build/injection workflow until the cor
 | Additional accepted baseline | P-1 Universal File Manager, Website Controls sandbox and Code Editor redesign | Owner live-tested and accepted |
 | 5. Users & Permissions (Task 17) | Accounts, profile approval, application assignment, generic tasks and commit-based completion | Role isolation, scoped drafts, review and successful Task ID commit |
 | 6. Communication (Task 18) | Chat, Zoho alias permissions, email interface and private GitHub backups | Membership/alias isolation, verified APIs and backup safeguards |
-| Future (Tasks 19–20) | Awaiting owner decisions | Not implementation-ready |
 
 **Current delivery status:** Tasks 0–16, P-1, Website Controls and Code Editor redesign are owner-accepted. Revised Tasks 17–18 await implementation approval.
 
@@ -497,7 +495,6 @@ This rule prevents Boilerplate Generator, Code Injector, Website Controls, task-
 - **Website Controls** runs registered monolithic HTML applications within the existing isolated sandbox, with Internal repository-file input/draft output and Local native input/download modes.
 - **Task 17** adds account/profile management, restricted application assignments, application-independent tasks and drafts, Admin review and task-associated successful GitHub commits. P-1 handles approved profile picture assets.
 - **Task 18** adds scoped chat and Zoho Mail alias management via protected backend calls; email backup reuses P-1 and Source Control.
-- **Tasks 19–20** await separate owner decisions; do not implement their legacy requirements automatically.
 - Preserve the Blog core/OG/X/Schema.org catalogs in Section 7 as reference material without reinstating obsolete injection steps. See the roadmap for current complete task definitions.
 
 ### 11.6 Human-verifiable, Codex-assisted development requirements
@@ -519,7 +516,6 @@ Because the project owner is comfortable inspecting HTML, CSS and JavaScript but
 2. **Additional completed work:** P-1 Universal File Manager, Website Controls sandbox and Code Editor redesign; preserve accepted functionality.
 3. **Task 17:** User management, restricted application assignments, generic task/draft review and commit-only completion.
 4. **Task 18:** Internal chat, Zoho Mail and private repository email backups.
-5. **Tasks 19–20:** Await owner roadmap decisions.
 
 Each new implementation step needs separate owner approval; the roadmap carries the full current requirements.
 
@@ -527,6 +523,6 @@ Each new implementation step needs separate owner approval; the roadmap carries 
 
 **Accepted code baseline (November 25, 2026):** Tasks 0–16, P-1 Universal File Manager, Website Controls and Code Editor redesign are completed and owner-accepted. This does not claim every possible regression/security edge case has been independently retested.
 
-**Current agreed future scope:** Revised Tasks 17–18 only; see the Development Roadmap. Tasks 19–20 await separate owner decisions; Task 21 site/sitemap status is discussion only. Do not reintroduce retired Task 17–18 requirements.
+**Current agreed future scope:** Revised Tasks 17–18 only; see the Development Roadmap. Do not reintroduce retired Task 17–18 requirements.
 
 **Documentation does not authorize application changes or deployment.** Future tasks require separate approval and actual verification.
