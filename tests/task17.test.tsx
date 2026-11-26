@@ -105,10 +105,13 @@ test('Admins open submission files in Website Controls and can return, reject or
   const link = await screen.findByRole('link', { name: 'Open as Website Controls input' });
   expect(link.getAttribute('href')).toBe('/website-controls?submission=previous&file=work');
   const taskCard = screen.getByRole('heading', { name: /Submitted for Review/ }).closest('article')!;
-  expect(within(taskCard).queryByRole('button', { name: /complete/i })).toBeNull();
+  expect(within(taskCard).queryByRole('button', { name: /^Complete$/i })).toBeNull();
+  expect(screen.getByRole('link',{name:'Open in Code Editor'}).getAttribute('href')).toBe('/code-editor/submission?submission=previous&file=work');
+  expect(screen.getByRole('link',{name:'Open in File Manager'}).getAttribute('href')).toBe('/file-manager/submission?submission=previous&file=work');
+  expect(screen.getByRole('link',{name:'Prepare for Commit'}).getAttribute('href')).toBe('/file-manager/submission?submission=previous&file=work&prepare=1');
   expect(within(taskCard).getByRole('button', { name: 'Reject' })).toBeTruthy();
   expect(within(taskCard).getByRole('button', { name: 'Terminate' })).toBeTruthy();
-  fireEvent.change(within(taskCard).getByRole('textbox'), { target: { value: 'Add sources' } });
+  fireEvent.change(within(taskCard).getByLabelText('Review comment for '+task.id), { target: { value: 'Add sources' } });
   fireEvent.click(within(taskCard).getByRole('button', { name: 'Return for Correction' }));
   await screen.findByText('Returned for Correction');
   expect(memberRequest).toHaveBeenCalledWith({ action: 'people_decide', taskId: task.id, submissionId: 'previous',
@@ -133,4 +136,28 @@ test('terminated tasks require explicit confirmation before permanent deletion',
  fireEvent.click(screen.getByRole('button',{name:'Permanently delete '+task.id}));
  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Confirm'}));
  await waitFor(()=>expect(memberRequest).toHaveBeenCalledWith({action:'people_delete_task',taskId:task.id}));
+});
+
+test('Force Complete requires a reason and explicit confirmation and records the observed task state',async()=>{
+ let current:MemberTask={...task,status:'submitted'};
+ memberRequest.mockImplementation(async(req:MemberRequest)=>{
+  if(req.action==='people_tasks')return {tasks:[current],submissions:[],total:1};
+  if(req.action==='people_force_complete'){current={...current,status:'completed',force_completed_at:'2026-11-26T15:03:00Z',force_completion_reason:req.reason};return {saved:true};}
+  throw new Error('Unexpected request');
+ });
+ render(<MemoryRouter><AdminTasks accounts={[account]}/></MemoryRouter>);
+ const card=(await screen.findByRole('heading',{name:/Submitted for Review/})).closest('article')!;
+ fireEvent.click(within(card).getByText('Force Complete (Super Admin override)'));
+ const reason=within(card).getByLabelText('Force completion reason');
+ const action=within(card).getByRole<HTMLButtonElement>('button',{name:'Force Complete'});
+ expect(action.disabled).toBe(true);
+ fireEvent.change(reason,{target:{value:'Work accepted offline'}});
+ fireEvent.click(action);
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Cancel'}));
+ expect(memberRequest.mock.calls.some(([req])=>req.action==='people_force_complete')).toBe(false);
+ fireEvent.click(action);
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Confirm'}));
+ await screen.findByText('Force completed by Super Admin');
+ expect(memberRequest).toHaveBeenCalledWith({action:'people_force_complete',taskId:task.id,expectedStatus:'submitted',submissionId:'previous',reason:'Work accepted offline'});
+ expect(screen.queryByRole('link',{name:/GitHub commit/})).toBeNull();
 });

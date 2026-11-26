@@ -494,3 +494,6 @@ Notes:
 
 
 > **Task 17 refinement (November 26, 2026):** Owner-reported interface and workflow issues are addressed in the Task 17 refinement build; live owner verification remains pending. Independent management/review views, role dashboards, first-login onboarding, Working/Finished and draft links, terminated-task deletion and request optimizations are documented in [Task 17 technical guide](docs/task-17-users-permissions.md). Finished is member-side only; Completed still requires a successful associated GitHub commit. Task 18 is unchanged.
+
+
+> **Task 17 publishing correction (November 26, 2026):** Submitted member files can be reviewed and edited or staged directly using Code Editor/File Manager, retaining their Task ID through Source Control. A successful associated GitHub commit completes the task automatically. Super Admin may also explicitly Force Complete with a recorded reason, actor and time, without a GitHub commit. This is the sole manual exception to the commit-based completion rule. See [Task 17 technical guide](docs/task-17-users-permissions.md). Owner testing remains pending.

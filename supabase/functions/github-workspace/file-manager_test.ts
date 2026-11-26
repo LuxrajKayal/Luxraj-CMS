@@ -4,6 +4,8 @@ import { createWorkspaceGit, WorkspaceError } from './git.ts';
 import { profileAssetUrl, publicPrefix, validateFile, type FileDrafts } from './file-drafts.ts';
 import { decodeBytes, encodeBytes, filePath, gitBlobSha, sha256 } from '../_shared/file-bytes.ts';
 import { checkedDrafts, writeCommit } from './commits.ts';
+import type { createMembers } from './members.ts';
+import type { DraftLink } from '../_shared/member-contracts.ts';
 import type { Draft, ProfilePictureLocation, ReviewFile } from '../_shared/workspace-contracts.ts';
 
 const head = 'a'.repeat(40);
@@ -27,12 +29,12 @@ Deno.test('validates exact bytes independently of file type or MIME, and rejects
   assert.throws(() => publicPrefix('https://user:secret@example.test/image#hash'), { message: 'invalid_public_prefix' });
 });
 
-async function fixture() {
+async function fixture(members?: ReturnType<typeof createMembers>) {
   let live = head;
   let chosen = { repositoryId: repo.id, branch: 'main' };
   const blob = await gitBlobSha(bytes);
   let calls = 0;
-  const staged: { scope: typeof scope & { path: string }; original: string | null; bytes: Uint8Array }[] = [];
+  const staged: { scope: typeof scope & { path: string }; original: string | null; bytes: Uint8Array; origin?:string; link?:DraftLink }[] = [];
   const fakeGit = createWorkspaceGit(async path => {
     calls++;
     if (path.endsWith('/branches/main')) return Response.json({ name: 'main', commit: { sha: live, commit: { tree: { sha: root } } } });
@@ -46,9 +48,9 @@ async function fixture() {
   });
   let location: ProfilePictureLocation | null = null;
   const fileDrafts = {
-    async save(fileScope, _head, original, payload, check) {
+    async save(fileScope, _head, original, payload, check, origin, link) {
       await check();
-      staged.push({ scope: fileScope, original, bytes: payload.bytes });
+      staged.push({ scope: fileScope, original, bytes: payload.bytes, origin, link });
       return { path: fileScope.path, originalBlob: original, revision, committedSha: null,
         sha256: payload.sha256, mime: payload.mime, size: payload.size };
     },
@@ -62,7 +64,7 @@ async function fixture() {
     isAdmin: async user => user === 'owner',
     openGit: async () => ({ repositories: async () => [repo], forRepository: async () => fakeGit, checkConnection: async () => {} }),
     getPreference: async () => chosen, savePreference: async () => {},
-    fileDrafts: fileDrafts as FileDrafts,
+    fileDrafts: fileDrafts as FileDrafts, members,
   });
   const post = (body: object, token = 'admin-token') => handler(new Request('https://example.test/functions', {
     method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: JSON.stringify(body),
@@ -148,4 +150,25 @@ Deno.test('one shared commit carries exact encoded bytes for mixed binary and te
   assert.equal(requests, 1);
   currentBlob = root;
   await assert.rejects(checkedDrafts(input, files, head), WorkspaceError, 'commit_file_conflict');
+});
+
+Deno.test('direct member-submission staging validates the immutable source and preserves the commit task association',async()=>{
+ const submission='10000000-0000-4000-8000-000000000001',file='10000000-0000-4000-8000-000000000002';
+ let stale=false,checks=0;
+ const members={async validateSubmission(id:string){assert.equal(id,submission);if(stale)throw new WorkspaceError('task_review_stale',409);return 'TSK-25-11-2026-16-33';},
+ async submissionFileRow(id:string,fileId:string){assert.equal(id,submission);if(fileId!==file)throw new WorkspaceError('member_unavailable',404);checks++;return {user_id:'member'};}} as unknown as ReturnType<typeof createMembers>;
+ const f=await fixture(members);
+ const body={action:'file_save',repositoryId:repo.id,branch:'main',commit:head,path:['assets','submitted.md'],originalBlob:null,contents:encodeBytes(bytes),sha256:await sha256(bytes),size:bytes.length,mime:'text/plain',origin:'member_submission',submissionId:submission,submissionFileId:file};
+ assert.equal((await f.post(body,'reader-token')).status,403);
+ assert.equal((await f.post({...body,submissionFileId:undefined})).status,400);
+ assert.equal((await f.post({...body,submissionFileId:'wrong'})).status,404);
+ assert.equal(f.staged.length,0);
+ assert.equal((await f.post(body)).status,200);
+ assert.equal(checks,2);
+ assert.equal(f.staged[0].origin,'member_submission');
+ assert.deepEqual(f.staged[0].link,{submissionId:submission});
+ assert.deepEqual(f.staged[0].bytes,bytes);
+ stale=true;
+ assert.equal((await f.post({...body,path:['assets','later.md']})).status,409);
+ assert.equal(f.staged.length,1);
 });

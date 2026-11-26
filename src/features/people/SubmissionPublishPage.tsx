@@ -46,7 +46,7 @@ function SubmissionFile({submission,file,editor,prepare}:{submission:string;file
     memberRequest({action:'people_submission_file',submissionId:submission,fileId:file},controller.signal).then(async r=>{
       await memberFile(r.file);
       if(!controller.signal.aborted){setRecord(r);setDestination(r.file.name);}
-    }).catch(f=>{if(!controller.signal.aborted)setError(workspaceError(f));});
+    }).catch(f=>{if(!controller.signal.aborted)setError(f instanceof Error&&['invalid_submission_path','submission_editor_unsupported','submission_editor_conflict','submission_size'].includes(f.message)?f.message:workspaceError(f));});
     return()=>controller.abort();
   },[submission,file]);
   function edit(value:string){
@@ -59,35 +59,37 @@ function SubmissionFile({submission,file,editor,prepare}:{submission:string;file
     setError('');setNotice('');setInspected(undefined);setBusy('Inspecting destination…');
     try{
       const path=destination.split('/');
-      if(!destination||!filePath(path))throw new Error('Enter a valid repository destination path.');
-      if(editor&&originalText===null)throw new Error('This file is not supported by the Code Editor. Use File Manager.');
-      if(buffers[JSON.stringify([scope.repositoryId,scope.branch,destination])])throw new Error('Resolve unsaved Code Editor changes at this destination first.');
+      if(!destination||!filePath(path))throw new Error('invalid_submission_path');
+      if(editor&&originalText===null)throw new Error('submission_editor_unsupported');
+      if(buffers[JSON.stringify([scope.repositoryId,scope.branch,destination])])throw new Error('submission_editor_conflict');
       const bytes=editor&&source!==originalText?new TextEncoder().encode(source):decodeBytes(record.file.contents!);
-      if(bytes.length>maxFileBytes||(editor&&bytes.length>1024*1024))throw new Error('The file exceeds the supported editor or upload size.');
+      if(bytes.length>maxFileBytes||(editor&&bytes.length>1024*1024))throw new Error('submission_size');
       const proposed={size:bytes.length,mime:record.file.mime,sha256:await sha256(bytes),contents:encodeBytes(bytes)};
       const root=await workspaceRequest({action:'file_manager_tree',...scope,path:[],includeExecutables:true});
       const target=await workspaceRequest({action:'file_inspect',...scope,path,commit:root.commit});
       setInspected({key,target,proposed});
-    }catch(f){setError(workspaceError(f));}finally{setBusy('');}
+    }catch(f){setError(f instanceof Error&&['invalid_submission_path','submission_editor_unsupported','submission_editor_conflict','submission_size'].includes(f.message)?f.message:workspaceError(f));}finally{setBusy('');}
   }
   async function stage(){
     if(!scope||!validInspection||!record||busy||saving||saved)return;
     setError('');setBusy('Saving task-linked draft…');
     try{
-      if(buffers[JSON.stringify([scope.repositoryId,scope.branch,destination])])throw new Error('Resolve unsaved Code Editor changes at this destination first.');
+      if(buffers[JSON.stringify([scope.repositoryId,scope.branch,destination])])throw new Error('submission_editor_conflict');
       const {target,proposed}=validInspection;
       await workspaceRequest({action:'file_save',...scope,path:destination.split('/'),commit:target.commit,originalBlob:target.original?.blob??null,
         size:proposed.size,mime:proposed.mime,sha256:proposed.sha256!,contents:proposed.contents!,
         origin:'member_submission',submissionId:submission,submissionFileId:file});
       if(editor)remove(recoveryKey);
       setSaved(true);setNotice('Task-linked draft saved. Confirm its commit in Source Control to complete '+record.taskId+'.');
-    }catch(f){setError(workspaceError(f));}finally{setBusy('');}
+    }catch(f){setError(f instanceof Error&&['invalid_submission_path','submission_editor_unsupported','submission_editor_conflict','submission_size'].includes(f.message)?f.message:workspaceError(f));}finally{setBusy('');}
   }
+  const localErrors:Record<string,string>={invalid_submission_path:'Enter a valid repository destination path.',submission_editor_unsupported:'This file is not supported by Code Editor. Use File Manager.',submission_editor_conflict:'Resolve unsaved Code Editor changes at this destination first.',submission_size:'The file exceeds the supported editor or upload size.'};
+  const message=localErrors[error]??error;
   const repo=repositories.find(r=>r.id===scope?.repositoryId);
   return <div className="module-stack"><ModuleTopbar title={editor?'Code Editor — Submitted draft':prepare?'Prepare for Commit':'File Manager — Submitted draft'}><FileWorkspacePicker disabled={!!busy||saved}/></ModuleTopbar>
     <div className="module-body people-page">
       <div className="people-toolbar"><Link to={'/pending-reviews?submission='+encodeURIComponent(submission)}>Back to Pending Reviews</Link>{saved&&<Link to="/source-control">Review and commit in Source Control</Link>}</div>
-      {error&&<p role="alert">{error}</p>}{busy&&<p role="status">{busy}</p>}{notice&&<p role="status">{notice}</p>}
+      {error&&<p role="alert">{message}</p>}{busy&&<p role="status">{busy}</p>}{notice&&<p role="status">{notice}</p>}
       {!record&&!error&&<p role="status">Loading immutable submitted file…</p>}
       {record&&<><section className="people-panel"><h2>{record.file.name}</h2><p><strong>Task ID:</strong> {record.taskId} · Original submission remains unchanged.</p>
         {editor?<>{originalText===null?<p>This file is binary, invalid UTF-8 or exceeds the 1 MiB editor limit. <Link to={'/file-manager/submission?'+paramsFor(submission,file)}>Open in File Manager</Link></p>:
