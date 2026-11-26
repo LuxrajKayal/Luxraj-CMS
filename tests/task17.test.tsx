@@ -55,14 +55,18 @@ test('restricted workspace shows read-only profile, disables unassigned workstat
 });
 
 test('a role member resubmits private draft IDs under the original task ID', async () => {
+  let updatedHome: MemberHome=home;
   memberRequest.mockImplementation(async (request: MemberRequest) => {
-    if (request.action === 'member_home') return home;
+    if (request.action === 'member_home') return updatedHome;
+    if (request.action === 'member_progress') { updatedHome={...home,tasks:[{...task,status:request.status}],links:request.files.map(file_id=>({task_id:task.id,file_id}))};return {saved:true}; }
     if (request.action === 'member_submit') return { id: 'next-submission' };
     throw new Error('Unexpected request');
   });
   open('/member/tasks');
   fireEvent.change(await screen.findByRole('combobox', { name: 'Task ID' }), { target: { value: task.id } });
   fireEvent.click(screen.getByRole('checkbox', { name: /output.bin/ }));
+  fireEvent.click(screen.getByRole('button', {name:'Mark Finished'}));
+  await waitFor(()=>expect(screen.getByRole<HTMLButtonElement>('button',{name:'Submit for Review'}).disabled).toBe(false));
   fireEvent.click(screen.getByRole('button', { name: 'Submit for Review' }));
   await screen.findByText(task.id + ' submitted for review.');
   expect(memberRequest).toHaveBeenCalledWith({ action: 'member_submit', taskId: task.id, files: ['work'] });

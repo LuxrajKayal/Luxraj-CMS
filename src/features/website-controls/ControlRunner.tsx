@@ -13,9 +13,10 @@ import { RepositoryFilePicker } from './RepositoryFilePicker';
 
 type Output = GeneratedOutput & { id: string; status?: 'saved' | string };
 
-export function ControlRunner({ run, scope, inputs, close, submissionId, realTaskId, privateDrafts, onMemberSave }: {
+export function ControlRunner({ run, scope, inputs, close, submissionId, realTaskId, privateDrafts, onMemberSave, memberTasks, memberLinks }: {
   run: WebsiteLaunch; scope?: FileScope; inputs: File[]; close(): void; submissionId?: string; realTaskId?: string;
   privateDrafts?: MemberFile[]; onMemberSave?(): void;
+  memberTasks?: import('../../../supabase/functions/_shared/member-contracts').MemberTask[]; memberLinks?: {task_id:string;file_id:string}[];
 }) {
   const [files, setFiles] = useState(inputs);
   const [outputs, setOutputs] = useState<Output[]>([]);
@@ -203,6 +204,7 @@ export function ControlRunner({ run, scope, inputs, close, submissionId, realTas
     } finally { if (!signal?.aborted) setReading(false); }
   }
 
+  const [linkedTask, setLinkedTask] = useState('');
   async function saveDrafts() {
     if (saving || !unsaved || modeRef.current !== 'internal') return;
     const pending = outputs.filter(output => output.status !== 'saved');
@@ -215,6 +217,7 @@ export function ControlRunner({ run, scope, inputs, close, submissionId, realTas
     setSaving(true);
     setError('');
     const signal = request.current?.signal;
+    const linkedFileIds = new Set<string>();
     for (const output of pending) {
       if (signal?.aborted) break;
       let status = 'saved';
@@ -222,6 +225,13 @@ export function ControlRunner({ run, scope, inputs, close, submissionId, realTas
         if (!scope) {
           await memberRequest({ action: 'member_save', appId: control.id,
             file: await memberOutput(output.id, output.name, output.blob) }, signal);
+          if (linkedTask) {
+            const prior=(memberLinks??[]).filter(l=>l.task_id===linkedTask).map(l=>l.file_id);
+            const savedIds=pending.slice(0,pending.indexOf(output)+1).filter(x=>x.id===output.id||outputs.some(o=>o.id===x.id&&o.status==='saved')).map(x=>x.id);
+            // Accumulate the successful files from this save batch without dropping existing task links.
+            linkedFileIds.add(output.id);
+            await memberRequest({action:'member_progress',taskId:linkedTask,status:'working',files:[...new Set([...prior,...savedIds,...linkedFileIds])]},signal);
+          }
           if (!signal?.aborted) onMemberSave?.();
         } else {
           const path = output.destination.split('/');
@@ -302,6 +312,7 @@ export function ControlRunner({ run, scope, inputs, close, submissionId, realTas
           </div>)}
         </div>
         <div className="website-output-footer">
+          {!scope && !!memberTasks?.length && <label>Link output to task <select value={linkedTask} disabled={saving} onChange={e=>setLinkedTask(e.target.value)}><option value="">No task selected</option>{memberTasks.filter(t=>['pending','working','returned'].includes(t.status)).map(t=><option key={t.id} value={t.id}>{t.id} · {t.task_type}</option>)}</select></label>}
           <button type="button" className="website-primary" disabled={saving || !unsaved} onClick={() => void saveDrafts()}>{saving ? 'Saving drafts…' : 'Save Drafts'}</button>
           {outputs.some(item => item.status === 'saved') && (scope
             ? <Link to="/source-control"><GitCommit size={16} /> Review in Source Control</Link>

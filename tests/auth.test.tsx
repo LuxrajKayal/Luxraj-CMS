@@ -22,7 +22,7 @@ const roles = vi.hoisted(() => ({
   abortSignal: vi.fn(),
   maybeSingle: vi.fn(),
 }));
-vi.mock('../src/core/auth/supabase', () => ({ supabase: { auth, from: roles.from } }));
+vi.mock('../src/core/auth/supabase', () => ({ supabase: { auth, from: roles.from, functions: { invoke: async () => { throw new Error('member_forbidden'); } } } }));
 
 const session = {
   access_token: 'test-access',

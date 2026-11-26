@@ -29,3 +29,51 @@
   .people-grid, .member-layout { grid-template-columns: 1fr; }
   .member-layout > aside nav { display: flex; flex-wrap: wrap; }
 }
+
+/* Task 17 refinement: follow the CMS light workspace scheme, not the dark login defaults. */
+.people-page,.people-shell,.member-layout > main {color:#18334f;color-scheme:light;}
+.people-page {display:grid;gap:1rem;}
+.people-shell {display:grid;grid-template-columns: minmax(10rem,13rem) minmax(0,1fr);gap:1rem;align-items:start;}
+.people-subnav {display:grid;gap:.25rem;background:#e8eef6;padding:.65rem;border:1px solid #d2deec;border-radius:.5rem;position:sticky;top:.5rem;}
+.people-subnav button,.people-subnav a {text-align:left;text-decoration:none;background:transparent;border:0;color:#18334f;padding:.6rem .7rem;border-radius:.3rem;font:inherit;cursor:pointer;}
+.people-subnav [aria-current="page"],.people-subnav [aria-pressed="true"] {background:#cbdcf2;font-weight:600;}
+.people-panel {color:#18334f;color-scheme:light;}
+.people-panel input:not([type='checkbox']),.people-panel textarea,.people-panel select,.people-page input,.people-page select {color:#18334f;background:#fff;border:1px solid #b9c9db;border-radius:.35rem;padding:.52rem .6rem;font:inherit;min-width:0;}
+.people-fields input[readonly],.people-fields textarea[readonly] {background:#f0f4f9;color:#18334f;opacity:1;}
+.people-panel button,.people-page button,.member-layout main button {color:#18334f;background:#edf3fb;border:1px solid #b9c9db;border-radius:.35rem;padding:.44rem .7rem;font:inherit;cursor:pointer;}
+.people-panel button:disabled,.people-page button:disabled,.member-layout main button:disabled {opacity:.5;cursor:not-allowed;}
+.people-panel .people-primary,.people-page .people-primary,.member-layout main .people-primary {background:#2464ae;color:#fff;border-color:#2464ae;}
+.people-panel .people-danger,.people-danger {color:#a51d2d;border-color:#e7b8bf;background:#fff4f5;}
+.people-toolbar,.people-identity,.people-draft {display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
+.people-identity h2,.people-identity p {margin:.15rem 0;}
+.people-toolbar {margin:.5rem 0;}
+.people-toolbar input {flex:1;min-width:8rem;}
+.people-toolbar select {width:auto;}
+.people-draft {justify-content:space-between;}
+.people-avatar {flex:none; width:3.25rem;height:3.25rem; margin:0; border:1px solid #cbd5e1;}
+.avatar-fallback {display:grid;place-items:center;background:#dce8f6;color:#234b77;font-weight:700;font-size:1.15rem;}
+.people-card {display:grid;gap:.55rem;padding:.85rem;border:1px solid #d2deec;border-radius:.5rem;background:#fff;margin:.6rem 0;}
+.people-card .people-toolbar {margin:0;}
+.people-stats {display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:.75rem;}
+.people-stat {display:grid;gap:.4rem;border:1px solid #d2deec;border-radius:.5rem;padding:.8rem;background:white;text-decoration:none;color:#18334f;}
+.people-stat strong {font-size:1.55rem;}
+.people-status {margin-inline-start:.25rem;}
+.status-pending {background:#e5eaf0;color:#344659;}
+.status-working {background:#dbeafe;color:#1e40af;}
+.status-finished {background:#ccfbf1;color:#115e59;}
+.status-submitted {background:#fef3c7;color:#92400e;}
+.status-returned {background:#ffedd5;color:#9a3412;}
+.status-rejected {background:#fee2e2;color:#991b1b;}
+.status-terminated {background:#e2e8f0;color:#334155;}
+.status-completed {background:#dcfce7;color:#166534;}
+.member-layout {color-scheme:light;grid-template-columns:14rem minmax(0,1fr);}
+.member-layout--collapsed {grid-template-columns:9rem minmax(0,1fr);}
+.member-layout > aside {position:sticky;top:0;min-height:100dvh;}
+.member-identity {display:grid;justify-items:center;text-align:center;gap:.35rem;overflow-wrap:anywhere;padding:.8rem .25rem;}
+.member-identity small {color:#c4d2e4;}
+.member-layout > aside .member-collapse {margin-top:0;align-self:flex-end;}
+.member-layout > main a {color:#104e96;}
+.people-preview {max-width:100%;max-height:30rem;object-fit:contain;}
+.people-preview-text {white-space:pre-wrap;overflow:auto;max-height:30rem;background:#f1f5f9;padding:.8rem;}
+.people-panel [role=alert] {color:#a51d2d;background:#fff0f1;padding:.5rem;border-radius:.25rem;}
+@media(max-width:48rem){.people-shell,.people-grid,.member-layout,.member-layout--collapsed {grid-template-columns:1fr;}.people-subnav,.member-layout>aside{position:static;min-height:0;}.people-subnav{display:flex;flex-wrap:wrap;}.member-identity{display:flex;justify-content:flex-start;}.people-toolbar{align-items:stretch;}.people-toolbar input,.people-toolbar select{max-width:100%;}}

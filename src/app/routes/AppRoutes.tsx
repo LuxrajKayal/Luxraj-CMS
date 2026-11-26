@@ -24,6 +24,10 @@ const WebsiteControlsPage = lazy(() => import('../../features/website-controls/W
 const UsersPermissionsPage = lazy(() => import('../../features/people/UsersPermissionsPage'));
 const AdminDashboard = lazy(() => import('../../features/people/UsersPermissionsPage').then(module => ({ default: module.AdminDashboard })));
 const MemberLayout = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberLayout })));
+const MemberLanding = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberLanding })));
+const MemberDashboard = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberDashboard })));
+const MemberDraftsPage = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberDraftsPage })));
+const PendingReviews = lazy(() => import('../../features/people/UsersPermissionsPage').then(module => ({ default: module.PendingReviews })));
 const MemberProfilePage = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberProfilePage })));
 const MemberTasksPage = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberTasksPage })));
 const MemberWorkstation = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberWorkstation })));
@@ -39,7 +43,9 @@ export function AppRoutes() {
       </Route>
 
       <Route path="/member" element={<Suspense fallback={<p role="status">Loading member workspace…</p>}><MemberLayout /></Suspense>}>
-        <Route index element={<Navigate to="/member/profile" replace />} />
+        <Route index element={<MemberLanding />} />
+        <Route path="dashboard" element={<MemberDashboard />} />
+        <Route path="drafts" element={<MemberDraftsPage />} />
         <Route path="profile" element={<MemberProfilePage />} />
         <Route path="workstation" element={<MemberWorkstation />} />
         <Route path="tasks" element={<MemberTasksPage />} />
@@ -57,7 +63,7 @@ export function AppRoutes() {
           <Route path="/users-permissions" element={<Suspense fallback={<p role="status">Loading Users &amp; Permissions…</p>}>
             <UsersPermissionsPage />
           </Suspense>} />
-          <Route path="/pending-reviews" element={<Navigate to="/users-permissions?section=tasks" replace />} />
+          <Route path="/pending-reviews" element={<Suspense fallback={<p role="status">Loading reviews…</p>}><PendingReviews /></Suspense>} />
           {githubConnectionEnabled && (
             <Route element={<WorkspaceLayout />}>
               <Route path="/repositories" element={<RepositoriesPage />} />
