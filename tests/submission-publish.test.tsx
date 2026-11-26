@@ -76,7 +76,7 @@ test('submitted binary enters the real File Manager upload queue and stages exac
  fireEvent.click(within(queue).getByRole('button',{name:'Inspect reviewed.dat'}));
  fireEvent.click(await within(queue).findByRole('button',{name:'Save Draft'}));
  await screen.findByText('1 of 1 file drafts saved. Review saved files in Source Control.');
- expect(requests.workspace).toHaveBeenCalledWith({action:'file_save',repositoryId:7,branch:'test',path:['reviewed.dat'],commit:head,originalBlob:null,size:bytes.length,mime:file.mime,sha256:file.sha256,contents:file.contents,origin:'member_submission',submissionId:'sub-a',submissionFileId:'file-a'});
+ expect(requests.workspace).toHaveBeenCalledWith({action:'file_save',repositoryId:7,branch:'test',path:['reviewed.dat'],commit:head,originalBlob:null,size:bytes.length,mime:file.mime,sha256:file.sha256,contents:file.contents,origin:'member_submission',submissionId:'sub-a',submissionFileId:'file-a'},expect.any(AbortSignal));
  expect(screen.queryByRole('region',{name:'Upload queue'})).toBeNull();
  expect(requests.workspace.mock.calls.some(([req])=>req.action==='confirm_commit')).toBe(false);
 });
