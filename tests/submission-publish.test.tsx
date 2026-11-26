@@ -1,0 +1,32 @@
+import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {MemoryRouter,Route,Routes} from 'react-router';
+import {afterEach,expect,test,vi} from 'vitest';
+import {encodeBytes,sha256} from '../supabase/functions/_shared/file-bytes';
+import SubmissionPublishPage from '../src/features/people/SubmissionPublishPage';
+const requests=vi.hoisted(()=>({member:vi.fn(),workspace:vi.fn(),put:vi.fn(),remove:vi.fn()}));
+vi.mock('../src/features/workspace/api',()=>({memberRequest:requests.member,workspaceRequest:requests.workspace,workspaceError:(error:Error)=>error.message}));
+vi.mock('../src/features/workspace/EditBuffers',()=>({useEditBuffers:()=>({buffers:{},put:requests.put,remove:requests.remove})}));
+vi.mock('../src/features/workspace/WorkspaceLayout',()=>({useWorkspace:()=>({workspace:{selection:{repositoryId:7,branch:'test'},repositories:[{id:7,name:'owner/site'}],branches:['test']},saving:false}),BranchPicker:()=>null}));
+vi.mock('../src/features/workspace/MonacoViews',()=>({MonacoSource:()=>null}));
+afterEach(()=>{cleanup();vi.resetAllMocks();});
+test('direct submitted file is inspected then saved with its immutable task association',async()=>{
+ const bytes=new TextEncoder().encode('Article draft');
+ const digest=await sha256(bytes);
+ const file={id:'file-a',name:'article.md',size:bytes.length,sha256:digest,mime:'text/plain',contents:encodeBytes(bytes)};
+ requests.member.mockResolvedValue({file,taskId:'TSK-25-11-2026-16-33'});
+ requests.workspace.mockImplementation(async (req:{action:string})=>{
+   if(req.action==='file_manager_tree')return {commit:'a'.repeat(40),entries:[]};
+   if(req.action==='file_inspect')return {commit:'a'.repeat(40),original:null};
+   if(req.action==='file_save')return {draft:{path:'articles/article.md'}};
+   throw Error('Unexpected action');
+ });
+ render(<MemoryRouter initialEntries={['/file-manager/submission?submission=sub-a&file=file-a&prepare=1']}><Routes><Route path="/file-manager/submission" element={<SubmissionPublishPage/>}/></Routes></MemoryRouter>);
+ const path=await screen.findByLabelText('Destination path');
+ fireEvent.change(path,{target:{value:'articles/article.md'}});
+ fireEvent.click(screen.getByRole('button',{name:'Inspect destination'}));
+ const save=await screen.findByRole('button',{name:'Save Draft for Commit'});
+ expect(requests.workspace.mock.calls.some(([req])=>req.action==='file_save')).toBe(false);
+ fireEvent.click(save);
+ await screen.findByRole('link',{name:'Review and commit in Source Control'});
+ expect(requests.workspace).toHaveBeenCalledWith({action:'file_save',repositoryId:7,branch:'test',path:['articles','article.md'],commit:'a'.repeat(40),originalBlob:null,size:bytes.length,mime:'text/plain',sha256:digest,contents:encodeBytes(bytes),origin:'member_submission',submissionId:'sub-a',submissionFileId:'file-a'});
+});

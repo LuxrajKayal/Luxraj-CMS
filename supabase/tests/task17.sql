@@ -163,6 +163,14 @@ begin
     raise exception 'termination or Settings cleanup deleted member records or verified association';
   end if;
   perform public.cms_delete_terminated_task(task_key);
+  insert into public.cms_tasks(id,user_id,task_type,description) values ('TSK-25-11-2026-16-34',author,'Manual override','Fixture override');
+  begin
+    perform public.cms_force_complete_task(author,'TSK-25-11-2026-16-34','pending',null,'Not authorized');
+    raise exception 'member forced completion';
+  exception when raise_exception then if sqlerrm<>'member_forbidden' then raise;end if;end;
+  perform public.cms_force_complete_task(administrator,'TSK-25-11-2026-16-34','pending',null,'Accepted offline');
+  if not exists(select from public.cms_tasks where id='TSK-25-11-2026-16-34' and status='completed' and commit_sha is null and force_completed_by=administrator and force_completion_reason='Accepted offline' and force_completed_at is not null)
+    then raise exception 'manual completion missing audit metadata or fabricated commit'; end if;
   if exists(select from public.cms_tasks where id=task_key) or exists(select from public.cms_task_submissions where task_id=task_key)
     or public.cms_read_member_file(author,draft,'work') is null then raise exception 'terminated task deletion lost independent draft or retained task'; end if;
 end;

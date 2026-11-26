@@ -402,14 +402,14 @@ flowchart TD
 
 - Super Admin creates a task in Users & Permissions: select an existing user from the dropdown, enter task type and description, and automatically generate a Task ID in the exact format `TSK-DD-MM-YYYY-HH-MM` (24-hour time), e.g. `TSK-25-11-2026-16-33`. No seconds or extra visible identifier at present; reject duplicate IDs rather than overwrite a task.
 - Assigned tasks appear in the corresponding user's workspace as **Pending**. Tasks do not grant access to unassigned applications. A user generates work in an assigned application and saves its output as a private draft in Supabase. On submission, choose the associated assigned Task ID from a dropdown. Preserve the same ID on corrections and resubmissions; do not interpret the file content.
-- The task becomes **Submitted for Review** and the Super Admin receives a notification identifying the user, role, Task ID and submitted draft. Super Admin opens the submitted output as input in their own sandbox application, reviews/processes it and prepares the final file(s) through the existing shared draft and Source Control workflow.
+- The task becomes **Submitted for Review** and the Super Admin receives a notification identifying the user, role, Task ID and submitted draft. Super Admin previews or downloads submitted files, edits supported text in Code Editor, stages original bytes via File Manager, or opens them as inputs to their own sandbox application. Final files use the existing shared draft and Source Control workflow.
 - Super Admin may **Reject** or **Return for Correction** with a simple comment. Returned work may be corrected and resubmitted under the same Task ID. Super Admin can terminate any task; termination is a distinct **Terminated** status, not deletion of records, drafts or committed files. No legacy Hold/Resume or separate cancellation workflow.
 
 ### 17.4 — Commit-based completion and permanent Git history
 
-- **A successful associated GitHub commit is the only way to mark a task Completed.** There is no manual Complete or separate Approve action. Authors, Developers and Advisors all follow this rule; recommendations and advisory work are committed as documentation to the chosen authorized repository/branch.
+- **A successful associated GitHub commit automatically marks a task Completed.** Super Admin may also explicitly Force Complete with a reason, actor and time recorded; this does not create a GitHub commit. There is no separate Approve action. Authors, Developers and Advisors all follow this rule; recommendations and advisory work are committed as documentation to the chosen authorized repository/branch.
 - Maintain the Task ID association through submission, Admin application processing, final draft(s) and Source Control. Automatically include the associated ID in the existing commit message (e.g. `[TSK-25-11-2026-16-33] Added advisor recommendations`); Super Admin supplies the normal descriptive message. The existing GitHub commit history/CMS History panel is the permanent commit record; no separate record-keeping module. Maintain the task's status and successful commit association in Supabase.
-- Task statuses: **Pending → Submitted for Review → Completed** (only on successful associated commit), **Rejected**, **Returned for Correction** (resubmit under the same ID), or **Terminated**. Failed, cancelled or unrelated commits and saved drafts do not complete tasks. Ordinary users cannot commit directly.
+- Task statuses: **Pending → Working → Finished → Submitted for Review → Completed** (successful associated commit or explicit Super Admin Force Complete), **Rejected**, **Returned for Correction** (resubmit under the same ID), or **Terminated**. Failed, cancelled or unrelated commits and saved drafts do not complete tasks. Ordinary users cannot commit directly.
 
 ### Task 17 acceptance
 
@@ -417,7 +417,7 @@ flowchart TD
 - [ ] First-login profile is read-only except WebP upload; approved website asset uses P-1 and explicit commit.
 - [ ] Assigned sandbox applications are accessible only to authorized users; unassignment disables access; roles cannot bypass backend restrictions.
 - [ ] Create task, save output, select Task ID, submit, notify Admin, open output in Admin application, reject/return/resubmit/terminate as appropriate.
-- [ ] Successful associated GitHub commit includes Task ID and alone triggers Completed; failure/cancellation does not.
+- [ ] Successful associated GitHub commit includes Task ID and triggers Completed automatically; failure/cancellation does not. Only Super Admin may Force Complete explicitly with a recorded reason.
 
 ## Task 18 — Communication & Email Management (revised and owner-agreed, November 25, 2026)
 
@@ -493,7 +493,7 @@ Notes:
 **Current status:** Tasks 0–16, P-1, Website Controls and the Code Editor redesign are owner-accepted. Revised Tasks 17–18 are the remaining roadmap tasks and require separate implementation approval. Deployment requires separate approval.
 
 
-> **Task 17 refinement (November 26, 2026):** Owner-reported interface and workflow issues are addressed in the Task 17 refinement build; live owner verification remains pending. Independent management/review views, role dashboards, first-login onboarding, Working/Finished and draft links, terminated-task deletion and request optimizations are documented in [Task 17 technical guide](docs/task-17-users-permissions.md). Finished is member-side only; Completed still requires a successful associated GitHub commit. Task 18 is unchanged.
+> **Task 17 refinement (November 26, 2026):** Owner-reported interface and workflow issues are addressed in the Task 17 refinement build; live owner verification remains pending. Independent management/review views, role dashboards, first-login onboarding, Working/Finished and draft links, terminated-task deletion and request optimizations are documented in [Task 17 technical guide](docs/task-17-users-permissions.md). Finished is member-side only; Completed follows a successful associated GitHub commit or explicit Super Admin Force Complete. Task 18 is unchanged.
 
 
 > **Task 17 publishing correction (November 26, 2026):** Submitted member files can be reviewed and edited or staged directly using Code Editor/File Manager, retaining their Task ID through Source Control. A successful associated GitHub commit completes the task automatically. Super Admin may also explicitly Force Complete with a recorded reason, actor and time, without a GitHub commit. This is the sole manual exception to the commit-based completion rule. See [Task 17 technical guide](docs/task-17-users-permissions.md). Owner testing remains pending.
