@@ -1,6 +1,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.119.2';
 import { maxFileBytes, type CommitReceipt, type CommitReview, type Repository, type ReviewFile } from '../_shared/workspace-contracts.ts';
-import { encodeBytes } from '../_shared/file-bytes.ts';
+import { decodeBytes, encodeBytes, sha256 } from '../_shared/file-bytes.ts';
+import type { DraftLink } from '../_shared/member-contracts.ts';
 import type { ChangeScope, ChangeSets } from './change-sets.ts';
 import type { FileDrafts } from './file-drafts.ts';
 import { isCommit, WorkspaceError, type WorkspaceGit } from './git.ts';
@@ -12,6 +13,7 @@ export interface CommitReviews {
   prepare(input: Input, files: ReviewFile[], message: string): Promise<CommitReview>;
   confirm(input: Input, id: string, write: Write): Promise<CommitReceipt>;
   reconcile(input: Input, id: string, sha: string): Promise<CommitReceipt>;
+  release?(input: Input, id: string): Promise<{ released: true }>;
 }
 
 export async function checkedDrafts({ changes, fileDrafts, scope, repository, git }: Input, files: ReviewFile[], head: string) {
@@ -30,7 +32,9 @@ export async function checkedDrafts({ changes, fileDrafts, scope, repository, gi
       if (data.contents === null || data.sha256 !== detail.sha256 || data.size !== detail.size) {
         throw new WorkspaceError('file_integrity', 409);
       }
-      return { size: data.size, contents: data.contents, reviewFile: { path: file.path, revision: file.revision, file: detail } };
+      const link: DraftLink | undefined = binary.submission_id ? { submissionId: binary.submission_id } :
+        binary.picture_id && binary.picture_url ? { pictureId: binary.picture_id, pictureUrl: binary.picture_url } : undefined;
+      return { size: data.size, contents: data.contents, reviewFile: { path: file.path, revision: file.revision, file: detail }, link };
     }
     if (file.file) throw new WorkspaceError('draft_conflict', 409, { path: file.path });
     const draft = await changes.get(fileScope);
@@ -93,12 +97,15 @@ export async function writeCommit(write: Write, review: CommitReview, additions:
 }
 
 type Row = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[];
-  claimed?: boolean; commit_sha?: string | null };
+  claimed?: boolean; commit_sha?: string | null; task_links?: { task: string; submission: string }[];
+  picture_links?: { picture: string; url: string }[] };
+const linked = (row: Row) => !!(row.task_links?.length || row.picture_links?.length);
 function fromRow(row: Row): CommitReview {
   return { id: row.id, repository: row.repository, branch: row.branch, head: row.head, message: row.message, files: row.files };
 }
 
-export function createCommitReviews(client: SupabaseClient, commitLimit = async () => 20): CommitReviews {
+export function createCommitReviews(client: SupabaseClient, commitLimit = async () => 20,
+  validateSubmission?: (submission: string, allowCompleted?: boolean) => Promise<string>): CommitReviews {
   const table = 'cms_commit_reviews';
   const keys = (scope: ChangeScope) => ({ user_id: scope.userId, repository_id: scope.repositoryId, branch: scope.branch });
 
@@ -107,14 +114,14 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
     if (count > maximumFiles) throw new WorkspaceError('commit_limit_exceeded', 409, { maximumFiles });
   }
 
-  async function record(id: string, actorId: string, sha: string): Promise<number | null> {
+  async function record(id: string, actorId: string, sha: string, hasLinks: boolean): Promise<number | null> {
     // The GitHub write cannot share a database transaction. Retry the status
     // update; the RPC is idempotent when an earlier response was lost.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const result = await client.rpc('cms_record_commit', {
-          review_id: id, actor_id: actorId, github_sha: sha,
-        });
+        const result = hasLinks
+          ? await client.rpc('cms_record_linked_commit', { review_key: id, actor: actorId, github_sha: sha })
+          : await client.rpc('cms_record_commit', { review_id: id, actor_id: actorId, github_sha: sha });
         if (!result.error && typeof result.data === 'number') return result.data;
       } catch {
         // Retrying a lost response is safe because cms_record_commit is idempotent.
@@ -129,14 +136,33 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
       const head = await input.git.requireBranch(input.repository, input.scope.branch);
       const drafts = await checkedDrafts(input, files, head);
       await input.check();
+      const taskLinks = new Map<string, { task: string; submission: string }>();
+      const pictureLinks = new Map<string, { picture: string; url: string }>();
+      for (const draft of drafts) {
+        if (!('link' in draft) || !draft.link) continue;
+        if ('submissionId' in draft.link) {
+          const submission = draft.link.submissionId;
+          if (!taskLinks.has(submission)) {
+            if (!validateSubmission) throw new Error('Task validation unavailable.');
+            taskLinks.set(submission, { task: await validateSubmission(submission, true), submission });
+          }
+        } else {
+          const { pictureId, pictureUrl } = draft.link;
+          pictureLinks.set(pictureId, { picture: pictureId, url: pictureUrl });
+        }
+      }
+      const hasLinks = !!(taskLinks.size || pictureLinks.size);
+      const tags = [...taskLinks.values()].map(link => '[' + link.task + '] ').join('');
       const [first, ...lines] = message.replace(/\r\n?/g, '\n').trim().split('\n');
-      const headline = first.trimEnd();
+      const headline = tags + first.trimEnd();
       const body = lines.join('\n').trim();
       const formattedMessage = body ? `${headline}\n\n${body}` : headline;
       if (formattedMessage.length > 1000) throw new WorkspaceError('invalid_commit_review', 400);
       const { data, error } = await client.from(table).insert({
         ...keys(input.scope), repository: input.repository.name, head, message: formattedMessage,
-        files: drafts.map(draft => draft.reviewFile),
+        files: await Promise.all(drafts.map(async draft => hasLinks && !('file' in draft.reviewFile)
+          ? { ...draft.reviewFile, digest: await sha256(decodeBytes(draft.contents)) } : draft.reviewFile)),
+        ...(hasLinks ? { task_links: [...taskLinks.values()], picture_links: [...pictureLinks.values()] } : {}),
       }).select('id,repository,branch,head,message,files').single();
       if (error) throw error;
       return fromRow(data as Row);
@@ -144,10 +170,12 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
     async confirm(input, id, write) {
       const { data, error } = await client.from(table).update({ claimed: true })
         .match(keys(input.scope)).eq('id', id).eq('claimed', false)
-        .gt('expires_at', new Date().toISOString()).select('id,repository,branch,head,message,files').maybeSingle();
+        .gt('expires_at', new Date().toISOString()).select('id,repository,branch,head,message,files,task_links,picture_links').maybeSingle();
       if (error) throw error;
       if (!data) throw new WorkspaceError('review_expired', 409);
-      const review = fromRow(data as Row);
+      const row = data as Row;
+      const review = fromRow(row);
+      const hasLinks = linked(row);
       await checkLimit(review.files.length);
       if (review.repository !== input.repository.name ||
           await input.git.requireBranch(input.repository, input.scope.branch) !== review.head) {
@@ -156,10 +184,26 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
       const drafts = await checkedDrafts(input, review.files, review.head);
       await input.check();
       await checkLimit(review.files.length);
-      const sha = await writeCommit(write, review, drafts.map(draft => ({
-        path: draft.reviewFile.path, contents: draft.contents,
-      })));
-      const retained = await record(id, input.scope.userId, sha);
+      if (hasLinks) {
+        const claim = await client.rpc('cms_claim_linked_review', { review_key: id, actor: input.scope.userId });
+        if (claim.error) {
+          if (['review_expired', 'task_review_stale', 'picture_review_stale'].includes(claim.error.message)) {
+            throw new WorkspaceError(claim.error.message, 409);
+          }
+          throw claim.error;
+        }
+      }
+      let sha: string;
+      try {
+        sha = await writeCommit(write, review, drafts.map(draft => ({ path: draft.reviewFile.path, contents: draft.contents })));
+      } catch (failure) {
+        if (hasLinks && failure instanceof WorkspaceError && failure.code !== 'commit_unknown') {
+          const release = await client.rpc('cms_release_linked_review', { review_key: id, actor: input.scope.userId });
+          if (release.error) throw new WorkspaceError('commit_unknown', 503);
+        }
+        throw failure;
+      }
+      const retained = await record(id, input.scope.userId, sha, hasLinks);
       return { sha, url: `https://github.com/${review.repository}/commit/${sha}`,
         retained, fileCount: drafts.length, reviewId: id };
     },
@@ -167,7 +211,7 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
     async reconcile(input, id, sha) {
       if (!isCommit(sha)) throw new WorkspaceError('commit_unverified', 409);
       const { data, error } = await client.from(table)
-        .select('id,repository,branch,head,message,files,claimed,commit_sha')
+        .select('id,repository,branch,head,message,files,claimed,commit_sha,task_links,picture_links')
         .match(keys(input.scope)).eq('id', id).eq('claimed', true).maybeSingle();
       if (error) throw error;
       if (!data) throw new WorkspaceError('review_expired', 409);
@@ -176,6 +220,17 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
       if (review.repository !== input.repository.name ||
           (row.commit_sha && row.commit_sha !== sha)) throw new WorkspaceError('commit_unverified', 409);
       await input.check();
+      const hasLinks = linked(row);
+      if (hasLinks) {
+        const head = await input.git.requireBranch(input.repository, input.scope.branch);
+        if (head !== sha) {
+          const response = await input.git.get(input.git.repoPath(input.repository) + '/compare/' + sha + '...' + head + '?per_page=1');
+          const reachability = response.ok ? await response.json() : null;
+          if (reachability?.merge_base_commit?.sha !== sha || reachability?.status !== 'ahead') {
+            throw new WorkspaceError('commit_unverified', 409);
+          }
+        }
+      }
 
       // An authenticated admin cannot mark an arbitrary SHA as the result of a
       // review: verify the real GitHub commit, its parent and its exact message.
@@ -200,9 +255,10 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
       // Verify remaining identical saved revisions against the committed file
       // content before recording them. Newer edited drafts remain pending.
       for (const file of review.files) {
-        if (file.file) {
+        if (file.file || file.digest) {
           const remoteFile = await input.git.fileAtCommit(input.repository, sha, file.path.split('/'));
-          if (remoteFile?.sha256 !== file.file.sha256 || remoteFile.size !== file.file.size) {
+          if (!remoteFile || remoteFile.sha256 !== (file.file?.sha256 ?? file.digest) ||
+              (file.file && remoteFile.size !== file.file.size)) {
             throw new WorkspaceError('commit_unverified', 409);
           }
           continue;
@@ -218,9 +274,24 @@ export function createCommitReviews(client: SupabaseClient, commitLimit = async 
         if (source !== draft.proposedSource) throw new WorkspaceError('commit_unverified', 409);
       }
       await input.check();
-      const retained = await record(id, input.scope.userId, sha);
+      const retained = await record(id, input.scope.userId, sha, hasLinks);
       return { sha, url: `https://github.com/${review.repository}/commit/${sha}`,
         retained, fileCount: review.files.length, reviewId: id };
+    },
+    async release(input, id) {
+      const report = await client.from(table).select('repository,head,task_links,picture_links')
+        .match(keys(input.scope)).eq('id', id).eq('claimed', true).is('commit_sha', null)
+        .lt('claimed_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()).maybeSingle();
+      if (report.error) throw report.error;
+      const row = report.data as Row | null;
+      if (!row || !linked(row) || row.repository !== input.repository.name ||
+          await input.git.requireBranch(input.repository, input.scope.branch) !== row.head) {
+        throw new WorkspaceError('commit_release_blocked', 409);
+      }
+      await input.check();
+      const release = await client.rpc('cms_release_linked_review', { review_key: id, actor: input.scope.userId });
+      if (release.error) throw release.error;
+      return { released: true };
     },
   };
 }

@@ -2,7 +2,7 @@
 
 > **For the project owner.** This is a human-readable progress and verification guide, **not a Codex prompt or an implementation specification**. The approved requirements, architecture decisions, and metadata catalogs remain in [README.md](./README.md).
 >
-> **Status, November 25, 2026:** **Tasks 0–16, P-1 Universal File Manager, Website Controls and the Code Editor redesign are completed and owner-accepted.** Revised Tasks 17–18 are agreed planning, implementation pending. The current roadmap ends at Task 18.
+> **Status, November 26, 2026:** **Tasks 0–16, P-1 Universal File Manager, Website Controls and the Code Editor redesign are completed and owner-accepted.** Task 17 is implemented on `codex-development` and awaits owner verification and acceptance. Task 18 remains approved planning.
 
 **Website Controls / HTML Sandbox** is implemented, deployed and owner-accepted. See the [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) and [application bridge guide](docs/website-controls.md).
 
@@ -379,7 +379,7 @@ flowchart TD
 
 ## Task 17 — Users & Permissions Control (revised and owner-agreed, November 25, 2026)
 
-**Status:** Planning complete; implementation pending. This replaces the entire former Task 17 and incorporates the retained profile requirements of the former Task 18.
+**Status:** Implemented — Awaiting Owner Verification and Acceptance. See [Task 17 setup, security and verification](docs/task-17-users-permissions.md). The acceptance boxes below record owner acceptance.
 
 ### 17.1 — User account management
 

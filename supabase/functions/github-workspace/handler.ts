@@ -8,6 +8,8 @@ import { fileManager } from './file-manager.ts';
 import type { FileDrafts } from './file-drafts.ts';
 import { scanInjectorHtml, type createInjectorStore } from './injector.ts';
 import { websiteControls, runMaintenance, type createWebsiteStore, type createMaintenanceStore } from './website-controls.ts';
+import type { MemberRequest } from '../_shared/member-contracts.ts';
+import type { createMembers } from './members.ts';
 
 interface Dependencies {
   origin: string;
@@ -26,6 +28,7 @@ interface Dependencies {
   commits?: CommitReviews;
   injector?: ReturnType<typeof createInjectorStore>;
   website?: ReturnType<typeof createWebsiteStore>;
+  members?: ReturnType<typeof createMembers>;
   maintenance?: ReturnType<typeof createMaintenanceStore>;
   commitLimit?: { get(): Promise<number>; set(value: number): Promise<number> };
   storage?: { usage(): Promise<StorageUsage>; set(databaseLimitMb: number, fileLimitMb: number): Promise<StorageUsage> };
@@ -65,10 +68,25 @@ export function createWorkspaceHandler(deps: Dependencies) {
       const bearer = request.headers.get('Authorization')?.match(/^Bearer (\S+)$/i);
       const userId = bearer ? await deps.authenticate(bearer[1]) : null;
       if (!userId) return json({ error: 'unauthenticated' }, 401);
-      if (!await deps.isAdmin(userId)) return json({ error: 'forbidden' }, 403);
-
       const body = await request.json().catch(() => null);
       const action = body?.action;
+      const members = deps.members;
+      const memberDeps = {
+        isAdmin: deps.isAdmin, openGit: deps.openGit,
+        stagePicture: (payload: Record<string, unknown>, actor: string) => fileManager(payload, actor, deps),
+        pictureLocation: async () => await deps.fileDrafts?.location() ?? null,
+      };
+      if (typeof action === 'string' && action.startsWith('member_')) {
+        if (!members) return json({ error: 'forbidden' }, 403);
+        const result = await members.member(body as MemberRequest, userId, memberDeps);
+        return result ? json(result) : json({ error: 'invalid_request' }, 400);
+      }
+      if (!await deps.isAdmin(userId)) return json({ error: 'forbidden' }, 403);
+      if (typeof action === 'string' && action.startsWith('people_')) {
+        if (!members) throw new Error('Users and Permissions unavailable.');
+        const result = await members.admin(body as MemberRequest, userId, memberDeps);
+        return result ? json(result) : json({ error: 'invalid_request' }, 400);
+      }
       const managedFile = await fileManager(body, userId, deps);
       if (managedFile) return json(managedFile);
       const website = await websiteControls(body, userId, deps);
@@ -126,7 +144,7 @@ export function createWorkspaceHandler(deps: Dependencies) {
         }
         return json(await deps.storage.set(body.databaseLimitMb, body.fileLimitMb));
       }
-      if (['review_commit', 'confirm_commit', 'reconcile_commit', 'history', 'commit_detail', 'commit_diff'].includes(action)) {
+      if (['review_commit', 'confirm_commit', 'reconcile_commit', 'release_commit', 'history', 'commit_detail', 'commit_diff'].includes(action)) {
         if (!positiveId(body.repositoryId) || !isBranch(body.branch)) return json({ error: 'invalid_request' }, 400);
         const path = (value: unknown) => typeof value === 'string' && !!value && value.length <= 1024 && isPath(value.split('/'));
         if (action === 'review_commit') {
@@ -139,7 +157,7 @@ export function createWorkspaceHandler(deps: Dependencies) {
           const maximumFiles = await deps.commitLimit?.get() ?? 20;
           if (body.files.length > maximumFiles) return json({ error: 'commit_limit_exceeded', maximumFiles }, 409);
         }
-        if ((action === 'confirm_commit' || action === 'reconcile_commit') &&
+        if ((action === 'confirm_commit' || action === 'reconcile_commit' || action === 'release_commit') &&
             (!isRevision(body.reviewId) || (action === 'reconcile_commit' && !isCommit(body.sha)))) {
           return json({ error: 'invalid_request' }, 400);
         }
@@ -167,7 +185,7 @@ export function createWorkspaceHandler(deps: Dependencies) {
           await checkSelection();
           if (!await deps.isAdmin(userId!)) throw new WorkspaceError('forbidden', 403);
         }
-        if (action === 'review_commit' || action === 'confirm_commit' || action === 'reconcile_commit') {
+        if (action === 'review_commit' || action === 'confirm_commit' || action === 'reconcile_commit' || action === 'release_commit') {
           if (!deps.commits || !deps.changes || (action === 'confirm_commit' && !remote.write)) {
             throw new Error('Commit service unavailable.');
           }
@@ -180,6 +198,10 @@ export function createWorkspaceHandler(deps: Dependencies) {
           }
           if (action === 'reconcile_commit') {
             return json(await deps.commits.reconcile(input, body.reviewId, body.sha));
+          }
+          if (action === 'release_commit') {
+            if (!deps.commits.release) throw new Error('Review recovery unavailable.');
+            return json(await deps.commits.release(input, body.reviewId));
           }
           return json(await deps.commits.confirm(input, body.reviewId, async variables =>
             remote.write!(repository.id, variables, check)));

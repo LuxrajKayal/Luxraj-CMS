@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import type { CommitReceipt, CommitReview, ReviewFile } from '../../../supabase/functions/_shared/workspace-contracts';
 import { workspaceError, workspaceRequest } from './api';
 
@@ -7,10 +8,12 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
 }) {
   const [message, setMessage] = useState('');
   const [review, setReview] = useState<CommitReview | null>(null);
+  const [params] = useSearchParams();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [recovery, setRecovery] = useState('');
+  const [recovery, setRecovery] = useState(() => params.get('recover')?.match(/^[\da-f-]{36}$/i)?.[0] ?? '');
   const [recoverySha, setRecoverySha] = useState('');
+  const [recoveryNotice, setRecoveryNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -61,6 +64,19 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
     finally { setBusy(false); }
   }
 
+  async function releaseReview() {
+    if (!recovery || !window.confirm('Release this linked review only if the original GitHub branch head is unchanged?')) return;
+    setBusy(true);
+    setError('');
+    try {
+      await workspaceRequest({ action: 'release_commit', repositoryId, branch, reviewId: recovery });
+      setRecovery('');
+      setRecoverySha('');
+      setRecoveryNotice('Review released. Start a new review to try again.');
+    } catch (failure) { setError(workspaceError(failure)); }
+    finally { setBusy(false); }
+  }
+
   return <div className="commit-controls">
     <label>Commit message
       <textarea maxLength={1000} rows={2} value={message} disabled={busy} onChange={event => setMessage(event.target.value)} />
@@ -70,11 +86,13 @@ export function CommitControls({ repositoryId, branch, files, onCommitted, maxim
     </button>
     {files.length > maximumFiles && <p>Select up to {maximumFiles} files per commit.</p>}
     {error && <p role="alert">{error}</p>}
+    {recoveryNotice && <p role="status">{recoveryNotice}</p>}
     {recovery && <section aria-label="Recover commit status">
       <p>Check the selected branch on GitHub. If it contains the reviewed commit, paste its full SHA to verify it and sync drafts.</p>
       <label>GitHub commit SHA <input value={recoverySha} maxLength={40} onChange={event => setRecoverySha(event.target.value)} /></label>
       <button type="button" disabled={busy || !/^[0-9a-f]{40}$/i.test(recoverySha.trim())}
         onClick={() => void verifyCommit()}>Verify existing commit</button>
+      <button type="button" disabled={busy} onClick={() => void releaseReview()}>Release unchanged linked review</button>
     </section>}
     {review && <dialog ref={dialog} aria-labelledby="commit-confirm-title" onCancel={event => {
       event.preventDefault();

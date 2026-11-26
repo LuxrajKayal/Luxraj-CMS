@@ -46,6 +46,7 @@ export interface FileVersion extends SourceFile {
 export interface DraftSummary {
   path: string;
   updatedAt: string;
+  taskId?: string;
   revision?: string;
   file?: boolean;
 }
@@ -92,7 +93,7 @@ export type StoredFile = FileMetadata & { path: string; revision: string; origin
 export type FileInspection = { commit: string; original: FilePayload | null };
 export type FileComparison = { draft: StoredFile; original: FilePayload | null; proposed: FilePayload };
 export type ProfilePictureLocation = { repositoryId: number; branch: string; folder: string; publicPrefix: string };
-export type ReviewFile = { path: string; revision: string; file?: { size: number; sha256: string; originalBlob: string | null } };
+export type ReviewFile = { path: string; revision: string; digest?: string; file?: { size: number; sha256: string; originalBlob: string | null } };
 export type CommitReview = { id: string; repository: string; branch: string; head: string; message: string; files: ReviewFile[] };
 export type CommitReceipt = { sha: string; url: string; retained: number | null; fileCount: number; reviewId?: string };
 export type HistoryCommit = { sha: string; parents: string[]; message: string; author: string; date: string };
@@ -130,7 +131,7 @@ export type WorkspaceRequest =
   | { action: 'file_manager_tree'; repositoryId: number; branch: string; path: string[]; includeExecutables?: boolean }
   | { action: 'file_inspect'; repositoryId: number; branch: string; path: string[]; commit: string }
   | { action: 'file_save' | 'profile_picture_stage'; repositoryId: number; branch: string; path: string[]; commit: string;
-      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string; origin?: 'website_control' }
+      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string; origin?: 'website_control'; submissionId?: string }
   | { action: 'file_drafts'; repositoryId: number; branch: string }
   | { action: 'file_comparison'; repositoryId: number; branch: string; path: string[]; revision: string }
   | { action: 'profile_picture_location' }
@@ -161,6 +162,7 @@ export type WorkspaceRequest =
   | { action: 'storage_save'; databaseLimitMb: number; fileLimitMb: number }
   | { action: 'review_commit'; repositoryId: number; branch: string; message: string; files: ReviewFile[] }
   | { action: 'confirm_commit'; repositoryId: number; branch: string; reviewId: string }
+  | { action: 'release_commit'; repositoryId: number; branch: string; reviewId: string }
   | { action: 'reconcile_commit'; repositoryId: number; branch: string; reviewId: string; sha: string }
   | { action: 'history'; repositoryId: number; branch: string; page: number; head?: string }
   | { action: 'commit_detail'; repositoryId: number; branch: string; sha: string }

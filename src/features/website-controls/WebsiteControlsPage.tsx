@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { AppWindow, GitBranch, Play, Plus } from 'lucide-react';
 import type { WebsiteControl, WebsiteLaunch, WebsiteRegistration } from '../../../supabase/functions/_shared/workspace-contracts';
 import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import type { FileScope } from '../file-manager/FileDestination';
-import { workspaceError, workspaceRequest } from '../workspace/api';
+import { memberRequest, workspaceError, workspaceRequest } from '../workspace/api';
+import { memberFile } from '../people/memberFiles';
 import { useWorkspace } from '../workspace/WorkspaceLayout';
 import { ControlRegistration } from './ControlRegistration';
 import { ControlRunner, controlInput } from './ControlRunner';
@@ -12,21 +13,26 @@ import './website-controls.css';
 
 export default function WebsiteControlsPage() {
   const { workspace } = useWorkspace();
+  const [params] = useSearchParams();
+  const submission = params.get('submission');
   const { selection } = workspace;
   const repository = workspace.repositories.find(item => item.id === selection?.repositoryId);
   if (!selection?.branch || !repository) return <>
     <ModuleTopbar title="Website Controls" />
     <div className="module-body"><Link to="/repositories">Select a repository and branch</Link></div>
   </>;
-  return <ScopedControls key={JSON.stringify([repository.id, selection.branch])}
-    repository={repository.name} repositoryId={repository.id} branch={selection.branch} />;
+  return <ScopedControls key={JSON.stringify([repository.id, selection.branch, params.toString()])}
+    repository={repository.name} repositoryId={repository.id} branch={selection.branch}
+    submitted={submission ? { id: submission, files: params.getAll('file') } : undefined} />;
 }
 
-function ScopedControls({ repository, repositoryId, branch }: FileScope & { repository: string }) {
+function ScopedControls({ repository, repositoryId, branch, submitted }: FileScope & {
+  repository: string; submitted?: { id: string; files: string[] };
+}) {
   const [controls, setControls] = useState<WebsiteControl[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [working, setWorking] = useState('');
-  const [active, setActive] = useState<{ launched: WebsiteLaunch; files: File[] } | null>(null);
+  const [active, setActive] = useState<{ launched: WebsiteLaunch; files: File[]; taskId?: string } | null>(null);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
   const lifetime = useRef<AbortController>(undefined);
@@ -68,6 +74,7 @@ function ScopedControls({ repository, repositoryId, branch }: FileScope & { repo
     try {
       const launched = await workspaceRequest({ action: 'website_launch', ...scope, id: control.id }, signal);
       const files: File[] = [];
+      let taskId: string | undefined;
       for (const path of launched.control.inputs) {
         setWorking('Loading ' + path + '…');
         try {
@@ -76,7 +83,17 @@ function ScopedControls({ repository, repositoryId, branch }: FileScope & { repo
           throw new Error(path + '. ' + workspaceError(failure), { cause: failure });
         }
       }
-      if (!signal?.aborted) setActive({ launched, files });
+      if (submitted) {
+        if (!submitted.files.length) throw new Error('member_unavailable');
+        setWorking('Loading submitted files…');
+        for (const fileId of submitted.files) {
+          const result = await memberRequest({ action: 'people_submission_file', submissionId: submitted.id, fileId }, signal);
+          const { file } = result;
+          taskId = result.taskId;
+          files.push(await memberFile(file));
+        }
+      }
+      if (!signal?.aborted) setActive({ launched, files, taskId });
     } catch (failure) {
       if (!signal?.aborted) setError(failure instanceof Error && failure.cause ? failure.message : workspaceError(failure));
     } finally {
@@ -90,12 +107,17 @@ function ScopedControls({ repository, repositoryId, branch }: FileScope & { repo
     </ModuleTopbar>
     <div className="module-body">
       <p className="website-scope"><strong>{repository}</strong> <GitBranch size={15} /><code>{branch}</code></p>
+      {submitted && <p className="website-scope">
+        <strong>{active?.taskId ?? 'Submitted task'}</strong> · Run an Admin application to process {submitted.files.length} submitted files.
+        <Link to="/users-permissions?section=tasks">Back to submissions</Link>
+      </p>}
       {error && <p role="alert">{error}</p>}
       {working && <p role="status">{working}</p>}
       {!controls && (error
         ? <button type="button" onClick={() => { setError(''); setReload(value => value + 1); }}>Retry loading controls</button>
         : <p role="status">Loading stored controls…</p>)}
-      {active ? <ControlRunner scope={scope} run={active.launched} inputs={active.files} close={() => setActive(null)} /> :
+      {active ? <ControlRunner scope={scope} run={active.launched} inputs={active.files} close={() => setActive(null)}
+        submissionId={submitted?.id} realTaskId={active.taskId} /> :
         adding ? <ControlRegistration scope={scope} saving={!!working} save={register}
           cancel={() => { setAdding(false); setError(''); }} /> :
           controls && <section className="website-launcher" aria-label="Registered applications">

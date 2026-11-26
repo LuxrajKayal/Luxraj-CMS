@@ -4,7 +4,7 @@ Cloud-based CMS powered by Supabase and GitHub.
 
 **Selected frontend architecture:** React + TypeScript + Vite, with modular feature boundaries, client-side routing, independent layouts, shared UI and controlled environment configuration. **Codex in VS Code** is the planned implementation path; all coding requires explicit phase approval.
 
-> **Project status, November 25, 2026:** Tasks **0–16**, **P-1 Universal File Manager**, **Website Controls / HTML Sandbox** and the **Code Editor redesign** are completed and owner-accepted. Revised Tasks 17–18 are agreed planning, implementation pending. The current roadmap ends at Task 18.
+> **Project status, November 26, 2026:** Tasks **0–16**, **P-1 Universal File Manager**, **Website Controls / HTML Sandbox** and the **Code Editor redesign** are completed and owner-accepted. **Task 17 is implemented on `codex-development` and awaits owner verification and acceptance.** Task 18 remains approved planning.
 
 **Website Controls (completed)** runs registered repository HTML applications and stages their generated files through the shared Source Control workflow. See the [owner-approved specification](docs/Luxraj_CMS_Website_Controls_Codex_Plan.md) and the [application file bridge and setup](docs/website-controls.md).
 
@@ -338,6 +338,7 @@ Do not disable or remove any repository's build/injection workflow until the cor
 **Current owner-agreed specification:** [Development Roadmap, Tasks 17–18](./DEVELOPMENT_ROADMAP.md). These replace the former Tasks 17–18; do not carry over the retired dedicated Author Homepage/dashboard, article-specific workflow or Hold/Resume requirements.
 
 - **Task 17 — Users & Permissions:** Super Admin creates users manually in Supabase or through CMS Add/Modify Existing User forms (name, DOB, gender, educational qualifications, role, description, email and assigned password at creation). Admin manually communicates credentials; no readable password storage or self-service resets. Only explicit Users & Permissions deletion removes user/profile records. First login shows read-only assigned fields; user changes only WebP profile picture (15–150 KB), with retained Admin approval and P-1 website asset commit.
+- Task 17 uses the same HTML sandbox for restricted workstations and Admin review. Member outputs are private work drafts until the Super Admin processes a submission and stages final files through the existing Source Control flow. Only a verified linked GitHub commit completes the task. See the [Task 17 implementation and test guide](docs/task-17-users-permissions.md).
 - **Role and application access:** Author, Developer and Advisor use restricted separate workspaces. Admin assigns/removes one or more monolithic HTML applications; no assignments means workstation disabled. The restricted sandbox runs assigned apps without interpreting their functionality. Apps generate private draft outputs; Admin can use those outputs as inputs to independent Admin apps. Backend enforces assignments and file access; only Super Admin can commit.
 - **Task workflow:** Assign user/type/description, auto-generate `TSK-DD-MM-YYYY-HH-MM` (reject duplicates), submit draft with selected Task ID, notify Admin, review in Admin sandbox, reject or return with comment, resubmit under same ID, or terminate. **Only a successful associated GitHub commit completes a task**, across all roles including Advisor documentation; automatically attach Task ID to commit message and use existing Git history rather than a separate history module. No manual Complete/Approve. Preserve task association and status.
 - **Task 18 — Chat:** Retain Super Admin/authorized collaborator chat, online/working/offline presence, persistent offline messages, Super Admin-only deletion and in-app/optional browser push notifications; backend membership checks.
@@ -523,6 +524,6 @@ Each new implementation step needs separate owner approval; the roadmap carries 
 
 **Accepted code baseline (November 25, 2026):** Tasks 0–16, P-1 Universal File Manager, Website Controls and Code Editor redesign are completed and owner-accepted. This does not claim every possible regression/security edge case has been independently retested.
 
-**Current agreed future scope:** Revised Tasks 17–18 only; see the Development Roadmap. Do not reintroduce retired Task 17–18 requirements.
+**Current scope:** Task 17 awaits owner verification and acceptance. Revised Task 18 is the only remaining planned task.
 
 **Documentation does not authorize application changes or deployment.** Future tasks require separate approval and actual verification.

@@ -69,10 +69,11 @@ export function createChangeSets(client: SupabaseClient): ChangeSets {
       const files: DraftSummary[] = [];
       const pageSize = 200;
       for (let offset = 0; ; offset += pageSize) {
-        const { data, error } = await client.from('cms_draft_catalog').select('path,updated_at,revision,file_state').match(keys(scope)).eq('pending', true)
+        const { data, error } = await client.from('cms_draft_catalog').select('path,updated_at,revision,file_state,task_id').match(keys(scope)).eq('pending', true)
           .order('path').range(offset, offset + pageSize - 1);
         if (error) throw error;
-        files.push(...data.map(row => ({ path: row.path, updatedAt: row.updated_at, revision: row.revision, file: row.file_state === 'saved' })));
+        files.push(...data.map(row => ({ path: row.path, updatedAt: row.updated_at, revision: row.revision, file: row.file_state === 'saved',
+          ...(row.task_id ? { taskId: row.task_id } : {}) })));
         if (data.length < pageSize) return files;
       }
     },

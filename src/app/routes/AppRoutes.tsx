@@ -16,12 +16,17 @@ import { StorageManagementPage } from '../../features/settings/StorageManagement
 import { CommitLimitPage } from '../../features/settings/CommitLimitPage';
 import { ProfilePictureLocationPage } from '../../features/settings/ProfilePictureLocationPage';
 import { MaintenancePage } from '../../features/settings/MaintenancePage';
-import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { lazy, Suspense } from 'react';
 
 const CodeInjectorPage = lazy(() => import('../../features/code-injector/CodeInjectorPage'));
 const FileManagerPage = lazy(() => import('../../features/file-manager/FileManagerPage'));
 const WebsiteControlsPage = lazy(() => import('../../features/website-controls/WebsiteControlsPage'));
+const UsersPermissionsPage = lazy(() => import('../../features/people/UsersPermissionsPage'));
+const AdminDashboard = lazy(() => import('../../features/people/UsersPermissionsPage').then(module => ({ default: module.AdminDashboard })));
+const MemberLayout = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberLayout })));
+const MemberProfilePage = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberProfilePage })));
+const MemberTasksPage = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberTasksPage })));
+const MemberWorkstation = lazy(() => import('../../features/people/MemberWorkspace').then(module => ({ default: module.MemberWorkstation })));
 
 // The live CMS stays usable with Task 5 authorization until the GitHub App backend is configured.
 const githubConnectionEnabled = import.meta.env.DEV || import.meta.env.VITE_GITHUB_CONNECTION_ENABLED === 'true';
@@ -33,15 +38,26 @@ export function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
       </Route>
 
+      <Route path="/member" element={<Suspense fallback={<p role="status">Loading member workspace…</p>}><MemberLayout /></Suspense>}>
+        <Route index element={<Navigate to="/member/profile" replace />} />
+        <Route path="profile" element={<MemberProfilePage />} />
+        <Route path="workstation" element={<MemberWorkstation />} />
+        <Route path="tasks" element={<MemberTasksPage />} />
+      </Route>
+
       <Route element={<RequireSuperAdmin />}>
         {githubConnectionEnabled && <Route path="/github/connect" element={<GithubOnboarding />} />}
         {githubConnectionEnabled && <Route path="/github/callback" element={<GithubCallback />} />}
         <Route element={githubConnectionEnabled ? <RequireGithubConnection /> : <Outlet />}>
           <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<ModuleTopbar title="Dashboard" />} />
+            <Route path="/dashboard" element={<Suspense fallback={<p role="status">Loading dashboard…</p>}><AdminDashboard /></Suspense>} />
           </Route>
         </Route>
         <Route element={<DashboardLayout />}>
+          <Route path="/users-permissions" element={<Suspense fallback={<p role="status">Loading Users &amp; Permissions…</p>}>
+            <UsersPermissionsPage />
+          </Suspense>} />
+          <Route path="/pending-reviews" element={<Navigate to="/users-permissions?section=tasks" replace />} />
           {githubConnectionEnabled && (
             <Route element={<WorkspaceLayout />}>
               <Route path="/repositories" element={<RepositoriesPage />} />

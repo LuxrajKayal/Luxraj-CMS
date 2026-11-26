@@ -2,6 +2,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.119.2';
 import { maxFileBytes, type DraftIdentity, type FilePayload, type ProfilePictureLocation, type StoredFile } from '../_shared/workspace-contracts.ts';
 import { decodeBytes, encodeBytes, sha256, webp } from '../_shared/file-bytes.ts';
 import type { ChangeScope } from './change-sets.ts';
+import type { DraftLink } from '../_shared/member-contracts.ts';
 import { WorkspaceError } from './git.ts';
 
 type Scope = ChangeScope & { path: string };
@@ -9,8 +10,9 @@ type Row = {
   path: string; revision: string; original_blob: string | null; original_commit: string; committed_sha: string | null;
   storage_key: string; file_size: number; file_digest: string; mime_hint: string;
   file_state: 'uploading' | 'saved' | 'deleting'; updated_at: string; draft_origin?: StoredFile['origin'] | null;
+  submission_id?: string | null; picture_id?: string | null; picture_url?: string | null;
 };
-const columns = 'path,revision,original_blob,original_commit,committed_sha,storage_key,file_size,file_digest,mime_hint,file_state,updated_at,draft_origin';
+const columns = 'path,revision,original_blob,original_commit,committed_sha,storage_key,file_size,file_digest,mime_hint,file_state,updated_at,draft_origin,submission_id,picture_id,picture_url';
 
 export function toStored(row: Row): StoredFile {
   return { path: row.path, revision: row.revision, originalBlob: row.original_blob, committedSha: row.committed_sha,
@@ -99,13 +101,15 @@ export function createFileDrafts(client: SupabaseClient) {
       }
     },
     async save(scope: Scope, commit: string, originalBlob: string | null, file: Awaited<ReturnType<typeof validateFile>>,
-      check: () => Promise<void>, origin?: StoredFile['origin']) {
+      check: () => Promise<void>, origin?: StoredFile['origin'], link?: DraftLink) {
       const revision = crypto.randomUUID();
       const object = scope.userId + '/' + revision;
       const row = {
         ...keys(scope), revision, original_commit: commit, original_blob: originalBlob, original_source: '', proposed_source: '',
         file_state: 'uploading', storage_key: object, file_size: file.size, file_digest: file.sha256, mime_hint: file.mime,
         draft_origin: origin ?? null,
+        ...(link && ('submissionId' in link ? { submission_id: link.submissionId } :
+          { picture_id: link.pictureId, picture_url: link.pictureUrl })),
       };
       const { error } = await client.from(table).insert(row);
       if (error?.code === '23505') throw new WorkspaceError('draft_conflict', 409, { path: scope.path });

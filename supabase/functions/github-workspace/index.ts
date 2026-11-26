@@ -7,6 +7,7 @@ import { createCommitReviews } from './commits.ts';
 import { createFileDrafts } from './file-drafts.ts';
 import { createInjectorStore } from './injector.ts';
 import { createMaintenanceStore, createWebsiteStore } from './website-controls.ts';
+import { createMembers } from './members.ts';
 import type { StorageUsage } from '../_shared/workspace-contracts.ts';
 
 function env(name: string) {
@@ -46,11 +47,13 @@ function configure() {
     return data.maximum_files_per_commit as number;
   }
 
+  const members = createMembers(client);
   return createWorkspaceHandler({
     origin,
     changes: createChangeSets(client),
     fileDrafts: createFileDrafts(client),
-    commits: createCommitReviews(client, getCommitLimit),
+    commits: createCommitReviews(client, getCommitLimit, members.validateSubmission),
+    members,
     injector: createInjectorStore(client),
     website: createWebsiteStore(client),
     maintenance: createMaintenanceStore(client),

@@ -55,6 +55,7 @@ export function ChangedFiles({ repositoryId, branch, version, active, onOpen, re
           }} />}
         <button type="button" aria-pressed={active === item.path} onClick={() => onOpen(item.path)} title={item.path}>
           {item.path}{item.file && <small> · File upload</small>}
+          {item.taskId && <small> · {item.taskId}</small>}
         </button>
       </li>)}
     </ul>

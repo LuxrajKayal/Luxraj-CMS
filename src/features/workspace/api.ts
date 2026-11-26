@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../../core/auth/supabase';
+import type { MemberCalls, MemberRequest } from '../../../supabase/functions/_shared/member-contracts';
 import type {
   CodeCatalog, CodeGroup, CodeTemplate, CommitLimit, InjectorHtmlMatches,
   CommitDetail, CommittedDiff, CommitReceipt, CommitReview, Directory, Draft, DraftDeletion, DraftSummary, HistoryPage, HtmlDiscovery,
@@ -30,6 +31,7 @@ type Responses = {
   website_launch: WebsiteLaunch; website_input: { file: FilePayload };
   storage_status: StorageUsage; storage_save: StorageUsage;
   review_commit: CommitReview; confirm_commit: CommitReceipt; reconcile_commit: CommitReceipt; history: HistoryPage;
+  release_commit: { released: true };
   commit_detail: CommitDetail; commit_diff: CommittedDiff;
 };
 
@@ -38,12 +40,20 @@ export function formatMb(bytes: number) {
 }
 
 export const pendingChangesEvent = 'luxraj:pending-changes';
-const draftActions = new Set(['select', 'save_draft', 'file_save', 'profile_picture_stage', 'delete_drafts',
+const draftActions = new Set(['select', 'save_draft', 'file_save', 'profile_picture_stage', 'people_stage_picture', 'delete_drafts',
   'confirm_commit', 'reconcile_commit', 'website_maintenance']);
 
 export async function workspaceRequest<T extends WorkspaceRequest>(body: T, signal?: AbortSignal) {
+  return invokeWorkspace<Responses[T['action']]>(body, signal);
+}
+
+export async function memberRequest<T extends MemberRequest>(body: T, signal?: AbortSignal) {
+  return invokeWorkspace<MemberCalls[T['action']][1]>(body, signal);
+}
+
+async function invokeWorkspace<Response>(body: WorkspaceRequest | MemberRequest, signal?: AbortSignal) {
   if (!supabase) throw new Error('unavailable');
-  const { data, error } = await supabase.functions.invoke<Responses[T['action']]>('github-workspace', { body, signal });
+  const { data, error } = await supabase.functions.invoke<Response>('github-workspace', { body, signal });
   if (error instanceof FunctionsHttpError) {
     const payload = await error.context.json().catch(() => null);
     if (payload?.error === 'file_limit' && Number.isFinite(payload.usedBytes) && Number.isFinite(payload.limitBytes)) {
@@ -69,6 +79,26 @@ export async function workspaceRequest<T extends WorkspaceRequest>(body: T, sign
 }
 
 const errors = {
+  member_forbidden: 'This account has no active CMS workspace.',
+  member_invalid: 'Check the required account, application or task fields.',
+  member_unavailable: 'This account or file is no longer available.',
+  member_password: 'Assign a password between 8 and 256 characters.',
+  member_account_create: 'Supabase could not create the account. Check the email and password requirements, then try again.',
+  member_account_update: 'Supabase did not accept the email update. Check for another account with that email.',
+  member_account_partial: 'Supabase created the sign-in account but the profile could not be saved. Open Modify Existing User to finish setup.',
+  member_delete_failed: 'Deletion could not be confirmed. The workspace stays disabled. Retry deletion from Users & Permissions.',
+  assignment_revoked: 'This application is no longer assigned. Refresh your workstation.',
+  assignment_exists: 'This user already has an assignment for this application, repository and branch.',
+  member_file_forbidden: 'Choose a file supplied with this application assignment.',
+  member_file_conflict: 'This draft identifier already refers to other content.',
+  member_storage_limit: 'The CMS PostgreSQL storage allocation has been reached.',
+  task_files_invalid: 'Select your own saved work drafts for this task.',
+  task_unavailable: 'This task can no longer be submitted. Refresh the task list.',
+  task_review_stale: 'This submission has changed or is already in commit review. Refresh the task before continuing.',
+  picture_review_stale: 'The profile picture changed or is already in review. Refresh the account before continuing.',
+  review_in_progress: 'A linked GitHub review is still being verified. Finish that review first.',
+  duplicate_task_id: 'A task already uses this minute’s Task ID. Wait until the next minute and try again.',
+  commit_release_blocked: 'Release requires an unrecorded linked review at least ten minutes old and an unchanged GitHub branch head. If the commit exists, verify its SHA instead.',
   invalid_website_control: 'Enter a name, a repository HTML application and valid, distinct repository paths.',
   website_control_missing: 'This control was cleared or belongs to another workspace. Reopen Website Controls.',
   website_file_too_large: 'This application or input exceeds the existing 8 MiB file limit.',

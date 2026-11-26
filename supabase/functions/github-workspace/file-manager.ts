@@ -1,6 +1,8 @@
 import { positiveId } from '../github-connection/github.ts';
 import { filePath, gitBlobSha } from '../_shared/file-bytes.ts';
 import type { Selection } from '../_shared/workspace-contracts.ts';
+import { pictureFilename, type DraftLink } from '../_shared/member-contracts.ts';
+import type { createMembers } from './members.ts';
 import { isBranch, isCommit, WorkspaceError, type WorkspaceGit } from './git.ts';
 import { profileAssetUrl, publicPrefix, toStored, validateFile, type FileDrafts } from './file-drafts.ts';
 
@@ -10,6 +12,7 @@ const uuid = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 
 export async function fileManager(body: Record<string, unknown> | null, userId: string, deps: {
   fileDrafts?: FileDrafts;
+  members?: ReturnType<typeof createMembers>;
   isAdmin(id: string): Promise<boolean>;
   getPreference(id: string): Promise<Selection | null>;
   openGit(): Promise<{
@@ -87,6 +90,24 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
     case 'file_save':
     case 'profile_picture_stage': {
       const payload = await validateFile({ size: body.size, sha256: body.sha256, contents: body.contents, mime: body.mime }, profile);
+      async function validateLink(): Promise<DraftLink | undefined> {
+        if (body?.submissionId !== undefined) {
+          if (action !== 'file_save' || body.origin !== 'website_control' || typeof body.submissionId !== 'string' ||
+              body.pictureId !== undefined || !deps.members) throw new WorkspaceError('member_invalid', 400);
+          await deps.members.validateSubmission(body.submissionId);
+          return { submissionId: body.submissionId };
+        }
+        if (body?.pictureId === undefined) return;
+        if (!location || action !== 'profile_picture_stage' || typeof body.pictureActor !== 'string' ||
+            typeof body.pictureId !== 'string' || !deps.members) throw new WorkspaceError('member_invalid', 400);
+        const approved = await deps.members.pendingPicture(body.pictureActor, body.pictureId);
+        const filename = pictureFilename(body.pictureActor, body.pictureId);
+        if (approved.sha256 !== payload.sha256 || segments.at(-1) !== filename || originalBlob !== null) {
+          throw new WorkspaceError('picture_review_stale', 409);
+        }
+        return { pictureId: body.pictureId, pictureUrl: profileAssetUrl(location.publicPrefix, filename) };
+      }
+      const link = await validateLink();
       const inspected = await git.fileTarget(repository, branch, segments, commit as string);
       if (inspected.blob !== originalBlob) throw new WorkspaceError('commit_file_conflict', 409, { path: target });
       if (originalBlob && await gitBlobSha(payload.bytes) === originalBlob) throw new WorkspaceError('file_unchanged', 422);
@@ -98,7 +119,8 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
           if (JSON.stringify(current) !== JSON.stringify(location)) throw new WorkspaceError('invalid_profile_destination', 409);
         }
         await check();
-      }, body.origin === 'website_control' ? body.origin : undefined);
+        if (link) await validateLink();
+      }, body.origin === 'website_control' ? body.origin : undefined, link);
       return { draft };
     }
     case 'file_comparison': {
