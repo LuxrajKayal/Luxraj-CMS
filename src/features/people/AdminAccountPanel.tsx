@@ -49,9 +49,10 @@ export function AdminAccountPanel({ account, finished, cancelled, standalone=fal
         <AccountDetails fields={fields} update={setFields} />
         {!account && <label>Assigned password<input type="password" required minLength={8} maxLength={256}
           autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>}
-        <div className="people-toolbar">{cancelled&&<button type="button" onClick={()=>void cancel()}>Cancel</button>}<button type="submit" className="people-primary">{account ? 'Save account' : 'Create account'}</button></div>
+        <div className="people-toolbar"><button type="submit" className="people-primary">{account ? 'Save account' : 'Create account'}</button></div>
       </fieldset>
     </form>
+    {cancelled&&<button type="button" disabled={busy} onClick={()=>void cancel()}>Cancel</button>}
     {error && <p role="alert">{error}</p>}
     {account&&<section className="people-picture"><h3>Account deletion</h3><p>Only delete accounts when their private work and profile are no longer needed.</p><button className="people-danger" type="button" disabled={busy} onClick={()=>void erase()}>Delete account</button></section>}
     {!standalone&&account?.profile&&<AdminPicture key={account.profile.pending_picture??'none'} account={account}/>}

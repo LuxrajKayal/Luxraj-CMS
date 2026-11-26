@@ -21,3 +21,9 @@ jobs:
       - run: npm run build
         env:
           VITE_GITHUB_CONNECTION_ENABLED: 'true'
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/github-workspace/index.ts supabase/functions/github-connection/index.ts
+      - run: deno test --allow-env supabase/functions

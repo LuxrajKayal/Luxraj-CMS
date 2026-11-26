@@ -8,6 +8,7 @@ vi.mock('../src/features/github-connection/api', () => ({
 }));
 
 const auth = vi.hoisted(() => ({
+  invoke: vi.fn(),
   getSession: vi.fn(),
   getUser: vi.fn(),
   signInWithPassword: vi.fn(),
@@ -22,7 +23,7 @@ const roles = vi.hoisted(() => ({
   abortSignal: vi.fn(),
   maybeSingle: vi.fn(),
 }));
-vi.mock('../src/core/auth/supabase', () => ({ supabase: { auth, from: roles.from, functions: { invoke: async () => { throw new Error('member_forbidden'); } } } }));
+vi.mock('../src/core/auth/supabase', () => ({ supabase: { auth, from: roles.from, functions: { invoke: auth.invoke } } }));
 
 const session = {
   access_token: 'test-access',
@@ -36,6 +37,7 @@ let notify: (event: AuthChangeEvent, session: Session | null) => void;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  auth.invoke.mockRejectedValue(new Error('member_forbidden'));
   window.history.replaceState(null, '', '/Luxraj-CMS/#/dashboard');
   auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
   auth.getUser.mockResolvedValue({ data: { user: session.user }, error: null });
@@ -256,4 +258,21 @@ test('an approval for an older session cannot open the dashboard for a different
   expect(roles.eq).toHaveBeenLastCalledWith('user_id', 'another-user');
   expect(screen.getByRole('heading', { name: 'Dashboard access denied' })).toBeTruthy();
   expect(screen.queryByRole('navigation')).toBeNull();
+});
+
+test('member authorization finishes before showing any denial; later login uses the role dashboard', async () => {
+ roles.maybeSingle.mockResolvedValue({data:null,error:null});
+ const profile={user_id:session.user.id,full_name:'Example Author',birth_date:'1990-01-01',gender:'Unspecified',qualifications:'Example',description:'',role:'author',disabled:false,picture_state:'unset',pending_picture:null,approved_picture_url:null,picture_comment:'',onboarding_completed:true};
+ let resolve!: (data:unknown)=>void;
+ auth.invoke.mockImplementation(async (_name:string,opts:{body:{action:string}})=>{
+  if(opts.body.action==='member_context')return new Promise(done=>{resolve=done;});
+  if(opts.body.action==='member_home')return {data:{profile,apps:[],tasks:[],drafts:[]},error:null};
+  throw new Error('Unexpected member action');
+ });
+ render(<App/>);await submitLogin();
+ await screen.findByText('Checking workspace access…');
+ expect(screen.queryByText('Dashboard access denied')).toBeNull();
+ await act(async()=>resolve({data:{profile},error:null}));
+ await screen.findByRole('heading',{name:'Author Dashboard'});
+ expect(screen.queryByText('Dashboard access denied')).toBeNull();
 });

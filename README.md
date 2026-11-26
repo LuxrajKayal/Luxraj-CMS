@@ -527,3 +527,6 @@ Each new implementation step needs separate owner approval; the roadmap carries 
 **Current scope:** Task 17 awaits owner verification and acceptance. Revised Task 18 is the only remaining planned task.
 
 **Documentation does not authorize application changes or deployment.** Future tasks require separate approval and actual verification.
+
+
+> **Task 17 refinement (November 26, 2026):** Owner-reported interface and workflow issues are addressed in the Task 17 refinement build; live owner verification remains pending. Independent management/review views, role dashboards, first-login onboarding, Working/Finished and draft links, terminated-task deletion and request optimizations are documented in [Task 17 technical guide](docs/task-17-users-permissions.md). Finished is member-side only; Completed still requires a successful associated GitHub commit. Task 18 is unchanged.

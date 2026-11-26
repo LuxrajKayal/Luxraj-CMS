@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import type { MemberAccount } from '../../../supabase/functions/_shared/member-contracts';
 import { ModuleTopbar } from '../../shared/ui/ModuleChrome';
-import { memberRequest, workspaceError } from '../workspace/api';
+import { memberRequest, workspaceError, pendingChangesEvent } from '../workspace/api';
 import { AdminAccountPanel, AdminPicture } from './AdminAccountPanel';
 import { AdminAssignments } from './AdminAssignments';
 import { AdminTasks, reviewNoticeEvent } from './AdminTasks';
@@ -20,7 +20,8 @@ function useAccounts(enabled=true){
  useEffect(()=>{if(!enabled)return;const request=new AbortController();setError('');
  memberRequest({action:'people_list'},request.signal).then(r=>{if(!request.signal.aborted)setAccounts(r.accounts);}).catch(f=>{if(!request.signal.aborted)setError(workspaceError(f));});
  return()=>request.abort();},[version,enabled]);
- return {accounts,error,reload};
+ useEffect(()=>{if(!enabled)return;const refresh=()=>{if(!document.hidden)setVersion(n=>n+1);};window.addEventListener('focus',refresh);window.addEventListener(pendingChangesEvent,refresh);window.addEventListener(reviewNoticeEvent,refresh);return()=>{window.removeEventListener('focus',refresh);window.removeEventListener(pendingChangesEvent,refresh);window.removeEventListener(reviewNoticeEvent,refresh);};},[enabled]);
+ return {accounts,error,reload,version};
 }
 function Directory({manage}: {manage(id:string,section?:string):void}){
  const [query,setQuery]=useState(''),[role,setRole]=useState(''),[page,setPage]=useState(0);
@@ -43,7 +44,7 @@ export default function UsersPermissionsPage(){
  const [params,setParams]=useSearchParams();
  const section=params.get('section')??'overview';
  const selected=params.get('user')??'';
- const {accounts,error,reload}=useAccounts(section!=='users'&&section!=='new');
+ const {accounts,error,reload,version}=useAccounts(section!=='users'&&section!=='new');
  const [notice,setNotice]=useState('');
  const account=accounts?.find(a=>a.id===selected);
  function go(s:string,id?:string){setParams({section:s,...(id?{user:id}:{})});setNotice('');}
@@ -51,7 +52,7 @@ export default function UsersPermissionsPage(){
  return <><ModuleTopbar title="Users & Permissions"><button type="button" onClick={reload}>Refresh</button></ModuleTopbar>
  <div className="module-body people-shell"><nav aria-label="User management" className="people-subnav">{sections.map(([s,label])=><button key={s} type="button" aria-current={section===s||section==='edit'&&s==='users'?'page':undefined} onClick={()=>go(s)}>{label}</button>)}</nav>
  <div className="people-page">{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}{!accounts&&!error&&section!=='users'&&section!=='new'&&<p role="status">Loading CMS accounts…</p>}
- {section==='users'&&<><button className="people-primary" onClick={()=>go('new')}>Add New User</button><Directory manage={(id,s)=>go(s??'edit',id)}/></>}
+ {section==='users'&&<><button className="people-primary" onClick={()=>go('new')}>Add New User</button><Directory key={version} manage={(id,s)=>go(s??'edit',id)}/></>}
  {section==='new'&&<AdminAccountPanel key="new" account={null} finished={done} cancelled={()=>go('users')} standalone/>}
  {accounts&&<>
  {section==='overview'&&<section className="people-panel"><h2>User Management</h2><p>Manage accounts, permissions, assignments and tasks independently.</p><div className="people-stats">{[['Users',accounts.length],['Authors',accounts.filter(a=>a.profile?.role==='author').length],['Developers',accounts.filter(a=>a.profile?.role==='developer').length],['Advisors',accounts.filter(a=>a.profile?.role==='advisor').length],['Profile reviews',accounts.filter(a=>a.profile?.picture_state==='pending').length]].map(([n,v])=><div className="people-stat" key={n}><small>{n}</small><strong>{v}</strong></div>)}</div><div className="people-toolbar"><button className="people-primary" onClick={()=>go('new')}>Add New User</button><button onClick={()=>go('users')}>All Users</button><Link to="/pending-reviews">Pending Reviews</Link></div></section>}
@@ -87,11 +88,11 @@ export function AdminDashboard() {
       })();
     }
     refresh();
-    const interval = window.setInterval(()=>{if(!document.hidden)refresh();}, 30000);
+    window.addEventListener(pendingChangesEvent,refresh);
     window.addEventListener('focus', refresh);
     window.addEventListener(reviewNoticeEvent, refresh);
     return () => {
-      window.clearInterval(interval);
+      window.removeEventListener(pendingChangesEvent,refresh);
       controller?.abort();
       window.removeEventListener('focus', refresh);
       window.removeEventListener(reviewNoticeEvent, refresh);

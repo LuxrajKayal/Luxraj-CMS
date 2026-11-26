@@ -55,8 +55,8 @@ export function DashboardLayout() {
     let request:AbortController|undefined;
     function refresh(){if(document.hidden)return;request?.abort();const current=new AbortController();request=current;
       void memberRequest({action:'people_review_counts'},current.signal).then(r=>{if(!current.signal.aborted)setReviewCount(r.pendingTasks+r.pendingProfiles);}).catch(()=>{});}
-    refresh();const interval=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);window.addEventListener('luxraj:review-notices',refresh);
-    return()=>{request?.abort();window.clearInterval(interval);window.removeEventListener('focus',refresh);window.removeEventListener('luxraj:review-notices',refresh);};
+    refresh();const interval=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);window.addEventListener('luxraj:review-notices',refresh);window.addEventListener(pendingChangesEvent,refresh);
+    return()=>{request?.abort();window.clearInterval(interval);window.removeEventListener('focus',refresh);window.removeEventListener('luxraj:review-notices',refresh);window.removeEventListener(pendingChangesEvent,refresh);};
   },[userId]);
   useEffect(() => {
     const reset = () => setCollapsed(window.matchMedia?.('(max-width: 48rem)').matches ?? false);
