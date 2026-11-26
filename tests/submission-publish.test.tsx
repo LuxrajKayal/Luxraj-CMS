@@ -15,7 +15,7 @@ beforeEach(()=>{vi.stubGlobal('crypto',webcrypto);sessionStorage.clear();});
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();sessionStorage.clear();});
 const taskId='TSK-25-11-2026-16-33';
 const head='a'.repeat(40);
-async function fixture(name:string,bytes:Uint8Array,mime:string){
+async function fixture(name:string,bytes:Uint8Array<ArrayBuffer>,mime:string){
  const file={id:'file-a',name,size:bytes.length,sha256:await sha256(bytes),mime,contents:encodeBytes(bytes)};
  requests.member.mockResolvedValue({file,taskId});
  let saved:object|undefined;
