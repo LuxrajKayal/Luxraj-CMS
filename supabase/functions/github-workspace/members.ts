@@ -135,7 +135,7 @@ export function createMembers(client: SupabaseClient) {
       case 'member_progress':
         if (!taskIdPattern.test(body.taskId) || !['working','finished'].includes(body.status) ||
             !Array.isArray(body.files) || !body.files.every(validId)) throw bad();
-        value(await client.rpc('cms_member_task_progress', { actor, task_key: body.taskId, next_status: body.status, file_ids: body.files }));
+        value(await client.rpc('cms_member_task_progress', { actor, task_key: body.taskId, next_status: body.status, file_ids: body.files, append_links: body.append === true }));
         return { saved: true };
       case 'member_read_draft':
         if (!validId(body.fileId)) throw bad();
@@ -146,15 +146,17 @@ export function createMembers(client: SupabaseClient) {
         return { deleted: true };
       case 'member_home': {
         const section = body.section;
-        const tasksNeeded = !section || ['dashboard','tasks','drafts','workstation'].includes(section);
-        const draftsNeeded = !section || section !== 'profile';
-        const [apps, work, drafts, links] = await Promise.all([
+        const tasksNeeded = !section || ['dashboard','tasks','workstation'].includes(section);
+        const draftsNeeded = !section || ['tasks','workstation','drafts'].includes(section);
+        const [apps, work, drafts, links, stats] = await Promise.all([
           paginate((a, b) => client.from(assignments).select('id,name').eq('user_id', actor).order('id').range(a, b)),
-          tasksNeeded ? paginate((a, b) => client.from(tasks).select(taskFields).eq('user_id', actor).order('created_at', { ascending: false }).range(a, b)) : Promise.resolve([]),
+          section==='dashboard' ? client.from(tasks).select(taskFields).eq('user_id',actor).order('created_at',{ascending:false}).limit(5).then(value) :
+          tasksNeeded ? paginate((a,b)=>{const query=client.from(tasks).select(taskFields).eq('user_id',actor).order('created_at',{ascending:false});if(section==='workstation')query.in('status',['pending','working','returned']);return query.range(a,b);}) : Promise.resolve([]),
           draftsNeeded ? paginate((a, b) => client.from(files).select(fileFields).eq('user_id', actor).eq('kind', 'work').order('created_at', { ascending: false }).order('id').range(a, b)) : Promise.resolve([]),
-          tasksNeeded ? paginate((a, b) => client.from('cms_task_drafts').select('task_id,file_id').eq('user_id',actor).order('task_id').order('file_id').range(a,b)) : Promise.resolve([]),
+          (!section||['tasks','drafts','workstation'].includes(section)) ? paginate((a,b)=>client.from('cms_task_drafts').select('task_id,file_id').eq('user_id',actor).order('task_id').order('file_id').range(a,b)) : Promise.resolve([]),
+          section==='dashboard'||section==='drafts' ? client.rpc('cms_member_work_stats',{actor}).then(value) : Promise.resolve({}),
         ]);
-        return { profile: account, apps, tasks: work, drafts, links };
+        return { profile: account, apps, tasks: work ?? [], drafts, links, ...stats };
       }
       case 'member_launch':
       case 'member_input': {
@@ -205,19 +207,24 @@ export function createMembers(client: SupabaseClient) {
       case 'people_list': {
         const rows = await paginate((a, b) => client.from(profiles).select(profileFields).order('user_id').range(a, b));
         const registered = new Map((rows as MemberProfile[]).map(row => [row.user_id, row]));
+        const admins = new Set((await paginate((a,b)=>client.from('cms_user_roles').select('user_id').eq('role','super_admin').order('user_id').range(a,b))).map(row=>row.user_id));
         const accounts = [];
         for (let page = 1; ; page++) {
           const { data, error } = await client.auth.admin.listUsers({ page, perPage: 200 });
           if (error) throw error;
           const { users, nextPage } = data;
           for (const user of users) {
-            if (user.id !== actor && !user.is_anonymous && user.email && !await deps.isAdmin(user.id)) {
+            if (user.id !== actor && !user.is_anonymous && user.email && !admins.has(user.id)) {
               accounts.push({ id: user.id, email: user.email, profile: registered.get(user.id) ?? null });
             }
           }
           if (!nextPage || nextPage <= page) break;
         }
-        return { accounts };
+        const search=typeof body.search==='string'?body.search.slice(0,254).toLowerCase():'';
+        const role=body.role??'';
+        const filtered=accounts.filter(a=>(!role||(a.profile?.role??'unmanaged')===role)&&((a.profile?.full_name??'')+' '+a.email).toLowerCase().includes(search));
+        if(body.page!==undefined){if(!Number.isSafeInteger(body.page)||body.page<0||body.page>100000)throw bad();return {accounts:filtered.slice(body.page*12,body.page*12+12),total:filtered.length};}
+        return { accounts:filtered,total:filtered.length };
       }
       case 'people_save': {
         const { email, ...fields } = memberFields(body.fields);
@@ -294,7 +301,21 @@ export function createMembers(client: SupabaseClient) {
         if (!taskIdPattern.test(body.taskId)) throw bad();
         value(await client.rpc('cms_delete_terminated_task', { task_key: body.taskId }));
         return { deleted: true };
+      case 'people_review_counts': {
+        const [work,pictures,unread,latest] = await Promise.all([
+          client.from(tasks).select('id',{count:'exact',head:true}).eq('status','submitted'),
+          client.from(profiles).select('user_id',{count:'exact',head:true}).eq('picture_state','pending').eq('disabled',false),
+          client.from(submissions).select('id',{count:'exact',head:true}).eq('seen',false),
+          client.from(tasks).select('submission_id').eq('status','submitted').order('created_at',{ascending:false}).limit(1),
+        ]);
+        if(work.error||pictures.error||unread.error||latest.error)throw new Error('Review counts unavailable');
+        return {pendingTasks:work.count??0,pendingProfiles:pictures.count??0,unread:unread.count??0,latestSubmission:latest.data?.[0]?.submission_id};
+      }
       case 'people_tasks': {
+        if(body.mode!==undefined){
+          if(!['manage','terminated','review','history'].includes(body.mode)||!Number.isSafeInteger(body.page??0)||(body.page??0)<0||(body.page??0)>100000)throw bad();
+          return value(await client.rpc('cms_admin_task_page',{view_mode:body.mode,search_text:typeof body.search==='string'?body.search.slice(0,254):'',status_filter:typeof body.status==='string'?body.status:'',page_offset:(body.page??0)*12,page_limit:12}));
+        }
         const [work, notices] = await Promise.all([
           paginate((a, b) => client.from(tasks).select(taskFields).order('created_at', { ascending: false }).range(a, b)),
           paginate((a, b) => client.from(submissions).select(

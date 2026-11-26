@@ -73,11 +73,24 @@ begin
   exception when raise_exception then
     if sqlerrm <> 'task_unavailable' then raise; end if;
   end;
+  perform public.cms_member_task_progress(author,task_key,'working',array[draft]);
+  if not exists(select from public.cms_task_drafts where task_id=task_key and file_id=draft) then raise exception 'draft link missing';end if;
+  begin
+    perform public.cms_member_task_progress(developer,task_key,'working',array[draft]);
+    raise exception 'foreign task progress accepted';
+  exception when raise_exception then if sqlerrm<>'task_unavailable' then raise;end if;end;
+  begin
+    perform public.cms_delete_private_work(author,draft);
+    raise exception 'linked draft deleted';
+  exception when raise_exception then if sqlerrm<>'member_file_linked' then raise;end if;end;
+  perform public.cms_member_task_progress(author,task_key,'finished',array[draft]);
   prev_submission := public.cms_submit_task(author,task_key,array[draft]);
   if not exists (select from public.cms_tasks where id = task_key and status = 'submitted' and submission_id = prev_submission) then
     raise exception 'task submission did not update its status';
   end if;
   update public.cms_tasks set status = 'returned' where id = task_key;
+  perform public.cms_member_task_progress(author,task_key,'working',array[draft]);
+  perform public.cms_member_task_progress(author,task_key,'finished',array[draft]);
   next_submission := public.cms_submit_task(author,task_key,array[draft]);
   if prev_submission = next_submission or (select count(*) from public.cms_task_submissions where task_id = task_key and not seen) <> 2 then
     raise exception 'resubmission lost its history or notifications';
@@ -149,6 +162,9 @@ begin
      public.cms_read_member_file(author,draft,'work') is null then
     raise exception 'termination or Settings cleanup deleted member records or verified association';
   end if;
+  perform public.cms_delete_terminated_task(task_key);
+  if exists(select from public.cms_tasks where id=task_key) or exists(select from public.cms_task_submissions where task_id=task_key)
+    or public.cms_read_member_file(author,draft,'work') is null then raise exception 'terminated task deletion lost independent draft or retained task'; end if;
 end;
 $$;
 

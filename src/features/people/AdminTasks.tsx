@@ -15,6 +15,8 @@ export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]
   const [filter,setFilter]=useState('');const [query,setQuery]=useState('');const [page,setPage]=useState(0);const [showForm,setShowForm]=useState(mode==='all');
   const {confirm,confirmation}=usePeopleConfirm();
   const [tasks, setTasks] = useState<MemberTask[]>([]);
+  const [total,setTotal]=useState(0);
+  const [loading,setLoading]=useState(true);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [userId, setUserId] = useState('');
   const [type, setType] = useState('');
@@ -26,13 +28,14 @@ export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]
   function refresh() { setReload(value => value + 1); window.dispatchEvent(new Event(reviewNoticeEvent)); }
   useEffect(() => {
     const request = new AbortController();
-    memberRequest({ action: 'people_tasks' }, request.signal).then(result => {
+    setLoading(true);
+    const timer=window.setTimeout(()=>{memberRequest({ action: 'people_tasks', ...(mode==='all'?{}:{mode,page,search:query,status:filter}) }, request.signal).then(result => {
       if (request.signal.aborted) return;
       setTasks(result.tasks);
-      setSubmissions(result.submissions);
-    }).catch(failure => { if (!request.signal.aborted) setError(workspaceError(failure)); });
-    return () => request.abort();
-  }, [reload]);
+      setSubmissions(result.submissions);setTotal(result.total??result.tasks.length);
+    }).catch(failure => { if (!request.signal.aborted) setError(workspaceError(failure)); }).finally(()=>{if(!request.signal.aborted)setLoading(false);});},mode==='all'?0:200);
+    return () => {window.clearTimeout(timer);request.abort();};
+  }, [reload,mode,page,query,filter]);
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -56,10 +59,10 @@ export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]
   }
   const matches=(task:MemberTask)=> (!query||(task.id+' '+task.task_type+' '+(accounts.find(a=>a.id===task.user_id)?.profile?.full_name??'')).toLowerCase().includes(query.toLowerCase()))&&(!filter||task.status===filter);
   const currentSubmission=(s:Submission)=>tasks.some(t=>t.id===s.task_id&&t.submission_id===s.id&&t.status==='submitted');
-  const visibleTasks=tasks.filter(t=>matches(t)&&(mode==='terminated'?t.status==='terminated':mode==='manage'?t.status!=='terminated':true));
-  const visibleSubs=submissions.filter(s=>(mode==='review'?currentSubmission(s):mode==='history'?!currentSubmission(s):true)&&(!query||(s.task_id+' '+s.full_name).toLowerCase().includes(query.toLowerCase())));
+  const visibleTasks=mode==='all'?tasks.filter(matches):tasks;
+  const visibleSubs=submissions;
   async function erase(task:MemberTask){if(!await confirm('Permanently delete '+task.id+' and its submission records? Independent private files and committed GitHub files will be preserved.'))return;setError('');setBusy(true);
-    try{await memberRequest({action:'people_delete_task',taskId:task.id});setNotice('Terminated task deleted.');refresh();}catch(failure){setError(workspaceError(failure));}finally{setBusy(false);}}
+    try{await memberRequest({action:'people_delete_task',taskId:task.id});setNotice('Terminated task deleted.');if(tasks.length===1&&page>0)setPage(p=>p-1);refresh();}catch(failure){setError(workspaceError(failure));}finally{setBusy(false);}}
   const renderSubmission=(submission:Submission)=>{const task=tasks.find(t=>t.id===submission.task_id);const current=currentSubmission(submission);
     const p=new URLSearchParams({submission:submission.id});for(const file of submission.files)p.append('file',file.id);
     return <article key={submission.id} className="people-card"><h3>{submission.task_id}{!submission.seen&&<span className="people-status">New</span>}</h3><p>{submission.full_name} · {roleName[submission.role]}</p><time dateTime={submission.created_at}>{new Date(submission.created_at).toLocaleString()}</time>
@@ -68,7 +71,7 @@ export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]
       {!submission.seen&&<button type="button" onClick={()=>void seen(submission.id)}>Mark read</button>}</article>;
   };
   return <div className={mode==='all'?'people-grid':'people-page'}>
-    {confirmation}{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}
+    {confirmation}{loading&&<p role="status">Loading tasks…</p>}{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}
     {mode!=='all'&&<section className="people-panel"><div className="people-toolbar"><input type="search" placeholder="Search tasks or users" aria-label="Search tasks" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
     {mode==='manage'&&<select aria-label="Filter status" value={filter} onChange={e=>{setFilter(e.target.value);setPage(0);}}><option value="">All statuses</option>{['pending','working','finished','submitted','returned','rejected','completed'].map(s=><option key={s}>{s}</option>)}</select>}
     {mode==='manage'&&<button className="people-primary" type="button" onClick={()=>setShowForm(true)}>Assign new task</button>}<button onClick={refresh}>Refresh</button></div></section>}
@@ -85,13 +88,13 @@ export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]
         <label>Task description<textarea value={description} maxLength={4000} onChange={event => setDescription(event.target.value)} required /></label>
         <div className="people-toolbar"><button type="submit" className="people-primary" disabled={busy}>Assign task</button>{mode!=='all'&&<button type="button" disabled={busy} onClick={()=>{setType('');setDescription('');setUserId('');setShowForm(false);}}>Cancel</button>}</div>
       </form>}
-      {!visibleTasks.length&&<p>No matching tasks.</p>}
-      {visibleTasks.slice(mode==='all'?0:page*12,mode==='all'?visibleTasks.length:page*12+12).map(task=>mode==='terminated'?<article key={task.id} className="people-card"><TaskSummary item={task}/><button className="people-danger" type="button" aria-label={'Permanently delete '+task.id} title="Permanently delete terminated task" disabled={busy||!!task.active_review} onClick={()=>void erase(task)}><Trash2 size={16}/></button></article>:
+      {!loading&&!visibleTasks.length&&<p>No matching tasks.</p>}
+      {visibleTasks.map(task=>mode==='terminated'?<article key={task.id} className="people-card"><TaskSummary item={task}/><button className="people-danger" type="button" aria-label={'Permanently delete '+task.id} title="Permanently delete terminated task" disabled={busy||!!task.active_review} onClick={()=>void erase(task)}><Trash2 size={16}/></button></article>:
       <TaskReview key={task.id+'/'+task.status+'/'+task.submission_id} task={task} name={accounts.find(a=>a.id===task.user_id)?.profile?.full_name} refresh={refresh} compact={mode==='manage'} />)}
-      {mode!=='all'&&<div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(visibleTasks.length/12))}</small><button disabled={(page+1)*12>=visibleTasks.length} onClick={()=>setPage(p=>p+1)}>Next</button></div>}
+      {mode!=='all'&&<div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(total/12))}</small><button disabled={(page+1)*12>=total} onClick={()=>setPage(p=>p+1)}>Next</button></div>}
     </section>}
-    {(mode==='all'||mode==='review'||mode==='history')&&<section className="people-panel"><h2>{mode==='review'?'Awaiting review':mode==='history'?'Past submissions':'Submissions'}</h2>{!visibleSubs.length&&<p>No matching submissions.</p>}{visibleSubs.slice(mode==='all'?0:page*12,mode==='all'?visibleSubs.length:page*12+12).map(renderSubmission)}
-      {mode!=='all'&&<div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(visibleSubs.length/12))}</small><button disabled={(page+1)*12>=visibleSubs.length} onClick={()=>setPage(p=>p+1)}>Next</button></div>}</section>}
+    {(mode==='all'||mode==='review'||mode==='history')&&<section className="people-panel"><h2>{mode==='review'?'Awaiting review':mode==='history'?'Past submissions':'Submissions'}</h2>{!loading&&!visibleSubs.length&&<p>No matching submissions.</p>}{visibleSubs.map(renderSubmission)}
+      {mode!=='all'&&<div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(total/12))}</small><button disabled={(page+1)*12>=total} onClick={()=>setPage(p=>p+1)}>Next</button></div>}</section>}
   </div>;
 }
 

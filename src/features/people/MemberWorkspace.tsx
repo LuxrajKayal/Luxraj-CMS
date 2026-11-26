@@ -33,7 +33,7 @@ const useMember = () => useOutletContext<Context>();
 
 export function MemberLayout() {
   const { loading, session, signOut } = useAuth();
-  const [record, setRecord] = useState<{ user: string; data?: MemberHome; error?: string }>();
+  const [record, setRecord] = useState<{ user: string; section?:string; data?: MemberHome; error?: string }>();
   const [signingOut, setSigningOut] = useState(false);
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion(value => value + 1), []);
@@ -48,9 +48,9 @@ export function MemberLayout() {
     async function load() {
       try {
         const data = await memberRequest({ action: 'member_home', section }, controller.signal);
-        if (!controller.signal.aborted) setRecord({ user: id!, data });
+        if (!controller.signal.aborted) setRecord({ user: id!, section, data });
       } catch (failure) {
-        if (!controller.signal.aborted) setRecord({ user: id!, error: workspaceError(failure) });
+        if (!controller.signal.aborted) setRecord({ user: id!, section, error: workspaceError(failure) });
       }
     }
     void load();
@@ -65,7 +65,7 @@ export function MemberLayout() {
       const current = new AbortController(); request = current;
       void memberRequest({ action: 'member_home', section: 'profile' }, current.signal).then(data => {
         if (!current.signal.aborted) setRecord(previous => previous?.user === id && previous.data
-          ? { user: id, data: { ...previous.data, profile: data.profile, apps: data.apps } } : previous);
+          ? { ...previous, data: { ...previous.data, profile: data.profile, apps: data.apps } } : previous);
       }).catch(failure => { if (!current.signal.aborted && failure instanceof Error && failure.message === 'member_forbidden')
         setRecord({ user: id, error: workspaceError(failure) }); });
     }, 30000);
@@ -98,7 +98,7 @@ export function MemberLayout() {
       </nav>
       <button type="button" disabled={signingOut} onClick={() => void logout()}>Logout</button>
     </aside>
-    <main><Outlet context={{ home, refresh } satisfies Context} /></main>
+    <main>{record.section===section?<Outlet context={{ home, refresh } satisfies Context} />:<p role="status">Loading section…</p>}</main>
   </div>;
 }
 
@@ -122,10 +122,10 @@ export function MemberDashboard() {
     <div className="module-body people-page"><div className="people-panel people-identity"><PersonAvatar name={home.profile.full_name} url={home.profile.approved_picture_url}/>
       <div><h2>Welcome, {home.profile.full_name}</h2><p>{roleName[home.profile.role]} · {home.apps.length} assigned applications</p>
       {home.profile.picture_state !== 'published' && <Link to="/member/profile">Profile picture: {home.profile.picture_state === 'unset' ? 'not submitted' : home.profile.picture_state}</Link>}</div></div>
-    <div className="people-stats">{stats.map(([label,state])=><Link key={state} to="/member/tasks" className="people-stat"><small>{label}</small><strong>{home.tasks.filter(t=>t.status===state).length}</strong></Link>)}</div>
+    <div className="people-stats">{stats.map(([label,state])=><Link key={state} to="/member/tasks" className="people-stat"><small>{label}</small><strong>{home.counts?.[state] ?? home.tasks.filter(t=>t.status===state).length}</strong></Link>)}</div>
     <div className="people-grid"><section className="people-panel"><h2>Recent tasks</h2>{home.tasks.length ? home.tasks.slice(0,5).map(task=><article key={task.id} className="people-item"><TaskSummary item={task}/></article>) : <p>No tasks assigned.</p>}<Link to="/member/tasks">View all tasks</Link></section>
     <section className="people-panel"><h2>Workstation</h2>{home.apps.map(app=><p key={app.id}>{app.name}</p>)}{home.apps.length ? <Link to="/member/workstation">Open Workstation</Link> : <p>No applications assigned.</p>}
-    <h2>My drafts</h2><p>{home.drafts.length} private files</p><Link to="/member/drafts">Manage drafts</Link></section></div></div></>;
+    <h2>My drafts</h2><p>{home.draftCount ?? home.drafts.length} private files</p><Link to="/member/drafts">Manage drafts</Link></section></div></div></>;
 }
 
 export function MemberProfilePage() {
@@ -203,7 +203,7 @@ export function MemberWorkstation() {
       {error && <p role="alert">{error}</p>}
       {loading && <p role="status">Loading assigned application…</p>}
       {available ? <ControlRunner key={active.run.control.id} run={active.run} inputs={active.inputs} onMemberSave={refresh} privateDrafts={home.drafts}
-        memberTasks={home.tasks} memberLinks={home.links ?? []}
+        memberTasks={home.tasks}
         close={() => setActive(null)} /> :
         <div className="website-cards">{home.apps.map(app => <article key={app.id}>
           <h2>{app.name}</h2><button type="button" disabled={loading} onClick={() => void open(app.id)}>Run</button>
@@ -283,7 +283,7 @@ export function MemberDraftsPage(){
   async function remove(id:string){if(!await confirm('Permanently delete this unlinked private draft?'))return;setBusy(id);setError('');
     try{await memberRequest({action:'member_delete_draft',fileId:id});refresh();}catch(failure){setError(workspaceError(failure));}finally{setBusy('');}}
   return <><ModuleTopbar title="My Drafts"><button onClick={refresh}>Refresh drafts</button></ModuleTopbar><div className="module-body people-page">
-    {confirmation}<section className="people-panel"><h2>Private work files</h2><p>{home.drafts.length} saved files · Private Supabase database storage. Link and unlink files from Tasks.</p><input type="search" aria-label="Search drafts" placeholder="Search drafts" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
+    {confirmation}<section className="people-panel"><h2>Private work files</h2><p>{home.draftCount ?? home.drafts.length} saved files{home.draftBytes!==undefined?' · '+(home.draftBytes/1000000).toFixed(2)+' MB':''} · Private Supabase database storage. Link and unlink files from Tasks.</p><input type="search" aria-label="Search drafts" placeholder="Search drafts" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
     {error&&<p role="alert">{error}</p>}{!drafts.length&&<p>No matching drafts.</p>}
     {drafts.slice(page*15,page*15+15).map(d=>{const links=(home.links??[]).filter(l=>l.file_id===d.id);return <article className="people-item people-draft" key={d.id}><div><h3>{d.name}</h3><small>{new Date(d.created_at).toLocaleString()} · {links.length?links.map(l=>l.task_id).join(', '):'Unlinked'}</small></div><div className="people-toolbar"><button disabled={!!busy} onClick={()=>void view(d.id)}>Preview</button><button disabled={!!busy} onClick={()=>void view(d.id,true)}>Download</button><Link to="/member/tasks">Link to task</Link><button disabled={!!busy||!!links.length} onClick={()=>void remove(d.id)}>Delete</button></div></article>;})}
     <div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(drafts.length/15))}</small><button disabled={(page+1)*15>=drafts.length} onClick={()=>setPage(p=>p+1)}>Next</button></div></section>

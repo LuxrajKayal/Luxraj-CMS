@@ -22,7 +22,7 @@ function fixture() {
     [developer]: { id: developer, email: 'manual@example.test' },
   };
   const tables: Record<string, Record<string, unknown>[]> = {
-    cms_members: [], cms_member_apps: [], cms_tasks: [], cms_member_files: [],
+    cms_members: [], cms_member_apps: [], cms_tasks: [], cms_member_files: [], cms_task_drafts: [], cms_user_roles: [{user_id:admin,role:'super_admin'}],
   };
   const calls: string[] = [];
   const remote: string[] = [];
@@ -95,6 +95,7 @@ function fixture() {
         assert.equal(args.owner_id, developer);
         return { data: null, error: null };
       }
+      if (['cms_member_task_progress','cms_delete_terminated_task','cms_delete_private_work'].includes(name)) return {data:null,error:null};
       if (name === 'cms_disable_member') return { data: null, error: null };
       throw new Error('Unexpected RPC');
     },
@@ -207,4 +208,15 @@ Deno.test('Admin can assign and replace an application but cannot carry forward 
   assert.equal((await send(author, 'member_launch', { appId: modified.data.id })).status, 200);
   assert.equal((await send(admin, 'people_unassign', { userId: author, id: modified.data.id })).status, 200);
   assert.equal((await send(author, 'member_launch', { appId: modified.data.id })).status, 403);
+});
+
+Deno.test('refinement routes progress through the actor-scoped RPC and denies member deletion of tasks', async()=>{
+ const {send,calls}=fixture();
+ await send(admin,'people_save',{fields,password:'fixture pass'});
+ assert.equal((await send(author,'member_progress',{taskId:'TSK-25-11-2026-16-33',status:'working',files:[]})).status,200);
+ assert.equal(calls.at(-1),'cms_member_task_progress');
+ assert.equal((await send(author,'member_progress',{taskId:'TSK-25-11-2026-16-33',status:'completed',files:[]})).status,400);
+ assert.equal((await send(author,'people_delete_task',{taskId:'TSK-25-11-2026-16-33'})).status,403);
+ assert.equal((await send(admin,'people_delete_task',{taskId:'TSK-25-11-2026-16-33'})).status,200);
+ assert.equal(calls.at(-1),'cms_delete_terminated_task');
 });

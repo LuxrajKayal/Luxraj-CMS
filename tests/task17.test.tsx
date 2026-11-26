@@ -50,7 +50,7 @@ test('restricted workspace shows read-only profile, disables unassigned workstat
   expect(screen.queryByRole('link', { name: 'Workstation' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Repositories' })).toBeNull();
   fireEvent.click(screen.getByRole('link', { name: 'Tasks' }));
-  expect(await screen.findByText('Returned for Correction')).toBeTruthy();
+  expect(await screen.findByRole('heading',{name:/Returned for Correction/})).toBeTruthy();
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Submit for Review' }).disabled).toBe(true);
 });
 
@@ -113,4 +113,24 @@ test('Admins open submission files in Website Controls and can return, reject or
   await screen.findByText('Returned for Correction');
   expect(memberRequest).toHaveBeenCalledWith({ action: 'people_decide', taskId: task.id, submissionId: 'previous',
     decision: 'returned', comment: 'Add sources' });
+});
+
+test('new user form cancel leaves the account untouched',async()=>{
+ const cancel=vi.fn();
+ render(<MemoryRouter><AdminAccountPanel account={null} finished={vi.fn()} cancelled={cancel} standalone/></MemoryRouter>);
+ fireEvent.click(screen.getByRole('button',{name:'Cancel'}));
+ expect(cancel).toHaveBeenCalledOnce();
+ expect(memberRequest).not.toHaveBeenCalled();
+});
+test('terminated tasks require explicit confirmation before permanent deletion',async()=>{
+ const terminated={...task,status:'terminated' as const,active_review:null};
+ memberRequest.mockImplementation(async (req:MemberRequest)=>req.action==='people_tasks'?{tasks:[terminated],submissions:[],total:1}:req.action==='people_delete_task'?{deleted:true}:Promise.reject(new Error('Unexpected')));
+ render(<MemoryRouter><AdminTasks accounts={[account]} mode="terminated"/></MemoryRouter>);
+ fireEvent.click(await screen.findByRole('button',{name:'Permanently delete '+task.id}));
+ const dialog=screen.getByRole('dialog');
+ fireEvent.click(within(dialog).getByRole('button',{name:'Cancel'}));
+ expect(memberRequest).not.toHaveBeenCalledWith({action:'people_delete_task',taskId:task.id});
+ fireEvent.click(screen.getByRole('button',{name:'Permanently delete '+task.id}));
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Confirm'}));
+ await waitFor(()=>expect(memberRequest).toHaveBeenCalledWith({action:'people_delete_task',taskId:task.id}));
 });

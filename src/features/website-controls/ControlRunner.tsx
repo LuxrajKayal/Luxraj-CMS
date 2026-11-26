@@ -13,10 +13,10 @@ import { RepositoryFilePicker } from './RepositoryFilePicker';
 
 type Output = GeneratedOutput & { id: string; status?: 'saved' | string };
 
-export function ControlRunner({ run, scope, inputs, close, submissionId, realTaskId, privateDrafts, onMemberSave, memberTasks, memberLinks }: {
+export function ControlRunner({ run, scope, inputs, close, submissionId, realTaskId, privateDrafts, onMemberSave, memberTasks }: {
   run: WebsiteLaunch; scope?: FileScope; inputs: File[]; close(): void; submissionId?: string; realTaskId?: string;
   privateDrafts?: MemberFile[]; onMemberSave?(): void;
-  memberTasks?: import('../../../supabase/functions/_shared/member-contracts').MemberTask[]; memberLinks?: {task_id:string;file_id:string}[];
+  memberTasks?: import('../../../supabase/functions/_shared/member-contracts').MemberTask[];
 }) {
   const [files, setFiles] = useState(inputs);
   const [outputs, setOutputs] = useState<Output[]>([]);
@@ -217,7 +217,6 @@ export function ControlRunner({ run, scope, inputs, close, submissionId, realTas
     setSaving(true);
     setError('');
     const signal = request.current?.signal;
-    const linkedFileIds = new Set<string>();
     for (const output of pending) {
       if (signal?.aborted) break;
       let status = 'saved';
@@ -225,13 +224,7 @@ export function ControlRunner({ run, scope, inputs, close, submissionId, realTas
         if (!scope) {
           await memberRequest({ action: 'member_save', appId: control.id,
             file: await memberOutput(output.id, output.name, output.blob) }, signal);
-          if (linkedTask) {
-            const prior=(memberLinks??[]).filter(l=>l.task_id===linkedTask).map(l=>l.file_id);
-            const savedIds=pending.slice(0,pending.indexOf(output)+1).filter(x=>x.id===output.id||outputs.some(o=>o.id===x.id&&o.status==='saved')).map(x=>x.id);
-            // Accumulate the successful files from this save batch without dropping existing task links.
-            linkedFileIds.add(output.id);
-            await memberRequest({action:'member_progress',taskId:linkedTask,status:'working',files:[...new Set([...prior,...savedIds,...linkedFileIds])]},signal);
-          }
+          if (linkedTask) await memberRequest({action:'member_progress',taskId:linkedTask,status:'working',files:[output.id],append:true},signal);
           if (!signal?.aborted) onMemberSave?.();
         } else {
           const path = output.destination.split('/');
