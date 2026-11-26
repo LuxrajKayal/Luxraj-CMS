@@ -497,3 +497,6 @@ Notes:
 
 
 > **Task 17 publishing correction (November 26, 2026):** Submitted member files can be reviewed and edited or staged directly using Code Editor/File Manager, retaining their Task ID through Source Control. A successful associated GitHub commit completes the task automatically. Super Admin may also explicitly Force Complete with a recorded reason, actor and time, without a GitHub commit. This is the sole manual exception to the commit-based completion rule. See [Task 17 technical guide](docs/task-17-users-permissions.md). Owner testing remains pending.
+
+
+> **Task 17 native editor correction:** Pending Reviews opens supported submitted text in the existing Code Editor workbench, and non-code submissions in the existing File Manager upload queue. The task link, immutable submission, Source Control commit and Super Admin Force Complete rules remain intact. Legacy submission routes redirect to the existing modules. Owner browser acceptance remains pending.

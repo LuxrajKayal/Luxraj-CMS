@@ -1,6 +1,6 @@
 import {lazy,Suspense,useEffect,useState} from 'react';
 import {Link} from 'react-router';
-import {FileCode2,Lock,Pencil,Save,History,X} from 'lucide-react';
+import {DocumentHeader} from '../workspace/DocumentHeader';
 import {decodeBytes,encodeBytes,filePath,sha256} from '../../../supabase/functions/_shared/file-bytes';
 import {maxFileBytes,type FileInspection,type FilePayload} from '../../../supabase/functions/_shared/workspace-contracts';
 import type {MemberOutput} from '../../../supabase/functions/_shared/member-contracts';
@@ -22,9 +22,10 @@ export function submissionTarget(params:URLSearchParams){
  const submission=params.get('submission'),file=params.get('file');
  return submission&&file?{submission,file}:null;
 }
-export function SubmittedDraftEditor({submission,file,scope,onClose,onSaved}:{submission:string;file:string;scope:{repositoryId:number;branch:string};onClose():void;onSaved(path:string):void}){
+export function SubmittedDraftEditor({submission,file,scope,onClose,onSaved,onName}:{submission:string;file:string;scope:{repositoryId:number;branch:string};onClose():void;onSaved(path:string):void;onName(name:string):void}){
   const {buffers,put,remove,positions,putPosition,editing,setEditing}=useEditBuffers();
   const [record,setRecord]=useState<{file:MemberOutput;taskId:string}>();
+  useEffect(()=>{if(record)onName(record.file.name);},[record,onName]);
   const [error,setError]=useState(''),[busy,setBusy]=useState(''),[notice,setNotice]=useState('');
   const [destination,setDestination]=useState(''),[picker,setPicker]=useState(false);
   const [inspected,setInspected]=useState<{key:string;target:FileInspection;proposed:FilePayload}>();
@@ -87,14 +88,10 @@ export function SubmittedDraftEditor({submission,file,scope,onClose,onSaved}:{su
 
   return <>
     {!record?<><p role={error?'alert':'status'}>{message||'Loading immutable submitted file…'}</p><button type="button" onClick={onClose}>Close submitted file</button></>:<>
-      <div className="ide-document-header">
-        <div className="ide-document-tab"><FileCode2 size={16} aria-hidden="true"/><strong>{record.file.name}</strong>{buffer&&<span className="ide-dirty-mark">●</span>}<button type="button" disabled={!!busy} aria-label="Close current file" onClick={onClose}><X size={15}/></button></div>
-        <div className="ide-document-actions">
-          <button type="button" disabled={!!busy||saved||originalText===null} onClick={()=>setEditing(recoveryKey,readOnly)}>{readOnly?<Pencil size={16}/>:<Lock size={16}/>} {readOnly?'Enable editing':'Read-only mode'}</button>
-          <button type="button" disabled={!!busy||saved||originalText===null} onClick={()=>setShowDestination(true)}><Save size={16}/>Save draft</button>
-          <button type="button" disabled={!!busy||saved} onClick={()=>{if(buffer&&!window.confirm('Discard unsaved edits and reopen the original submission?'))return;remove(recoveryKey);setInspected(undefined);setError('');}}><History size={16}/>Reopen saved draft</button>
-        </div>
-      </div>
+      <DocumentHeader filename={record.file.name} dirty={!!buffer} readOnly={readOnly} busy={!!busy}
+        canSave={!saved&&originalText!==null} canEdit={!saved&&originalText!==null} canReload={!saved}
+        onToggle={()=>setEditing(recoveryKey,readOnly)} onSave={()=>setShowDestination(true)}
+        onReload={()=>{if(buffer&&!window.confirm('Discard unsaved edits and reopen the original submission?'))return;remove(recoveryKey);setInspected(undefined);setError('');}} onClose={onClose}/>
       <div className="ide-document-path"><nav aria-label="Document path"><span>Submitted files / {record.file.name}</span><span>{record.taskId}</span></nav><span className="ide-document-state" role="status">{busy||(saved?'Draft saved · '+destination:buffer?'Unsaved changes':'Original submitted file')}</span></div>
       {error&&<p className="workspace-alert" role="alert">{message}</p>}
       {notice&&<p className="workspace-notice" role="status">{notice} <Link to="/source-control">Review and commit</Link></p>}

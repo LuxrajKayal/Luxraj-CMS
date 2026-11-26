@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { ChevronRight, FileCode2, History, Lock, Pencil, Save, X } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { DocumentHeader } from './DocumentHeader';
 import type { OpenDraft } from '../../../supabase/functions/_shared/workspace-contracts';
 import { workspaceError, workspaceRequest } from './api';
 import { useEditBuffers, type EditBuffer } from './EditBuffers';
@@ -70,19 +71,8 @@ export function DraftEditor({ repositoryId, branch, path, commit, onSaved, onClo
 
   return (
     <>
-      <div className="ide-document-header">
-        <div className="ide-document-tab"><FileCode2 size={16} aria-hidden="true" /><strong title={filename}>{path.at(-1)}</strong>
-          {buffer && <span className="ide-dirty-mark" aria-hidden="true">●</span>}
-          {onClose && <button type="button" disabled={saving} aria-label="Close current file" title="Close file (unsaved edits are retained)" onClick={onClose}><X size={15} aria-hidden="true" /></button>}
-        </div>
-        <div className="ide-document-actions">
-          <button type="button" disabled={saving} onClick={() => setEditing(key, readOnly)} title={readOnly ? 'Enable editing' : 'Read-only mode'}>
-            {readOnly ? <Pencil size={16} aria-hidden="true" /> : <Lock size={16} aria-hidden="true" />}{readOnly ? 'Enable editing' : 'Read-only mode'}
-          </button>
-          <button type="button" disabled={saving || !buffer} onClick={() => { if (buffer) void save(buffer); }}><Save size={16} aria-hidden="true" />Save draft</button>
-          <button type="button" disabled={saving} onClick={reloadDraft}><History size={16} aria-hidden="true" />Reopen saved draft</button>
-        </div>
-      </div>
+      <DocumentHeader filename={filename} dirty={!!buffer} readOnly={readOnly} busy={saving} canSave={!!buffer}
+        onToggle={()=>setEditing(key,readOnly)} onSave={()=>{if(buffer)void save(buffer);}} onReload={reloadDraft} onClose={onClose}/>
       <div className="ide-document-path"><nav aria-label="Document path">{path.map((part, i) => <span key={i}>{i > 0 && <ChevronRight size={13} aria-hidden="true" />}{part}</span>)}</nav>
         <span className="ide-document-state" role="status">{saving ? 'Saving draft…' : buffer ? 'Unsaved changes' : draft ? 'Draft saved' : 'GitHub source'}</span>
       </div>

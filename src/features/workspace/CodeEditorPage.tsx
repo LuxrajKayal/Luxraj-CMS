@@ -22,7 +22,8 @@ type TreePresentation = {
 };
 function fileLanguage(path: string) {
   return /\.html?$/i.test(path) ? 'HTML' : /\.css$/i.test(path) ? 'CSS' :
-    /\.(js|mjs|cjs)$/i.test(path) ? 'JavaScript' : 'Plain text';
+    /\.(js|mjs|cjs)$/i.test(path) ? 'JavaScript' : /\.jsonc?$/i.test(path) ? 'JSON' :
+    /\.(md|markdown)$/i.test(path) ? 'Markdown' : /\.(ts|tsx)$/i.test(path) ? 'TypeScript' : 'Plain text';
 }
 function FileRow({ path, openFile, active, dirty, drafts, detail }: {
   path: string[]; openFile: OpenFile; detail?: boolean;
@@ -91,6 +92,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const submission=submissionTarget(params);
   const submissionKey=submission?JSON.stringify([submission.submission,submission.file]):'';
   const [showSubmission,setShowSubmission]=useState(!!submission);
+  const [submissionName,setSubmissionName]=useState('');
   const target = location.state?.editorTarget;
   const targetPath = target?.repositoryId === repositoryId && target.branch === branch && typeof target.path === 'string' &&
     target.path.length > 0 && target.path.length <= 1024 ? target.path : null;
@@ -149,7 +151,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const cursor = positions[fileKey]?.selection;
   const activeSubmission=!!submission&&showSubmission;
   const activeDocument = !!file && !activeSubmission && !diff && !historyDiff;
-  useEffect(()=>{if(submissionKey){setShowSubmission(true);setDiff(null);setHistoryDiff(null);setFocus(false);setShowFiles(true);}},[submissionKey]);
+  useEffect(()=>{if(submissionKey){setSubmissionName('');setShowSubmission(true);setDiff(null);setHistoryDiff(null);setFocus(false);setShowFiles(true);}},[submissionKey]);
   function openActivity(view: 'files' | 'search' | 'changes' | 'history') {
     setFocus(false);
     if (view === 'files' || view === 'search') {
@@ -259,7 +261,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
               <strong>{searchOpen ? 'SEARCH' : repository.split('/').at(-1)?.toUpperCase()}</strong>
               <button type="button" aria-label="Refresh file tree" title="Refresh file tree" onClick={refreshTree} disabled={!tree && !treeError}><RefreshCw size={15} aria-hidden="true" /></button>
             </div>
-            {submission&&<div className="ide-submission-entry"><strong>SUBMITTED FILE</strong><button type="button" className="ide-file-row" aria-current={activeSubmission?'true':undefined} onClick={()=>{setShowSubmission(true);setDiff(null);setHistoryDiff(null);}}><FileCode2 size={16}/><span>Open submitted draft</span></button><Link to={'/pending-reviews?submission='+encodeURIComponent(submission.submission)}>Pending Reviews</Link></div>}
+            {submission&&<div className="ide-submission-entry"><strong>SUBMITTED FILE</strong><button type="button" className="ide-file-row" aria-current={activeSubmission?'true':undefined} onClick={()=>{setShowSubmission(true);setDiff(null);setHistoryDiff(null);}}><FileCode2 size={16}/><span>{submissionName||'Open submitted draft'}</span></button><Link to={'/pending-reviews?submission='+encodeURIComponent(submission.submission)}>Pending Reviews</Link></div>}
             {treeError && <p role="alert">{treeError}</p>}
             {!tree && !treeError && <p role="status">Loading file tree…</p>}
             <div hidden={searchOpen}>
@@ -276,7 +278,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
         </div>
         <section className="editor-center" aria-label="Editor workspace">
           <div className="editor-document" hidden={!!diff || !!historyDiff}>
-            {submission&&<div className="ide-submitted-document" hidden={!activeSubmission}><SubmittedDraftEditor key={submissionKey} {...submission} scope={{repositoryId,branch}} onClose={()=>{setShowSubmission(false);const next=new URLSearchParams(params);next.delete('submission');next.delete('file');setParams(next,{replace:true});}} onSaved={path=>{setChangesVersion(v=>v+1);setChangesSide('right');setShowChanges(true);setTab('changes');setFocus(false);setDiff(path);}}/></div>}
+            {submission&&<div className="ide-submitted-document" hidden={!activeSubmission}><SubmittedDraftEditor key={submissionKey} {...submission} scope={{repositoryId,branch}} onName={setSubmissionName} onClose={()=>{setShowSubmission(false);const next=new URLSearchParams(params);next.delete('submission');next.delete('file');setParams(next,{replace:true});}} onSaved={path=>{setChangesVersion(v=>v+1);setChangesSide('right');setShowChanges(true);setTab('changes');setFocus(false);setDiff(path);}}/></div>}
             {!activeSubmission&&!file && <div className="ide-empty"><Code2 size={64} strokeWidth={1} aria-hidden="true" /><h2>Start editing</h2><p>Choose an HTML, CSS, or JavaScript file to view its source.</p><button type="button" onClick={() => { setFocus(false); setShowFiles(true); setSearchOpen(false); if (changesSide === 'left') setShowChanges(false); }}>Open file explorer</button></div>}
             {!activeSubmission&&file && commit && <DraftEditor key={JSON.stringify([file, commit])}
               {...{ repositoryId, branch, path: file, commit }} onClose={() => setFile(null)} onSaved={() => setChangesVersion(value => value + 1)} />}
@@ -334,7 +336,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
         <span><GitBranch size={14} aria-hidden="true" />{branch}</span>
         <span>{dirty.size ? dirty.size + ' unsaved' : 'Workspace ready'}</span>
         <span className="ide-spacer" />
-        {activeSubmission&&!diff&&!historyDiff&&<span>Submitted draft</span>}
+        {activeSubmission&&!diff&&!historyDiff&&<span>Submitted draft · {fileLanguage(submissionName)}</span>}
         {activeDocument && <><span>Ln {cursor?.endLineNumber ?? 1}, Col {cursor?.endColumn ?? 1}</span><span>UTF-8</span><span>{fileLanguage(file!.join('/'))}</span><span>{editing[fileKey] ? 'Editing enabled' : 'Read-only'}</span></>}
         {(diff || historyDiff) && <span>{diff ? 'Draft comparison' : 'Historical comparison'}</span>}
       </footer>

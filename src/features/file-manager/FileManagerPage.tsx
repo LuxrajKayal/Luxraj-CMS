@@ -15,7 +15,7 @@ import type {MemberOutput} from '../../../supabase/functions/_shared/member-cont
 type SubmissionImport={submissionId:string;fileId:string;taskId:string;output:MemberOutput};
 type Item = { id: number; file: File; name: string; submission?:SubmissionImport; preview?: { inspected: FileInspection; proposed: FilePayload }; error?: string };
 
-function Manager({ scope, profile, onBusy, submissionId, fileId, onImported }: { scope: FileScope; profile?: ProfilePictureLocation; onBusy(value: boolean): void;submissionId?:string;fileId?:string;onImported():void }) {
+function Manager({ scope, profile, onBusy, submissionId, fileId, onImported }: { scope: FileScope; profile?: ProfilePictureLocation; onBusy(value: boolean): void;submissionId?:string;fileId?:string;onImported(submissionId:string,fileId:string):void }) {
   const [folder, setFolder] = useState(() => profile?.folder.split('/') ?? []);
   const [items, setItems] = useState<Item[]>([]);
   const [drafts, setDrafts] = useState<StoredFile[]>([]);
@@ -112,7 +112,7 @@ function Manager({ scope, profile, onBusy, submissionId, fileId, onImported }: {
           if (signal.aborted) return;
           setDrafts(previous => [...previous, result.draft]);
           setItems(previous => previous.filter(candidate => candidate.id !== item.id));
-          if(item.submission)onImported();
+          if(item.submission)onImported(item.submission.submissionId,item.submission.fileId);
           saved += 1;
         } catch (error) {
           if (!signal.aborted) patch(item.id, { error: workspaceError(error) });
@@ -169,7 +169,7 @@ function Manager({ scope, profile, onBusy, submissionId, fileId, onImported }: {
         <div className="workspace-actions">
           <button type="button" disabled={!!busy || !directory} onClick={() => inspect(item)}>Inspect {item.name}</button>
           {item.preview && <button type="button" disabled={!!busy} onClick={() => save([item])}>Save Draft</button>}
-          <button type="button" disabled={!!busy} onClick={() => {setItems(list => list.filter(entry => entry.id !== item.id));if(item.submission)onImported();}}>Remove upload</button>
+          <button type="button" disabled={!!busy} onClick={() => {setItems(list => list.filter(entry => entry.id !== item.id));if(item.submission)onImported(item.submission.submissionId,item.submission.fileId);}}>Remove upload</button>
         </div>
         {item.preview && <span>{item.preview.inspected.original ? 'Replacement' : 'New file'} inspected</span>}
         {item.error && <p role="alert">{item.error}</p>}
@@ -201,7 +201,7 @@ export default function FileManagerPage() {
   const { workspace: { selection }, saving } = useWorkspace();
   const [parameters,setParameters] = useSearchParams();
   const submissionId=parameters.get('submission')??undefined,fileId=parameters.get('file')??undefined;
-  function clearImported(){const next=new URLSearchParams(parameters);next.delete('submission');next.delete('file');next.delete('prepare');setParameters(next,{replace:true});}
+  function clearImported(id:string,file:string){if(id!==submissionId||file!==fileId)return;const next=new URLSearchParams(parameters);next.delete('submission');next.delete('file');next.delete('prepare');setParameters(next,{replace:true});}
   const profileMode = parameters.get('profile') === '1';
   const [location, setLocation] = useState<ProfilePictureLocation | null | undefined>(undefined);
   const [error, setError] = useState('');
