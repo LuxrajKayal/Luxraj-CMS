@@ -90,6 +90,8 @@ const errors = {
   assignment_revoked: 'This application is no longer assigned. Refresh your workstation.',
   assignment_exists: 'This user already has an assignment for this application, repository and branch.',
   member_file_forbidden: 'Choose a file supplied with this application assignment.',
+  task_has_publish_drafts: 'Discard the uncommitted linked publishing drafts in Source Control before deleting this task.',
+  member_file_linked: 'Unlink this draft from active tasks first. Submitted snapshots cannot be deleted.',
   member_file_conflict: 'This draft identifier already refers to other content.',
   member_storage_limit: 'The CMS PostgreSQL storage allocation has been reached.',
   task_files_invalid: 'Select your own saved work drafts for this task.',

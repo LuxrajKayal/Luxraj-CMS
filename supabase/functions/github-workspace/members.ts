@@ -10,14 +10,14 @@ const assignments = 'cms_member_apps';
 const tasks = 'cms_tasks';
 const submissions = 'cms_task_submissions';
 const files = 'cms_member_files';
-const profileFields = 'user_id,full_name,birth_date,gender,qualifications,role,description,picture_state,pending_picture,approved_picture_url,picture_comment,picture_review,disabled';
+const profileFields = 'user_id,full_name,birth_date,gender,qualifications,role,description,picture_state,pending_picture,approved_picture_url,picture_comment,picture_review,disabled,onboarding_completed';
 const assigneeFields = 'id,name,repository_id,branch,application,inputs';
 const fileFields = 'id,name,mime,created_at';
 const taskFields = 'id,user_id,task_type,description,status,comment,submission_id,created_at,active_review,commit_sha,commit_repository,commit_branch';
 const uuid = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 const taskIdPattern = /^TSK-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}$/;
 const knownErrors = new Set(['member_forbidden', 'assignment_revoked', 'member_storage_limit', 'task_unavailable',
-  'task_files_invalid', 'member_file_conflict', 'review_in_progress']);
+  'task_files_invalid', 'member_file_conflict', 'review_in_progress', 'task_has_publish_drafts', 'member_file_linked']);
 const bad = () => new WorkspaceError('member_invalid', 400);
 const missing = () => new WorkspaceError('member_unavailable', 404);
 const validId = (value: unknown): value is string => typeof value === 'string' && uuid.test(value);
@@ -128,13 +128,33 @@ export function createMembers(client: SupabaseClient) {
   async function member(body: MemberRequest, actor: string, deps: MemberDependencies) {
     const account = await requireMember(actor);
     switch (body.action) {
+      case 'member_context': return { profile: account };
+      case 'member_onboard':
+        value(await client.from(profiles).update({ onboarding_completed: true }).eq('user_id', actor).eq('disabled', false));
+        return { saved: true };
+      case 'member_progress':
+        if (!taskIdPattern.test(body.taskId) || !['working','finished'].includes(body.status) ||
+            !Array.isArray(body.files) || !body.files.every(validId)) throw bad();
+        value(await client.rpc('cms_member_task_progress', { actor, task_key: body.taskId, next_status: body.status, file_ids: body.files }));
+        return { saved: true };
+      case 'member_read_draft':
+        if (!validId(body.fileId)) throw bad();
+        return { file: await readFile(actor, body.fileId, 'work') };
+      case 'member_delete_draft':
+        if (!validId(body.fileId)) throw bad();
+        value(await client.rpc('cms_delete_private_work', { actor, file_key: body.fileId }));
+        return { deleted: true };
       case 'member_home': {
-        const [apps, work, drafts] = await Promise.all([
+        const section = body.section;
+        const tasksNeeded = !section || ['dashboard','tasks','drafts','workstation'].includes(section);
+        const draftsNeeded = !section || section !== 'profile';
+        const [apps, work, drafts, links] = await Promise.all([
           paginate((a, b) => client.from(assignments).select('id,name').eq('user_id', actor).order('id').range(a, b)),
-          paginate((a, b) => client.from(tasks).select(taskFields).eq('user_id', actor).order('created_at', { ascending: false }).range(a, b)),
-          paginate((a, b) => client.from(files).select(fileFields).eq('user_id', actor).eq('kind', 'work').order('created_at', { ascending: false }).order('id').range(a, b)),
+          tasksNeeded ? paginate((a, b) => client.from(tasks).select(taskFields).eq('user_id', actor).order('created_at', { ascending: false }).range(a, b)) : Promise.resolve([]),
+          draftsNeeded ? paginate((a, b) => client.from(files).select(fileFields).eq('user_id', actor).eq('kind', 'work').order('created_at', { ascending: false }).order('id').range(a, b)) : Promise.resolve([]),
+          tasksNeeded ? paginate((a, b) => client.from('cms_task_drafts').select('task_id,file_id').eq('user_id',actor).order('task_id').order('file_id').range(a,b)) : Promise.resolve([]),
         ]);
-        return { profile: account, apps, tasks: work, drafts };
+        return { profile: account, apps, tasks: work, drafts, links };
       }
       case 'member_launch':
       case 'member_input': {
@@ -270,6 +290,10 @@ export function createMembers(client: SupabaseClient) {
           throw new WorkspaceError('assignment_revoked', 409);
         }
         return { deleted: true };
+      case 'people_delete_task':
+        if (!taskIdPattern.test(body.taskId)) throw bad();
+        value(await client.rpc('cms_delete_terminated_task', { task_key: body.taskId }));
+        return { deleted: true };
       case 'people_tasks': {
         const [work, notices] = await Promise.all([
           paginate((a, b) => client.from(tasks).select(taskFields).order('created_at', { ascending: false }).range(a, b)),
@@ -297,7 +321,7 @@ export function createMembers(client: SupabaseClient) {
           .eq('id', body.taskId).is('active_review', null);
         if (body.submissionId) next.eq('submission_id', body.submissionId);
         else next.is('submission_id', null);
-        if (body.decision === 'terminated') next.neq('status', 'terminated');
+        if (body.decision === 'terminated') next.not('status', 'in', '(terminated,completed)');
         else next.eq('status', 'submitted');
         if (!value(await next.select('id').maybeSingle())) throw new WorkspaceError('task_review_stale', 409);
         return { saved: true };

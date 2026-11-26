@@ -5,7 +5,7 @@ export type MemberRole = typeof memberRoles[number];
 export type MemberProfile = {
   user_id: string; full_name: string; birth_date: string; gender: string; qualifications: string;
   role: MemberRole; description: string; picture_state: 'unset' | 'pending' | 'returned' | 'published';
-  pending_picture: string | null; approved_picture_url: string | null; picture_comment: string; picture_review?: string | null; disabled: boolean;
+  pending_picture: string | null; approved_picture_url: string | null; picture_comment: string; picture_review?: string | null; disabled: boolean; onboarding_completed?: boolean;
 };
 export type MemberAccount = { id: string; email: string; profile: MemberProfile | null };
 export type MemberFields = Pick<MemberProfile, 'full_name' | 'birth_date' | 'gender' | 'qualifications' | 'role' | 'description'> & { email: string };
@@ -13,18 +13,24 @@ export type MemberApp = { id: string; name: string };
 export type Assignment = MemberApp & { repository_id: number; branch: string; application: string; inputs: string[] };
 export type MemberFile = { id: string; name: string; mime: string; created_at: string };
 export type MemberOutput = Pick<FilePayload, 'size' | 'mime' | 'sha256' | 'contents'> & { id: string; name: string };
-export type TaskState = 'pending' | 'submitted' | 'returned' | 'rejected' | 'terminated' | 'completed';
+export type TaskState = 'pending' | 'working' | 'finished' | 'submitted' | 'returned' | 'rejected' | 'terminated' | 'completed';
 export type MemberTask = { id: string; user_id: string; task_type: string; description: string; status: TaskState;
   comment: string; submission_id: string | null; created_at: string; active_review: string | null;
   commit_sha: string | null; commit_repository: string | null; commit_branch: string | null };
 export type Submission = { id: string; task_id: string; user_id: string; role: MemberRole; full_name: string;
   created_at: string; seen: boolean; files: MemberFile[] };
-export type MemberHome = { profile: MemberProfile; apps: MemberApp[]; tasks: MemberTask[]; drafts: MemberFile[] };
+export type MemberHome = { profile: MemberProfile; apps: MemberApp[]; tasks: MemberTask[]; drafts: MemberFile[]; links?: { task_id: string; file_id: string }[]; draftBytes?: number };
 export type DraftLink = { submissionId: string } | { pictureId: string; pictureUrl: string };
 export const pictureFilename = (user: string, picture: string) => user + '-' + picture + '.webp';
 
 export type MemberCalls = {
-  member_home: [object, MemberHome];
+  member_home: [{ section?: 'profile' | 'dashboard' | 'tasks' | 'drafts' | 'workstation' }, MemberHome];
+  member_context: [object, { profile: MemberProfile }];
+  member_onboard: [object, { saved: true }];
+  member_progress: [{ taskId: string; status: 'working' | 'finished'; files: string[] }, { saved: true }];
+  member_read_draft: [{ fileId: string }, { file: MemberOutput }];
+  member_delete_draft: [{ fileId: string }, { deleted: true }];
+  people_delete_task: [{ taskId: string }, { deleted: true }];
   member_launch: [{ appId: string }, WebsiteLaunch];
   member_input: [{ appId: string; commit: string; path: string }, { file: FilePayload }];
   member_draft_input: [{ appId: string; fileId: string }, { file: MemberOutput }];
