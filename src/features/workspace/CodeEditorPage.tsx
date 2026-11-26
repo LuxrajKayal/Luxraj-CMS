@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ChevronDown, ChevronRight, Code2, FileCode2, Files, Folder as FolderIcon, FolderOpen, GitBranch, History, Maximize, Minimize2, PanelRight, RefreshCw, Search, Settings } from 'lucide-react';
 import { ModulePanel, ModuleTopbar } from '../../shared/ui/ModuleChrome';
 import { ChangedFiles, DraftDiff } from './SourceControlPage';
@@ -8,6 +8,8 @@ import type { CommitReceipt, DraftSummary } from '../../../supabase/functions/_s
 import { workspaceError, workspaceRequest, type Directory, type Selection, type TreeEntry } from './api';
 import { BranchPicker, useWorkspace } from './WorkspaceLayout';
 import { DraftEditor } from './DraftEditor';
+import {SubmittedDraftEditor,submissionTarget} from '../people/SubmissionPublishPage';
+import {FileWorkspacePicker} from '../file-manager/FileDestination';
 import { useEditBuffers } from './EditBuffers';
 import './code-editor.css';
 
@@ -85,6 +87,10 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const { repositoryId, branch } = selection;
   const location = useLocation();
   const navigate = useNavigate();
+  const [params,setParams]=useSearchParams();
+  const submission=submissionTarget(params);
+  const submissionKey=submission?JSON.stringify([submission.submission,submission.file]):'';
+  const [showSubmission,setShowSubmission]=useState(!!submission);
   const target = location.state?.editorTarget;
   const targetPath = target?.repositoryId === repositoryId && target.branch === branch && typeof target.path === 'string' &&
     target.path.length > 0 && target.path.length <= 1024 ? target.path : null;
@@ -141,7 +147,9 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   const results = [...searchable.values()].filter(path => path.join('/').toLowerCase().includes(search.trim().toLowerCase()));
   const fileKey = file ? JSON.stringify([repositoryId, branch, file.join('/')]) : '';
   const cursor = positions[fileKey]?.selection;
-  const activeDocument = !!file && !diff && !historyDiff;
+  const activeSubmission=!!submission&&showSubmission;
+  const activeDocument = !!file && !activeSubmission && !diff && !historyDiff;
+  useEffect(()=>{if(submissionKey){setShowSubmission(true);setDiff(null);setHistoryDiff(null);setFocus(false);setShowFiles(true);}},[submissionKey]);
   function openActivity(view: 'files' | 'search' | 'changes' | 'history') {
     setFocus(false);
     if (view === 'files' || view === 'search') {
@@ -176,6 +184,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
   }, [repositoryId, branch, refresh]);
 
   function openFile(path: string[]) {
+    setShowSubmission(false);
     setFile([...path]);
     setDiff(null);
     setHistoryDiff(null);
@@ -224,7 +233,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
     <div className="module-stack ide-workbench">
       <ModuleTopbar title="Code Editor">
         <Link className="ide-repository" to="/repositories" title="Switch repository"><Code2 size={17} aria-hidden="true" />{repository}</Link>
-        <BranchPicker />
+        {submission?<FileWorkspacePicker/>:<BranchPicker/>}
         <span className="ide-spacer" />
         <button type="button" aria-label="Source Control panel" title="Toggle secondary Source Control panel" aria-expanded={showChanges && !focus && changesSide === 'right'}
           onClick={() => { setFocus(false); setChangesSide('right'); setShowChanges(focus || changesSide !== 'right' || !showChanges); }}><PanelRight size={18} aria-hidden="true" /></button>
@@ -250,6 +259,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
               <strong>{searchOpen ? 'SEARCH' : repository.split('/').at(-1)?.toUpperCase()}</strong>
               <button type="button" aria-label="Refresh file tree" title="Refresh file tree" onClick={refreshTree} disabled={!tree && !treeError}><RefreshCw size={15} aria-hidden="true" /></button>
             </div>
+            {submission&&<div className="ide-submission-entry"><strong>SUBMITTED FILE</strong><button type="button" className="ide-file-row" aria-current={activeSubmission?'true':undefined} onClick={()=>{setShowSubmission(true);setDiff(null);setHistoryDiff(null);}}><FileCode2 size={16}/><span>Open submitted draft</span></button><Link to={'/pending-reviews?submission='+encodeURIComponent(submission.submission)}>Pending Reviews</Link></div>}
             {treeError && <p role="alert">{treeError}</p>}
             {!tree && !treeError && <p role="status">Loading file tree…</p>}
             <div hidden={searchOpen}>
@@ -266,8 +276,9 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
         </div>
         <section className="editor-center" aria-label="Editor workspace">
           <div className="editor-document" hidden={!!diff || !!historyDiff}>
-            {!file && <div className="ide-empty"><Code2 size={64} strokeWidth={1} aria-hidden="true" /><h2>Start editing</h2><p>Choose an HTML, CSS, or JavaScript file to view its source.</p><button type="button" onClick={() => { setFocus(false); setShowFiles(true); setSearchOpen(false); if (changesSide === 'left') setShowChanges(false); }}>Open file explorer</button></div>}
-            {file && commit && <DraftEditor key={JSON.stringify([file, commit])}
+            {submission&&<div className="ide-submitted-document" hidden={!activeSubmission}><SubmittedDraftEditor key={submissionKey} {...submission} scope={{repositoryId,branch}} onClose={()=>{setShowSubmission(false);const next=new URLSearchParams(params);next.delete('submission');next.delete('file');setParams(next,{replace:true});}} onSaved={path=>{setChangesVersion(v=>v+1);setChangesSide('right');setShowChanges(true);setTab('changes');setFocus(false);setDiff(path);}}/></div>}
+            {!activeSubmission&&!file && <div className="ide-empty"><Code2 size={64} strokeWidth={1} aria-hidden="true" /><h2>Start editing</h2><p>Choose an HTML, CSS, or JavaScript file to view its source.</p><button type="button" onClick={() => { setFocus(false); setShowFiles(true); setSearchOpen(false); if (changesSide === 'left') setShowChanges(false); }}>Open file explorer</button></div>}
+            {!activeSubmission&&file && commit && <DraftEditor key={JSON.stringify([file, commit])}
               {...{ repositoryId, branch, path: file, commit }} onClose={() => setFile(null)} onSaved={() => setChangesVersion(value => value + 1)} />}
           </div>
           {diff && <DraftDiff key={diff} file={diff} {...{ repositoryId, branch }} onBack={() => setDiff(null)} />}
@@ -323,6 +334,7 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
         <span><GitBranch size={14} aria-hidden="true" />{branch}</span>
         <span>{dirty.size ? dirty.size + ' unsaved' : 'Workspace ready'}</span>
         <span className="ide-spacer" />
+        {activeSubmission&&!diff&&!historyDiff&&<span>Submitted draft</span>}
         {activeDocument && <><span>Ln {cursor?.endLineNumber ?? 1}, Col {cursor?.endColumn ?? 1}</span><span>UTF-8</span><span>{fileLanguage(file!.join('/'))}</span><span>{editing[fileKey] ? 'Editing enabled' : 'Read-only'}</span></>}
         {(diff || historyDiff) && <span>{diff ? 'Draft comparison' : 'Historical comparison'}</span>}
       </footer>
@@ -331,6 +343,8 @@ function Explorer({ selection, repository }: { selection: Selection & { branch: 
 }
 
 export function CodeEditorPage() {
+  const [params]=useSearchParams();
+  const submitted=submissionTarget(params);
   const { workspace: { selection, repositories }, saving } = useWorkspace();
   const active = repositories.find(repository => repository.id === selection?.repositoryId);
   const { buffers, recoveryError } = useEditBuffers();
@@ -338,8 +352,8 @@ export function CodeEditorPage() {
   return (
     <>
       {(!selection?.branch || saving || !active) && <>
-        <ModuleTopbar title="Code Editor"><BranchPicker /></ModuleTopbar>
-        {!active && <p className="module-body"><Link to="/repositories">Select a repository</Link> to browse its files.</p>}
+        <ModuleTopbar title="Code Editor">{submitted?<FileWorkspacePicker/>:<BranchPicker/>}</ModuleTopbar>
+        {!active && <p className="module-body">{submitted?'Choose a repository and branch above to open the submitted draft in Code Editor.':<><Link to="/repositories">Select a repository</Link> to browse its files.</>}</p>}
       </>}
       {recoveryError && <p className="workspace-alert" role="alert">
         Temporary browser recovery storage is unavailable or full. Save your work as a Supabase draft before leaving this tab.

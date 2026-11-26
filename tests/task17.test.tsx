@@ -106,9 +106,9 @@ test('Admins open submission files in Website Controls and can return, reject or
   expect(link.getAttribute('href')).toBe('/website-controls?submission=previous&file=work');
   const taskCard = screen.getByRole('heading', { name: /Submitted for Review/ }).closest('article')!;
   expect(within(taskCard).queryByRole('button', { name: /^Complete$/i })).toBeNull();
-  expect(screen.getByRole('link',{name:'Open in Code Editor'}).getAttribute('href')).toBe('/code-editor/submission?submission=previous&file=work');
-  expect(screen.getByRole('link',{name:'Open in File Manager'}).getAttribute('href')).toBe('/file-manager/submission?submission=previous&file=work');
-  expect(screen.getByRole('link',{name:'Prepare for Commit'}).getAttribute('href')).toBe('/file-manager/submission?submission=previous&file=work&prepare=1');
+  expect(screen.getByRole('link',{name:'Open in Code Editor'}).getAttribute('href')).toBe('/code-editor?submission=previous&file=work');
+  expect(screen.getByRole('link',{name:'Open in File Manager'}).getAttribute('href')).toBe('/file-manager?submission=previous&file=work');
+  expect(screen.getByRole('link',{name:'Prepare for Commit'}).getAttribute('href')).toBe('/file-manager?submission=previous&file=work&prepare=1');
   expect(within(taskCard).getByRole('button', { name: 'Reject' })).toBeTruthy();
   expect(within(taskCard).getByRole('button', { name: 'Terminate' })).toBeTruthy();
   fireEvent.change(within(taskCard).getByLabelText('Review comment for '+task.id), { target: { value: 'Add sources' } });

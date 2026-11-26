@@ -4,12 +4,14 @@ import type { EditorPosition } from './EditBuffers';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import HtmlWorker from 'monaco-editor/language/html/html.worker?worker';
 import CssWorker from 'monaco-editor/language/css/css.worker?worker';
+import JsonWorker from 'monaco-editor/language/json/json.worker?worker';
 import ScriptWorker from 'monaco-editor/language/typescript/ts.worker?worker';
 
 self.MonacoEnvironment = {
   getWorker(_moduleId, label) {
     if (label === 'html') return new HtmlWorker();
     if (label === 'css') return new CssWorker();
+    if (label === 'json') return new JsonWorker();
     if (label === 'javascript' || label === 'typescript') return new ScriptWorker();
     return new EditorWorker();
   },
@@ -18,6 +20,11 @@ self.MonacoEnvironment = {
 function language(path: string) {
   if (/\.html?$/i.test(path)) return 'html';
   if (/\.css$/i.test(path)) return 'css';
+  if (/\.jsonc?$/i.test(path)) return 'json';
+  if (/\.(md|markdown)$/i.test(path)) return 'markdown';
+  if (/\.(ts|tsx)$/i.test(path)) return 'typescript';
+  if (/\.xml$/i.test(path)) return 'xml';
+  if (/\.ya?ml$/i.test(path)) return 'yaml';
   return /\.(js|mjs|cjs)$/i.test(path) ? 'javascript' : 'plaintext';
 }
 

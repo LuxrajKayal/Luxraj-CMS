@@ -25,7 +25,7 @@ function SubmissionFileActions({submission,file,current}:{submission:Submission;
   }
   return <li className="people-item submission-file"><strong>{file.name}</strong>
     <div className="people-toolbar"><button type="button" disabled={busy} onClick={()=>void read(false)}>Preview</button><button type="button" disabled={busy} onClick={()=>void read(true)}>Download</button>
-      {current&&<><Link to={'/code-editor/submission?'+params}>Open in Code Editor</Link><Link to={'/file-manager/submission?'+params}>Open in File Manager</Link><Link to={'/file-manager/submission?'+params+'&prepare=1'}>Prepare for Commit</Link></>}
+      {current&&<><Link to={'/code-editor?'+params}>Open in Code Editor</Link><Link to={'/file-manager?'+params}>Open in File Manager</Link><Link to={'/file-manager?'+params+'&prepare=1'}>Prepare for Commit</Link></>}
     </div>
     {error&&<p role="alert">{error}</p>}
     {preview&&<section><button type="button" onClick={()=>setPreview(undefined)}>Close preview</button><Suspense fallback={<p role="status">Loading preview…</p>}><FileSide name="Submitted file" path={file.name} value={preview}/></Suspense></section>}

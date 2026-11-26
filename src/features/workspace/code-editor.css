@@ -98,3 +98,5 @@
 .ide-workbench .file-preview, .ide-workbench .file-docx { color: #18334f; color-scheme: light; }
 .ide-workbench .file-docx a { color: #104e96; }
 .ide-workbench .file-docx { --border: #d2deec; }
+
+.ide-submitted-document{display:flex;flex:1;min-height:0;min-width:0;flex-direction:column;overflow:hidden}.ide-submitted-document[hidden]{display:none}.ide-submission-entry{padding:.4rem;border-bottom:1px solid var(--ide-line);display:grid;gap:.35rem}.ide-submission-entry>strong{font-size:10px;color:var(--ide-muted)}.ide-submission-destination{overflow:auto;max-height:48%;flex:none;padding:.65rem;background:var(--ide-sidebar);border-top:1px solid var(--ide-line);color:var(--ide-ink);font-size:12px}.ide-submission-destination input{background:#252526;color:#eee;border:1px solid #555;padding:.4rem;max-width:100%;width:100%}.ide-submission-destination button{background:#363636;color:#eee;border:1px solid #555;border-radius:3px;padding:.35rem .6rem}.ide-workbench .file-scope{min-width:0;display:flex;flex-wrap:wrap;gap:.35rem;border:0;padding:0;margin:0}.ide-workbench .file-scope label{display:flex;align-items:center;gap:.25rem}
