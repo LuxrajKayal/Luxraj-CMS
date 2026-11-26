@@ -4,12 +4,15 @@ import type { MemberAccount, MemberFields } from '../../../supabase/functions/_s
 import { memberRequest, workspaceError } from '../workspace/api';
 import { AccountDetails } from './AccountDetails';
 import { memberFile } from './memberFiles';
+import { usePeopleConfirm } from './PeopleConfirm';
 
-export function AdminAccountPanel({ account, finished }: { account: MemberAccount | null; finished(message: string): void }) {
+export function AdminAccountPanel({ account, finished, cancelled, standalone=false }: { account: MemberAccount | null; finished(message: string): void; cancelled?():void; standalone?:boolean }) {
+  const {confirm,confirmation}=usePeopleConfirm();
   const [fields, setFields] = useState<MemberFields>({
     full_name: '', birth_date: '', gender: '', role: 'author', qualifications: '', description: '',
     ...account?.profile, email: account?.email ?? '',
   });
+  const [initialFields]=useState(()=>JSON.stringify(fields));
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +31,7 @@ export function AdminAccountPanel({ account, finished }: { account: MemberAccoun
     finally { setBusy(false); }
   }
   async function erase() {
-    if (!account || !window.confirm('Permanently delete ' + account.email + ' and their profile, assignments, tasks and private work? Committed GitHub files are kept.')) return;
+    if (!account || !await confirm('Permanently delete ' + account.email + ' and their profile, assignments, tasks and private work? Committed GitHub files are kept.')) return;
     setBusy(true);
     setError('');
     try {
@@ -37,6 +40,7 @@ export function AdminAccountPanel({ account, finished }: { account: MemberAccoun
     } catch (failure) { setError(workspaceError(failure)); }
     finally { setBusy(false); }
   }
+  async function cancel(){if(JSON.stringify(fields)!==initialFields||password){if(!await confirm('Discard unsaved account changes?'))return;}setPassword('');cancelled?.();}
   return <section className="people-panel">
     <h2>{account ? 'Modify Existing User' : 'Add New User'}</h2>
     {account?.profile?.disabled && <p>Workspace disabled pending account deletion.</p>}
@@ -45,16 +49,17 @@ export function AdminAccountPanel({ account, finished }: { account: MemberAccoun
         <AccountDetails fields={fields} update={setFields} />
         {!account && <label>Assigned password<input type="password" required minLength={8} maxLength={256}
           autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>}
-        <button type="submit">{account ? 'Save account' : 'Create account'}</button>
+        <div className="people-toolbar">{cancelled&&<button type="button" onClick={()=>void cancel()}>Cancel</button>}<button type="submit" className="people-primary">{account ? 'Save account' : 'Create account'}</button></div>
       </fieldset>
     </form>
     {error && <p role="alert">{error}</p>}
-    {account && <button type="button" disabled={busy} onClick={() => void erase()}>Delete account</button>}
-    {account?.profile && <AdminPicture key={account.profile.pending_picture ?? 'none'} account={account} />}
+    {account&&<section className="people-picture"><h3>Account deletion</h3><p>Only delete accounts when their private work and profile are no longer needed.</p><button className="people-danger" type="button" disabled={busy} onClick={()=>void erase()}>Delete account</button></section>}
+    {!standalone&&account?.profile&&<AdminPicture key={account.profile.pending_picture??'none'} account={account}/>}
+    {confirmation}
   </section>;
 }
 
-function AdminPicture({ account }: { account: MemberAccount }) {
+export function AdminPicture({ account, refreshed }: { account: MemberAccount; refreshed?():void }) {
   const picture = account.profile?.pending_picture;
   const state = account.profile?.picture_state;
   const [preview, setPreview] = useState<Blob | null>(null);
@@ -84,7 +89,7 @@ function AdminPicture({ account }: { account: MemberAccount }) {
         setNotice('Approved picture staged. Select it in Source Control and explicitly confirm the commit.');
       } else {
         await memberRequest({ action: 'people_return_picture', userId: account.id, pictureId: picture, comment });
-        setNotice('Picture returned for correction.');
+        setNotice('Picture returned for correction.'); refreshed?.();
       }
     } catch (failure) { setError(workspaceError(failure)); }
     finally { setBusy(false); }

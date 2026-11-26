@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, Navigate, NavLink, Outlet, useLocation, useOutletContext } from 'react-router';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router';
 import type { MemberHome, MemberTask } from '../../../supabase/functions/_shared/member-contracts';
 import type { WebsiteLaunch } from '../../../supabase/functions/_shared/workspace-contracts';
 import { useAuth } from '../../core/auth/AuthProvider';
@@ -10,6 +10,7 @@ import { ControlRunner, controlInput } from '../website-controls/ControlRunner';
 import { memberRequest, workspaceError } from '../workspace/api';
 import { AccountDetails, roleName } from './AccountDetails';
 import { memberFile, memberOutput } from './memberFiles';
+import {usePeopleConfirm} from './PeopleConfirm';
 import '../website-controls/website-controls.css';
 import './people.css';
 
@@ -129,6 +130,7 @@ export function MemberDashboard() {
 
 export function MemberProfilePage() {
   const { session } = useAuth();
+  const navigate=useNavigate();
   const { home: { profile }, refresh } = useMember();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -148,7 +150,7 @@ export function MemberProfilePage() {
   }
   async function continueToDashboard() {
     setBusy(true); setError('');
-    try { await memberRequest({action:'member_onboard'}); refresh(); window.location.hash = '/member/dashboard'; }
+    try { await memberRequest({action:'member_onboard'}); refresh(); navigate('/member/dashboard'); }
     catch(failure) { setError(workspaceError(failure)); } finally { setBusy(false); }
   }
   return <>
@@ -258,6 +260,7 @@ export function MemberTasksPage() {
 }
 
 export function MemberDraftsPage(){
+  const {confirm,confirmation}=usePeopleConfirm();
   const {home,refresh}=useMember();
   const [query,setQuery]=useState('');
   const [page,setPage]=useState(0);
@@ -277,10 +280,10 @@ export function MemberDraftsPage(){
       else setPreview({name:blob.name,text:'Preview unavailable for this format. Download the original file.'});
     }catch(failure){setError(workspaceError(failure));}finally{setBusy('');}
   }
-  async function remove(id:string){if(!window.confirm('Permanently delete this unlinked private draft?'))return;setBusy(id);setError('');
+  async function remove(id:string){if(!await confirm('Permanently delete this unlinked private draft?'))return;setBusy(id);setError('');
     try{await memberRequest({action:'member_delete_draft',fileId:id});refresh();}catch(failure){setError(workspaceError(failure));}finally{setBusy('');}}
   return <><ModuleTopbar title="My Drafts"><button onClick={refresh}>Refresh drafts</button></ModuleTopbar><div className="module-body people-page">
-    <section className="people-panel"><h2>Private work files</h2><p>{home.drafts.length} saved files · Private Supabase database storage. Link and unlink files from Tasks.</p><input type="search" aria-label="Search drafts" placeholder="Search drafts" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
+    {confirmation}<section className="people-panel"><h2>Private work files</h2><p>{home.drafts.length} saved files · Private Supabase database storage. Link and unlink files from Tasks.</p><input type="search" aria-label="Search drafts" placeholder="Search drafts" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
     {error&&<p role="alert">{error}</p>}{!drafts.length&&<p>No matching drafts.</p>}
     {drafts.slice(page*15,page*15+15).map(d=>{const links=(home.links??[]).filter(l=>l.file_id===d.id);return <article className="people-item people-draft" key={d.id}><div><h3>{d.name}</h3><small>{new Date(d.created_at).toLocaleString()} · {links.length?links.map(l=>l.task_id).join(', '):'Unlinked'}</small></div><div className="people-toolbar"><button disabled={!!busy} onClick={()=>void view(d.id)}>Preview</button><button disabled={!!busy} onClick={()=>void view(d.id,true)}>Download</button><Link to="/member/tasks">Link to task</Link><button disabled={!!busy||!!links.length} onClick={()=>void remove(d.id)}>Delete</button></div></article>;})}
     <div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(drafts.length/15))}</small><button disabled={(page+1)*15>=drafts.length} onClick={()=>setPage(p=>p+1)}>Next</button></div></section>

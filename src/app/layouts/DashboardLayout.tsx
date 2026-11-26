@@ -6,7 +6,7 @@ import { useAuth } from '../../core/auth/AuthProvider';
 import { useEditBuffers } from '../../features/workspace/EditBuffers';
 import { AppWindow, Braces, FileSearch, Folder, FolderUp, GitBranch, House, ListChecks, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Users } from 'lucide-react';
 import { Brand } from '../../shared/ui/Brand';
-import { pendingChangesEvent, workspaceRequest } from '../../features/workspace/api';
+import { pendingChangesEvent, workspaceRequest, memberRequest } from '../../features/workspace/api';
 
 const icons = [House, Folder, Braces, FolderUp, AppWindow, GitBranch, FileSearch, Users, ListChecks, Settings];
 
@@ -15,6 +15,7 @@ export function DashboardLayout() {
   const { buffers } = useEditBuffers();
   const [pending, setPending] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
+  const [reviewCount,setReviewCount]=useState(0);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       const saved = sessionStorage.getItem('luxraj-sidebar');
@@ -49,6 +50,14 @@ export function DashboardLayout() {
     };
   }, [userId]);
 
+  useEffect(()=>{
+    if(!userId)return;
+    let request:AbortController|undefined;
+    function refresh(){if(document.hidden)return;request?.abort();const current=new AbortController();request=current;
+      void memberRequest({action:'people_notice_count'},current.signal).then(r=>{if(!current.signal.aborted)setReviewCount(r.count);}).catch(()=>{});}
+    refresh();const interval=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);window.addEventListener('luxraj:review-notices',refresh);
+    return()=>{request?.abort();window.clearInterval(interval);window.removeEventListener('focus',refresh);window.removeEventListener('luxraj:review-notices',refresh);};
+  },[userId]);
   useEffect(() => {
     const reset = () => setCollapsed(window.matchMedia?.('(max-width: 48rem)').matches ?? false);
     window.addEventListener('luxraj:presentation-reset', reset);
@@ -82,7 +91,7 @@ export function DashboardLayout() {
           <ul>
             {dashboardNavigation.map(({ label, path }, index) => {
               const Icon = icons[index];
-              const count = path === '/source-control' ? draftCount : 0;
+              const count = path === '/source-control' ? draftCount : path === '/pending-reviews' ? reviewCount : 0;
               const description = count ? label + ' (' + count + ' pending)' : label;
               return <li key={path}><NavLink to={path} title={description} aria-label={label}
                 aria-description={count ? count + ' pending changes' : undefined} onClick={() => {

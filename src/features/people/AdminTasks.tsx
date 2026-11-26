@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import {Trash2} from 'lucide-react';
+import {usePeopleConfirm} from './PeopleConfirm';
 import type { MemberAccount, MemberTask, Submission } from '../../../supabase/functions/_shared/member-contracts';
 import { memberRequest, workspaceError } from '../workspace/api';
 import { roleName } from './AccountDetails';
@@ -8,7 +10,10 @@ import { TaskSummary } from './MemberWorkspace';
 const reviewNoticeEvent = 'luxraj:review-notices';
 export { reviewNoticeEvent };
 
-export function AdminTasks({ accounts }: { accounts: MemberAccount[] }) {
+export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]; mode?:'all'|'manage'|'terminated'|'review'|'history' }) {
+  const [params]=useSearchParams();
+  const [filter,setFilter]=useState('');const [query,setQuery]=useState('');const [page,setPage]=useState(0);const [showForm,setShowForm]=useState(mode==='all');
+  const {confirm,confirmation}=usePeopleConfirm();
   const [tasks, setTasks] = useState<MemberTask[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [userId, setUserId] = useState('');
@@ -36,6 +41,7 @@ export function AdminTasks({ accounts }: { accounts: MemberAccount[] }) {
     try {
       const { id } = await memberRequest({ action: 'people_add_task', userId, type, description,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      setShowForm(mode==='all');
       setType('');
       setDescription('');
       setNotice(id + ' assigned.');
@@ -48,10 +54,28 @@ export function AdminTasks({ accounts }: { accounts: MemberAccount[] }) {
     try { await memberRequest({ action: 'people_seen', id }); refresh(); }
     catch (failure) { setError(workspaceError(failure)); }
   }
-  return <div className="people-grid">
+  const matches=(task:MemberTask)=> (!query||(task.id+' '+task.task_type+' '+(accounts.find(a=>a.id===task.user_id)?.profile?.full_name??'')).toLowerCase().includes(query.toLowerCase()))&&(!filter||task.status===filter);
+  const currentSubmission=(s:Submission)=>tasks.some(t=>t.id===s.task_id&&t.submission_id===s.id&&t.status==='submitted');
+  const visibleTasks=tasks.filter(t=>matches(t)&&(mode==='terminated'?t.status==='terminated':mode==='manage'?t.status!=='terminated':true));
+  const visibleSubs=submissions.filter(s=>(mode==='review'?currentSubmission(s):mode==='history'?!currentSubmission(s):true)&&(!query||(s.task_id+' '+s.full_name).toLowerCase().includes(query.toLowerCase())));
+  async function erase(task:MemberTask){if(!await confirm('Permanently delete '+task.id+' and its submission records? Independent private files and committed GitHub files will be preserved.'))return;setError('');setBusy(true);
+    try{await memberRequest({action:'people_delete_task',taskId:task.id});setNotice('Terminated task deleted.');refresh();}catch(failure){setError(workspaceError(failure));}finally{setBusy(false);}}
+  const renderSubmission=(submission:Submission)=>{const task=tasks.find(t=>t.id===submission.task_id);const current=currentSubmission(submission);
+    const p=new URLSearchParams({submission:submission.id});for(const file of submission.files)p.append('file',file.id);
+    return <article key={submission.id} className="people-card"><h3>{submission.task_id}{!submission.seen&&<span className="people-status">New</span>}</h3><p>{submission.full_name} · {roleName[submission.role]}</p><time dateTime={submission.created_at}>{new Date(submission.created_at).toLocaleString()}</time>
+      <details open={mode==='all'||params.get('submission')===submission.id?true:undefined}><summary>Submitted files ({submission.files.length})</summary><ul>{submission.files.map(file=><li key={file.id}>{file.name}</li>)}</ul>{current&&<Link to={'/website-controls?'+p.toString()}>Open as Website Controls input</Link>}
+      {mode==='review'&&task&&<TaskReview task={task} name={undefined} refresh={refresh}/>}</details>
+      {!submission.seen&&<button type="button" onClick={()=>void seen(submission.id)}>Mark read</button>}</article>;
+  };
+  return <div className={mode==='all'?'people-grid':'people-page'}>
+    {confirmation}{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}
+    {mode!=='all'&&<section className="people-panel"><div className="people-toolbar"><input type="search" placeholder="Search tasks or users" aria-label="Search tasks" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
+    {mode==='manage'&&<select aria-label="Filter status" value={filter} onChange={e=>{setFilter(e.target.value);setPage(0);}}><option value="">All statuses</option>{['pending','working','finished','submitted','returned','rejected','completed'].map(s=><option key={s}>{s}</option>)}</select>}
+    {mode==='manage'&&<button className="people-primary" type="button" onClick={()=>setShowForm(true)}>Assign new task</button>}<button onClick={refresh}>Refresh</button></div></section>}
+    {(mode==='all'||mode==='manage'||mode==='terminated')&&
     <section className="people-panel">
-      <h2>Assigned tasks</h2>
-      <form onSubmit={event => void add(event)}>
+      <h2>{mode==='terminated'?'Terminated tasks':'Assigned tasks'}</h2>
+      {showForm&&mode!=='terminated'&&<form onSubmit={event => void add(event)}>
         <label>Assigned user<select value={userId} required onChange={event => setUserId(event.target.value)}>
           <option value="">Choose an existing user</option>
           {accounts.filter(account => account.profile && !account.profile.disabled).map(account =>
@@ -59,42 +83,25 @@ export function AdminTasks({ accounts }: { accounts: MemberAccount[] }) {
         </select></label>
         <label>Task type<input value={type} maxLength={150} onChange={event => setType(event.target.value)} required /></label>
         <label>Task description<textarea value={description} maxLength={4000} onChange={event => setDescription(event.target.value)} required /></label>
-        <button type="submit" disabled={busy}>Assign task</button>
-      </form>
-      {notice && <p role="status">{notice}</p>}
-      {error && <p role="alert">{error}</p>}
-      <button type="button" onClick={refresh}>Refresh tasks and submissions</button>
-      {tasks.map(task => <TaskReview key={task.id + '/' + task.status + '/' + task.submission_id}
-        task={task} name={accounts.find(account => account.id === task.user_id)?.profile?.full_name} refresh={refresh} />)}
-    </section>
-    <section className="people-panel">
-      <h2>Submissions</h2>
-      {!submissions.length && <p>No work submitted.</p>}
-      {submissions.map(submission => {
-        const current = tasks.some(task => task.id === submission.task_id && task.submission_id === submission.id && task.status === 'submitted');
-        const params = new URLSearchParams({ submission: submission.id });
-        for (const file of submission.files) params.append('file', file.id);
-        return <article key={submission.id} className="people-item">
-          <h3>{submission.task_id}{!submission.seen && <span className="people-status">New</span>}</h3>
-          <p>{submission.full_name} · {roleName[submission.role]}</p>
-          <time dateTime={submission.created_at}>{new Date(submission.created_at).toLocaleString()}</time>
-          <ul>{submission.files.map(file => <li key={file.id}>{file.name}</li>)}</ul>
-          <div className="workspace-actions">
-            {current && <Link to={'/website-controls?' + params.toString()}>Open as Website Controls input</Link>}
-            {!submission.seen && <button type="button" onClick={() => void seen(submission.id)}>Mark read</button>}
-          </div>
-        </article>;
-      })}
-    </section>
+        <div className="people-toolbar"><button type="submit" className="people-primary" disabled={busy}>Assign task</button>{mode!=='all'&&<button type="button" disabled={busy} onClick={()=>{setType('');setDescription('');setUserId('');setShowForm(false);}}>Cancel</button>}</div>
+      </form>}
+      {!visibleTasks.length&&<p>No matching tasks.</p>}
+      {visibleTasks.slice(mode==='all'?0:page*12,mode==='all'?visibleTasks.length:page*12+12).map(task=>mode==='terminated'?<article key={task.id} className="people-card"><TaskSummary item={task}/><button className="people-danger" type="button" aria-label={'Permanently delete '+task.id} title="Permanently delete terminated task" disabled={busy||!!task.active_review} onClick={()=>void erase(task)}><Trash2 size={16}/></button></article>:
+      <TaskReview key={task.id+'/'+task.status+'/'+task.submission_id} task={task} name={accounts.find(a=>a.id===task.user_id)?.profile?.full_name} refresh={refresh} compact={mode==='manage'} />)}
+      {mode!=='all'&&<div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(visibleTasks.length/12))}</small><button disabled={(page+1)*12>=visibleTasks.length} onClick={()=>setPage(p=>p+1)}>Next</button></div>}
+    </section>}
+    {(mode==='all'||mode==='review'||mode==='history')&&<section className="people-panel"><h2>{mode==='review'?'Awaiting review':mode==='history'?'Past submissions':'Submissions'}</h2>{!visibleSubs.length&&<p>No matching submissions.</p>}{visibleSubs.slice(mode==='all'?0:page*12,mode==='all'?visibleSubs.length:page*12+12).map(renderSubmission)}
+      {mode!=='all'&&<div className="people-toolbar"><button disabled={!page} onClick={()=>setPage(p=>p-1)}>Previous</button><small>Page {page+1} of {Math.max(1,Math.ceil(visibleSubs.length/12))}</small><button disabled={(page+1)*12>=visibleSubs.length} onClick={()=>setPage(p=>p+1)}>Next</button></div>}</section>}
   </div>;
 }
 
-function TaskReview({ task, name, refresh }: { task: MemberTask; name?: string; refresh(): void }) {
+function TaskReview({ task, name, refresh, compact=false }: { task: MemberTask; name?: string; refresh(): void; compact?:boolean }) {
+  const {confirm,confirmation}=usePeopleConfirm();
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function decide(decision: 'returned' | 'rejected' | 'terminated') {
-    if (decision === 'terminated' && !window.confirm('Terminate ' + task.id + '? Drafts and submitted records are kept.')) return;
+    if (decision === 'terminated' && !await confirm('Terminate ' + task.id + '? Drafts and submitted records are kept.')) return;
     setBusy(true);
     setError('');
     try {
@@ -107,16 +114,17 @@ function TaskReview({ task, name, refresh }: { task: MemberTask; name?: string; 
     {name && <p>{name}</p>}
     <TaskSummary item={task} />
     {task.active_review && <p>GitHub review in progress. <Link to={'/source-control?recover=' + task.active_review}>Verify in Source Control</Link></p>}
-    {!task.active_review && task.status !== 'terminated' && <>
+    {confirmation}
+    {!task.active_review && !['terminated','completed'].includes(task.status) && <details open={!compact?true:undefined}><summary>Task actions</summary>
       <label>Review comment for {task.id}<textarea maxLength={2000} value={comment} onChange={event => setComment(event.target.value)} /></label>
       <div className="workspace-actions">
-        {task.status === 'submitted' && <>
+        {!compact && task.status === 'submitted' && <>
           <button type="button" disabled={busy || !comment.trim()} onClick={() => void decide('returned')}>Return for Correction</button>
           <button type="button" disabled={busy || !comment.trim()} onClick={() => void decide('rejected')}>Reject</button>
         </>}
         <button type="button" disabled={busy} onClick={() => void decide('terminated')}>Terminate</button>
       </div>
-    </>}
+    </details>}
     {error && <p role="alert">{error}</p>}
   </article>;
 }

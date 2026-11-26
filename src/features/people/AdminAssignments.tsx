@@ -5,8 +5,11 @@ import type { WebsiteControl } from '../../../supabase/functions/_shared/workspa
 import { RepositoryFilePicker } from '../website-controls/RepositoryFilePicker';
 import { memberRequest, workspaceError, workspaceRequest, type Workspace } from '../workspace/api';
 import '../website-controls/website-controls.css';
+import {usePeopleConfirm} from './PeopleConfirm';
 
 export function AdminAssignments({ userId }: { userId: string }) {
+  const {confirm,confirmation}=usePeopleConfirm();
+  const [formOpen,setFormOpen]=useState(false);
   const [apps, setApps] = useState<Assignment[]>([]);
   const [workspace, setWorkspace] = useState<Workspace>();
   const [controls, setControls] = useState<WebsiteControl[]>([]);
@@ -20,8 +23,10 @@ export function AdminAssignments({ userId }: { userId: string }) {
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
   const selection = workspace?.selection;
-  const repository = workspace?.repositories.find(repo => repo.id === selection?.repositoryId);
-  const scope = selection?.branch && repository ? { repositoryId: repository.id, branch: selection.branch } : null;
+  const repository = workspace?.repositories.find(repo => repo.id === (editing?.repository_id ?? selection?.repositoryId));
+  const branch = editing?.branch ?? selection?.branch;
+  const scope = branch && repository ? { repositoryId: repository.id, branch } : null;
+  const browsingAllowed=!!scope && selection?.repositoryId===scope.repositoryId && selection?.branch===scope.branch;
   useEffect(() => {
     const request = new AbortController();
     memberRequest({ action: 'people_apps', userId }, request.signal).then(result => {
@@ -43,7 +48,7 @@ export function AdminAssignments({ userId }: { userId: string }) {
     return () => request.abort();
   }, []);
 
-  function clear() { setEditing(null); setApplication(''); setName(''); setInputs(''); }
+  function clear() { setEditing(null); setApplication(''); setName(''); setInputs(''); setFormOpen(false); }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!scope) return;
@@ -59,7 +64,7 @@ export function AdminAssignments({ userId }: { userId: string }) {
     finally { setWorking(false); }
   }
   async function remove(app: Assignment) {
-    if (!window.confirm('Remove ' + app.name + ' from this user? Saved work and tasks will be kept.')) return;
+    if (!await confirm('Remove ' + app.name + ' from this user? Saved work and tasks will be kept.')) return;
     setWorking(true);
     setError('');
     setNotice('');
@@ -72,23 +77,25 @@ export function AdminAssignments({ userId }: { userId: string }) {
     finally { setWorking(false); }
   }
   return <section className="people-panel">
-    <h2>Application assignments</h2>
+    <h2>Application assignments</h2><button type="button" className="people-primary" disabled={!selection?.branch||working} onClick={()=>{clear();setFormOpen(true);}}>Assign application</button>
     {!apps.length && <p>No applications are assigned. The Workstation is disabled.</p>}
     {apps.map(app => {
       return <article className="people-item" key={app.id}>
-        <h3>{app.name}</h3><p><code>{app.application}</code> · {app.branch} · {app.inputs.length} assigned inputs</p>
+        <h3>{app.name}</h3><p><code>{app.application}</code> · {workspace?.repositories.find(r=>r.id===app.repository_id)?.name ?? 'Repository #'+app.repository_id} / {app.branch} · {app.inputs.length} assigned inputs</p>
         <div className="workspace-actions">
-          <button type="button" disabled={working || !scope} title={scope ? undefined : 'Select a repository and branch in Repositories'}
-            onClick={() => { setEditing(app); setName(app.name); setApplication(app.application); setInputs(app.inputs.join('\n')); }}>Modify assignment</button>
+          <button type="button" disabled={working || !workspace?.repositories.some(r=>r.id===app.repository_id)}
+            onClick={() => { setFormOpen(true); setEditing(app); setName(app.name); setApplication(app.application); setInputs(app.inputs.join('\n')); }}>Modify assignment</button>
           <button type="button" disabled={working} onClick={() => void remove(app)}>Remove assignment</button>
         </div>
       </article>;
     })}
     <p><Link to="/repositories">{scope ? 'Change repository or branch' : 'Select a repository and branch'}</Link>
       {repository && scope ? ' · ' + repository.name + ' / ' + scope.branch : ''}</p>
-    {scope && <form onSubmit={event => void save(event)}>
+    {formOpen && scope && <form onSubmit={event => void save(event)}>
       <h3>{editing ? 'Modify application assignment' : 'Assign an HTML application'}</h3>
-      {!!controls.length && <label>Use a registered control<select value="" onChange={event => {
+      <p><strong>Assignment target:</strong> {repository?.name} / {scope.branch}</p>
+      {!browsingAllowed && <p>Editing the original scope. Switch the repository workspace to this target to browse files. Saving does not change the target.</p>}
+      {browsingAllowed && !!controls.length && <label>Use a registered control<select value="" onChange={event => {
         const control = controls.find(item => item.id === event.target.value);
         if (control) { setName(control.name); setApplication(control.application); setInputs(control.inputs.join('\n')); }
       }}><option value="">Choose a control</option>
@@ -98,10 +105,10 @@ export function AdminAssignments({ userId }: { userId: string }) {
       <label>HTML application path<input required value={application} onChange={event => setApplication(event.target.value)} /></label>
       <label>Authorized repository inputs (one per line)<textarea value={inputs} onChange={event => setInputs(event.target.value)} /></label>
       <div className="workspace-actions">
-        <button type="button" onClick={() => setPicker('app')}>Browse HTML applications</button>
-        <button type="button" onClick={() => setPicker('inputs')}>Browse input files</button>
+        <button type="button" disabled={!browsingAllowed} onClick={() => setPicker('app')}>Browse HTML applications</button>
+        <button type="button" disabled={!browsingAllowed} onClick={() => setPicker('inputs')}>Browse input files</button>
         <button type="submit" disabled={working}>{editing ? 'Save assignment' : 'Assign application'}</button>
-        {editing && <button type="button" onClick={clear}>Cancel</button>}
+        <button type="button" disabled={working} onClick={()=>void (async()=>{if((name||application||inputs)&&!await confirm('Discard assignment changes?'))return;clear();})()}>Cancel</button>
       </div>
       {picker && <RepositoryFilePicker scope={scope} label={picker === 'app' ? 'HTML applications' : 'Allowed repository files'}
         htmlOnly={picker === 'app'} multiple={picker === 'inputs'} onCancel={() => setPicker(null)} onPick={paths => {
@@ -110,6 +117,7 @@ export function AdminAssignments({ userId }: { userId: string }) {
           setPicker(null);
         }} />}
     </form>}
+    {confirmation}
     {notice && <p role="status">{notice}</p>}
     {error && <p role="alert">{error}</p>}
   </section>;
