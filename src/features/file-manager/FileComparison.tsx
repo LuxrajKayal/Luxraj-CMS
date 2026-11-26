@@ -45,7 +45,7 @@ function NativePreview({ bytes, type, mime, name }: {
     : <video aria-label={name} controls preload="metadata" src={url} onError={() => setFailed(true)} />;
 }
 
-function FileSide({ path, name, value }: { path: string; name: string; value: FilePayload | null }) {
+export function FileSide({ path, name, value }: { path: string; name: string; value: FilePayload | null }) {
   const bytes = useMemo(() => value && value.contents !== null ? decodeBytes(value.contents) : null, [value]);
   const preview = useMemo(() => bytes ? previewFormat(bytes, path, value?.mime) : null, [bytes, path, value?.mime]);
   function download() {
@@ -106,7 +106,7 @@ export function FileDraftComparison({ repositoryId, branch, path, revision }: {
     return () => abort.abort();
   }, [repositoryId, branch, path, revision]);
   if (!data) return error ? <p role="alert">{error}</p> : <p role="status">Loading file comparison…</p>;
-  if (data.draft?.origin === 'website_control') {
+  if (data.draft?.origin === 'website_control' || data.draft?.origin === 'member_submission') {
     const original = diffText(data.original);
     const proposed = diffText(data.proposed);
     if (original !== null && proposed !== null) {

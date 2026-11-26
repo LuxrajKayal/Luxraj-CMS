@@ -35,7 +35,9 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
       (['file_inspect', 'file_save', 'profile_picture_stage'].includes(action) && !isCommit(commit)) ||
       (['file_comparison', 'verify_profile_picture'].includes(action) && (typeof revision !== 'string' || !uuid.test(revision))) ||
       (['file_save', 'profile_picture_stage'].includes(action) && originalBlob !== null && !isCommit(originalBlob)) ||
-      (body.origin !== undefined && (action !== 'file_save' || body.origin !== 'website_control'))) {
+      (body.origin !== undefined && (action !== 'file_save' || !['website_control','member_submission'].includes(String(body.origin)))) ||
+      (body.origin === 'member_submission' && (typeof body.submissionId !== 'string' || typeof body.submissionFileId !== 'string')) ||
+      (body.submissionFileId !== undefined && body.origin !== 'member_submission')) {
     throw new WorkspaceError('invalid_request', 400);
   }
   const segments = filePath(path) ? path : [];
@@ -92,9 +94,10 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
       const payload = await validateFile({ size: body.size, sha256: body.sha256, contents: body.contents, mime: body.mime }, profile);
       async function validateLink(): Promise<DraftLink | undefined> {
         if (body?.submissionId !== undefined) {
-          if (action !== 'file_save' || body.origin !== 'website_control' || typeof body.submissionId !== 'string' ||
+          if (action !== 'file_save' || !['website_control','member_submission'].includes(String(body.origin)) || typeof body.submissionId !== 'string' ||
               body.pictureId !== undefined || !deps.members) throw new WorkspaceError('member_invalid', 400);
           await deps.members.validateSubmission(body.submissionId);
+          if(body.origin==='member_submission') await deps.members.submissionFileRow(body.submissionId,body.submissionFileId as string);
           return { submissionId: body.submissionId };
         }
         if (body?.pictureId === undefined) return;
@@ -120,7 +123,7 @@ export async function fileManager(body: Record<string, unknown> | null, userId: 
         }
         await check();
         if (link) await validateLink();
-      }, body.origin === 'website_control' ? body.origin : undefined, link);
+      }, body.origin === 'website_control' || body.origin === 'member_submission' ? body.origin : undefined, link);
       return { draft };
     }
     case 'file_comparison': {

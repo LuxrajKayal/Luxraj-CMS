@@ -13,11 +13,11 @@ const files = 'cms_member_files';
 const profileFields = 'user_id,full_name,birth_date,gender,qualifications,role,description,picture_state,pending_picture,approved_picture_url,picture_comment,picture_review,disabled,onboarding_completed';
 const assigneeFields = 'id,name,repository_id,branch,application,inputs';
 const fileFields = 'id,name,mime,created_at';
-const taskFields = 'id,user_id,task_type,description,status,comment,submission_id,created_at,active_review,commit_sha,commit_repository,commit_branch';
+const taskFields = 'id,user_id,task_type,description,status,comment,submission_id,created_at,active_review,commit_sha,commit_repository,commit_branch,force_completed_at,force_completion_reason';
 const uuid = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 const taskIdPattern = /^TSK-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}$/;
 const knownErrors = new Set(['member_forbidden', 'assignment_revoked', 'member_storage_limit', 'task_unavailable',
-  'task_files_invalid', 'member_file_conflict', 'review_in_progress', 'task_has_publish_drafts', 'member_file_linked']);
+  'task_files_invalid', 'member_file_conflict', 'review_in_progress', 'task_has_publish_drafts', 'member_file_linked', 'force_reason_required', 'task_review_stale']);
 const bad = () => new WorkspaceError('member_invalid', 400);
 const missing = () => new WorkspaceError('member_unavailable', 404);
 const validId = (value: unknown): value is string => typeof value === 'string' && uuid.test(value);
@@ -124,6 +124,12 @@ export function createMembers(client: SupabaseClient) {
     const row = value(await query.maybeSingle());
     if (!row) throw new WorkspaceError('task_review_stale', 409);
     return row.id as string;
+  }
+  async function submissionFileRow(submissionId:string,fileId:string) {
+    if(!validId(submissionId)||!validId(fileId))throw bad();
+    const row=value(await client.from('cms_task_submission_files').select('user_id').eq('submission_id',submissionId).eq('file_id',fileId).maybeSingle());
+    if(!row)throw missing();
+    return row;
   }
   async function member(body: MemberRequest, actor: string, deps: MemberDependencies) {
     const account = await requireMember(actor);
@@ -356,12 +362,22 @@ export function createMembers(client: SupabaseClient) {
         if (!validId(body.id)) throw bad();
         value(await client.from(submissions).update({ seen: true }).eq('id', body.id));
         return { saved: true };
+      case 'people_force_complete': {
+        if(!taskIdPattern.test(body.taskId)||!['pending','working','finished','submitted','returned','rejected'].includes(body.expectedStatus)||
+          (body.submissionId!==null&&!validId(body.submissionId)))throw bad();
+        value(await client.rpc('cms_force_complete_task',{actor,task_key:body.taskId,expected_status:body.expectedStatus,expected_submission:body.submissionId,reason:field(body.reason,2000)}));
+        return {saved:true};
+      }
+      case 'people_read_submission': {
+        const row=await submissionFileRow(body.submissionId,body.fileId);
+        const notice=value(await client.from(submissions).select('task_id').eq('id',body.submissionId).maybeSingle());
+        if(!notice)throw missing();
+        return {taskId:notice.task_id,file:await readFile(row.user_id,body.fileId,'work')};
+      }
       case 'people_submission_file': {
         if (!validId(body.submissionId) || !validId(body.fileId)) throw bad();
         const task = await validateSubmission(body.submissionId);
-        const row = value(await client.from('cms_task_submission_files').select('user_id').eq('submission_id', body.submissionId)
-          .eq('file_id', body.fileId).maybeSingle());
-        if (!row) throw missing();
+        const row = await submissionFileRow(body.submissionId,body.fileId);
         return { taskId: task, file: await readFile(row.user_id, body.fileId, 'work') };
       }
       case 'people_picture':
@@ -388,5 +404,5 @@ export function createMembers(client: SupabaseClient) {
       }
     }
   }
-  return { member, admin, pendingPicture, validateSubmission };
+  return { member, admin, pendingPicture, validateSubmission, submissionFileRow };
 }

@@ -95,7 +95,7 @@ function fixture() {
         assert.equal(args.owner_id, developer);
         return { data: null, error: null };
       }
-      if (['cms_member_task_progress','cms_delete_terminated_task','cms_delete_private_work'].includes(name)) return {data:null,error:null};
+      if (['cms_member_task_progress','cms_delete_terminated_task','cms_delete_private_work','cms_force_complete_task'].includes(name)) return {data:null,error:null};
       if (name === 'cms_disable_member') return { data: null, error: null };
       throw new Error('Unexpected RPC');
     },
@@ -219,4 +219,13 @@ Deno.test('refinement routes progress through the actor-scoped RPC and denies me
  assert.equal((await send(author,'people_delete_task',{taskId:'TSK-25-11-2026-16-33'})).status,403);
  assert.equal((await send(admin,'people_delete_task',{taskId:'TSK-25-11-2026-16-33'})).status,200);
  assert.equal(calls.at(-1),'cms_delete_terminated_task');
+});
+
+Deno.test('Force Complete is Super Admin only and invokes the guarded RPC with expected state',async()=>{
+ const {send,calls}=fixture();const body={taskId:'TSK-25-11-2026-16-33',expectedStatus:'submitted',submissionId:null,reason:'Accepted offline'};
+ assert.equal((await send(developer,'people_force_complete',body)).status,403);
+ assert.equal((await send(admin,'people_force_complete',{...body,reason:''})).status,400);
+ assert.equal((await send(admin,'people_force_complete',{...body,expectedStatus:'completed'})).status,400);
+ assert.equal((await send(admin,'people_force_complete',body)).status,200);
+ assert.equal(calls.at(-1),'cms_force_complete_task');
 });

@@ -16,7 +16,7 @@ export type MemberOutput = Pick<FilePayload, 'size' | 'mime' | 'sha256' | 'conte
 export type TaskState = 'pending' | 'working' | 'finished' | 'submitted' | 'returned' | 'rejected' | 'terminated' | 'completed';
 export type MemberTask = { id: string; user_id: string; task_type: string; description: string; status: TaskState;
   comment: string; submission_id: string | null; created_at: string; active_review: string | null;
-  commit_sha: string | null; commit_repository: string | null; commit_branch: string | null };
+  commit_sha: string | null; commit_repository: string | null; commit_branch: string | null; force_completed_at?: string|null; force_completed_by?:string|null; force_completion_reason?:string|null };
 export type Submission = { id: string; task_id: string; user_id: string; role: MemberRole; full_name: string;
   created_at: string; seen: boolean; files: MemberFile[] };
 export type MemberHome = { profile: MemberProfile; apps: MemberApp[]; tasks: MemberTask[]; drafts: MemberFile[]; links?: { task_id: string; file_id: string }[]; draftBytes?: number; draftCount?:number; counts?:Partial<Record<TaskState,number>> };
@@ -48,6 +48,8 @@ export type MemberCalls = {
   people_decide: [{ taskId: string; submissionId: string | null; decision: 'returned' | 'rejected' | 'terminated'; comment: string }, { saved: true }];
   people_seen: [{ id: string }, { saved: true }];
   people_notice_count: [object, { count: number }];
+  people_force_complete: [{taskId:string; expectedStatus:TaskState; submissionId:string|null; reason:string},{saved:true}];
+  people_read_submission: [{submissionId:string;fileId:string},{file:MemberOutput;taskId:string}];
   people_submission_file: [{ submissionId: string; fileId: string }, { file: MemberOutput; taskId: string }];
   people_picture: [{ userId: string; pictureId: string }, { file: MemberOutput }];
   people_return_picture: [{ userId: string; pictureId: string; comment: string }, { saved: true }];

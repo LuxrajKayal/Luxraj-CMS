@@ -18,6 +18,7 @@ import { ProfilePictureLocationPage } from '../../features/settings/ProfilePictu
 import { MaintenancePage } from '../../features/settings/MaintenancePage';
 import { lazy, Suspense } from 'react';
 
+const SubmissionPublishPage=lazy(()=>import('../../features/people/SubmissionPublishPage'));
 const CodeInjectorPage = lazy(() => import('../../features/code-injector/CodeInjectorPage'));
 const FileManagerPage = lazy(() => import('../../features/file-manager/FileManagerPage'));
 const WebsiteControlsPage = lazy(() => import('../../features/website-controls/WebsiteControlsPage'));
@@ -68,6 +69,8 @@ export function AppRoutes() {
             <Route element={<WorkspaceLayout />}>
               <Route path="/repositories" element={<RepositoriesPage />} />
               <Route path="/code-editor" element={<CodeEditorPage />} />
+              <Route path="/code-editor/submission" element={<Suspense fallback={<p role="status">Loading submitted draft…</p>}><SubmissionPublishPage editor/></Suspense>} />
+              <Route path="/file-manager/submission" element={<Suspense fallback={<p role="status">Loading submitted draft…</p>}><SubmissionPublishPage/></Suspense>} />
               <Route path="/source-control" element={<SourceControlPage />} />
               <Route path="/website-controls" element={<Suspense fallback={<p role="status">Loading Website Controls…</p>}>
                 <WebsiteControlsPage />

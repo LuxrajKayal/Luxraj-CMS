@@ -89,7 +89,7 @@ export interface ManagedDraft extends DraftIdentity {
 export const maxFileBytes = 8 * 1024 * 1024;
 export type FileMetadata = { size: number; sha256: string; mime: string; blob?: string };
 export type FilePayload = Omit<FileMetadata, 'sha256'> & { sha256: string | null; contents: string | null };
-export type StoredFile = FileMetadata & { path: string; revision: string; originalBlob: string | null; committedSha: string | null; origin?: 'website_control' };
+export type StoredFile = FileMetadata & { path: string; revision: string; originalBlob: string | null; committedSha: string | null; origin?: 'website_control' | 'member_submission' };
 export type FileInspection = { commit: string; original: FilePayload | null };
 export type FileComparison = { draft: StoredFile; original: FilePayload | null; proposed: FilePayload };
 export type ProfilePictureLocation = { repositoryId: number; branch: string; folder: string; publicPrefix: string };
@@ -131,7 +131,7 @@ export type WorkspaceRequest =
   | { action: 'file_manager_tree'; repositoryId: number; branch: string; path: string[]; includeExecutables?: boolean }
   | { action: 'file_inspect'; repositoryId: number; branch: string; path: string[]; commit: string }
   | { action: 'file_save' | 'profile_picture_stage'; repositoryId: number; branch: string; path: string[]; commit: string;
-      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string; origin?: 'website_control'; submissionId?: string }
+      originalBlob: string | null; contents: string; size: number; sha256: string; mime: string; origin?: 'website_control' | 'member_submission'; submissionId?: string; submissionFileId?: string }
   | { action: 'file_drafts'; repositoryId: number; branch: string }
   | { action: 'file_comparison'; repositoryId: number; branch: string; path: string[]; revision: string }
   | { action: 'profile_picture_location' }

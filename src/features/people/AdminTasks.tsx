@@ -1,12 +1,36 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {Trash2} from 'lucide-react';
 import {usePeopleConfirm} from './PeopleConfirm';
 import type { MemberAccount, MemberTask, Submission } from '../../../supabase/functions/_shared/member-contracts';
 import { memberRequest, workspaceError } from '../workspace/api';
+import { memberFile } from './memberFiles';
+import type { MemberFile, MemberOutput } from '../../../supabase/functions/_shared/member-contracts';
 import { roleName } from './AccountDetails';
 import { TaskSummary } from './MemberWorkspace';
 
+const FileSide=lazy(()=>import('../file-manager/FileComparison').then(m=>({default:m.FileSide})));
+function SubmissionFileActions({submission,file,current}:{submission:Submission;file:MemberFile;current:boolean}){
+  const [preview,setPreview]=useState<MemberOutput>();
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const params=new URLSearchParams({submission:submission.id,file:file.id});
+  async function read(download:boolean){
+    setBusy(true);setError('');
+    try{
+      const {file:output}=await memberRequest({action:'people_read_submission',submissionId:submission.id,fileId:file.id});
+      const blob=await memberFile(output);
+      if(download){const url=URL.createObjectURL(new Blob([blob],{type:'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=blob.name;a.click();window.setTimeout(()=>URL.revokeObjectURL(url),30000);}
+      else setPreview(output);
+    }catch(failure){setError(workspaceError(failure));}finally{setBusy(false);}
+  }
+  return <li className="people-item submission-file"><strong>{file.name}</strong>
+    <div className="people-toolbar"><button type="button" disabled={busy} onClick={()=>void read(false)}>Preview</button><button type="button" disabled={busy} onClick={()=>void read(true)}>Download</button>
+      {current&&<><Link to={'/code-editor/submission?'+params}>Open in Code Editor</Link><Link to={'/file-manager/submission?'+params}>Open in File Manager</Link><Link to={'/file-manager/submission?'+params+'&prepare=1'}>Prepare for Commit</Link></>}
+    </div>
+    {error&&<p role="alert">{error}</p>}
+    {preview&&<section><button type="button" onClick={()=>setPreview(undefined)}>Close preview</button><Suspense fallback={<p role="status">Loading preview…</p>}><FileSide name="Submitted file" path={file.name} value={preview}/></Suspense></section>}
+  </li>;
+}
 const reviewNoticeEvent = 'luxraj:review-notices';
 export { reviewNoticeEvent };
 
@@ -66,7 +90,7 @@ export function AdminTasks({ accounts, mode='all' }: { accounts: MemberAccount[]
   const renderSubmission=(submission:Submission)=>{const task=tasks.find(t=>t.id===submission.task_id);const current=currentSubmission(submission);
     const p=new URLSearchParams({submission:submission.id});for(const file of submission.files)p.append('file',file.id);
     return <article key={submission.id} className="people-card"><h3>{submission.task_id}{!submission.seen&&<span className="people-status">New</span>}</h3><p>{submission.full_name} · {roleName[submission.role]}</p><time dateTime={submission.created_at}>{new Date(submission.created_at).toLocaleString()}</time>
-      <details open={mode==='all'||params.get('submission')===submission.id?true:undefined}><summary>Submitted files ({submission.files.length})</summary><ul>{submission.files.map(file=><li key={file.id}>{file.name}</li>)}</ul>{current&&<Link to={'/website-controls?'+p.toString()}>Open as Website Controls input</Link>}
+      <details open={mode==='all'||params.get('submission')===submission.id?true:undefined}><summary>Submitted files ({submission.files.length})</summary><ul className="submission-files">{submission.files.map(file=><SubmissionFileActions key={file.id} submission={submission} file={file} current={current}/>)}</ul>{current&&<Link to={'/website-controls?'+p.toString()}>Open as Website Controls input</Link>}
       {mode==='review'&&task&&<TaskReview task={task} name={undefined} refresh={refresh}/>}</details>
       {!submission.seen&&<button type="button" onClick={()=>void seen(submission.id)}>Mark read</button>}</article>;
   };
@@ -103,6 +127,11 @@ function TaskReview({ task, name, refresh, compact=false }: { task: MemberTask; 
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [forceReason,setForceReason]=useState('');
+  async function forceComplete(){
+    if(!forceReason.trim()||!await confirm('Force complete '+task.id+' without a GitHub commit? This records a manual override, not a publishing receipt.'))return;
+    setBusy(true);setError('');try{await memberRequest({action:'people_force_complete',taskId:task.id,expectedStatus:task.status,submissionId:task.submission_id,reason:forceReason});refresh();}catch(failure){setError(workspaceError(failure));}finally{setBusy(false);}
+  }
   async function decide(decision: 'returned' | 'rejected' | 'terminated') {
     if (decision === 'terminated' && !await confirm('Terminate ' + task.id + '? Drafts and submitted records are kept.')) return;
     setBusy(true);
@@ -127,6 +156,7 @@ function TaskReview({ task, name, refresh, compact=false }: { task: MemberTask; 
         </>}
         <button type="button" disabled={busy} onClick={() => void decide('terminated')}>Terminate</button>
       </div>
+      <details><summary>Force Complete (Super Admin override)</summary><p>Completes the task without publishing files or creating a GitHub commit. Enter a reason for the audit record.</p><label>Force completion reason<textarea maxLength={2000} value={forceReason} onChange={e=>setForceReason(e.target.value)}/></label><button className="people-danger" type="button" disabled={busy||!forceReason.trim()} onClick={()=>void forceComplete()}>Force Complete</button></details>
     </details>}
     {error && <p role="alert">{error}</p>}
   </article>;

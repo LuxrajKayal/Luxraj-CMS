@@ -41,7 +41,7 @@ export function formatMb(bytes: number) {
 
 export const pendingChangesEvent = 'luxraj:pending-changes';
 const draftActions = new Set(['select', 'save_draft', 'file_save', 'profile_picture_stage', 'people_stage_picture', 'delete_drafts',
-  'confirm_commit', 'reconcile_commit', 'website_maintenance']);
+  'confirm_commit', 'reconcile_commit', 'website_maintenance', 'people_force_complete']);
 
 export async function workspaceRequest<T extends WorkspaceRequest>(body: T, signal?: AbortSignal) {
   return invokeWorkspace<Responses[T['action']]>(body, signal);
@@ -96,6 +96,7 @@ const errors = {
   member_storage_limit: 'The CMS PostgreSQL storage allocation has been reached.',
   task_files_invalid: 'Select your own saved work drafts for this task.',
   task_unavailable: 'This task can no longer be submitted. Refresh the task list.',
+  force_reason_required: 'Enter a reason for forced completion.',
   task_review_stale: 'This submission has changed or is already in commit review. Refresh the task before continuing.',
   picture_review_stale: 'The profile picture changed or is already in review. Refresh the account before continuing.',
   review_in_progress: 'A linked GitHub review is still being verified. Finish that review first.',

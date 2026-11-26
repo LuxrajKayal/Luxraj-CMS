@@ -23,6 +23,7 @@ export function TaskSummary({ item }: { item: MemberTask }) {
     <p><strong>{item.task_type}</strong></p>
     <p className="people-description">{item.description}</p>
     {item.comment && <p className="people-description">Review comment · {item.comment}</p>}
+    {item.force_completed_at && <p className="people-description"><strong>Force completed by Super Admin</strong> · {new Date(item.force_completed_at).toLocaleString()} · {item.force_completion_reason}{!item.commit_sha?' (no GitHub commit)':''}</p>}
     {item.commit_sha && <a href={'https://github.com/' + item.commit_repository + '/commit/' + item.commit_sha}
       target="_blank" rel="noreferrer">GitHub commit {item.commit_sha.slice(0, 12)}</a>}
   </>;
