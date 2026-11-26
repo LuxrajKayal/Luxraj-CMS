@@ -96,15 +96,15 @@ $$;
 
 
 create function public.cms_member_work_stats(actor uuid) returns jsonb
-language sql stable security invoker set search_path='' as $
+language sql stable security invoker set search_path='' as $$
   select jsonb_build_object(
     'counts', coalesce((select jsonb_object_agg(status,n) from (select status,count(*) n from public.cms_tasks where user_id=actor group by status) x),'{}'::jsonb),
     'draftCount', (select count(*) from public.cms_member_files where user_id=actor and kind='work'),
     'draftBytes', (select coalesce(sum(octet_length(bytes)),0) from public.cms_member_files where user_id=actor and kind='work')
   )
-$;
+$$;
 create function public.cms_admin_task_page(view_mode text, search_text text, status_filter text, page_offset integer, page_limit integer) returns jsonb
-language sql stable security invoker set search_path='' as $
+language sql stable security invoker set search_path='' as $$
 with task_matches as (
   select t.* from public.cms_tasks t join public.cms_members m on m.user_id=t.user_id
   where view_mode in ('manage','terminated')
@@ -132,7 +132,7 @@ select jsonb_build_object(
   'submissions',coalesce((select jsonb_agg(to_jsonb(s) order by s.created_at desc,s.id) from submission_data s),'[]'::jsonb),
   'total',case when view_mode in ('manage','terminated') then (select count(*) from task_matches) else (select count(*) from submission_matches) end
 )
-$;
+$$;
 revoke all on function public.cms_member_work_stats(uuid),public.cms_admin_task_page(text,text,text,integer,integer) from public,anon,authenticated,service_role;
 grant execute on function public.cms_member_work_stats(uuid),public.cms_admin_task_page(text,text,text,integer,integer) to service_role;
 commit;
